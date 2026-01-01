@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS server_avatar_images;
