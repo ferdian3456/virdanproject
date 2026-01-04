@@ -6,15 +6,12 @@ import (
 	"github.com/google/uuid"
 )
 
-type ServerMemberProfile struct {
+type ServerAvatarImage struct {
 	Id             uuid.UUID
-	ServerMemberId uuid.UUID
 	ServerId       uuid.UUID
-	UserId         uuid.UUID
-	Username       string
-	Fullname       string
-	Bio            *string
-	AvatarImageId  *uuid.UUID
+	Bucket         string
+	ObjectKey      string
+	MimeType       string
 	CreateDatetime time.Time
 	UpdateDatetime time.Time
 	CreateUserId   uuid.UUID

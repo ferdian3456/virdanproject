@@ -7,7 +7,8 @@ import (
 	"github.com/google/uuid"
 )
 
-const OwnerRole = "OWNER"
+const OwnerRole = "Owner"
+const MemberRole = "Member"
 
 type ServerRole struct {
 	Id             uuid.UUID

@@ -25,7 +25,7 @@ type ServerConfig struct {
 }
 
 func Server(config *ServerConfig) {
-	serverRepository := repository.NewServerRepository(config.Log, config.DB, config.DBCache)
+	serverRepository := repository.NewServerRepository(config.Log, config.DB, config.DBCache, config.MinIO)
 	serverUsecase := usecase.NewServerUsecase(serverRepository, config.DB, config.Log, config.Config)
 	serverController := http.NewServerController(serverUsecase, config.Log, config.Config)
 

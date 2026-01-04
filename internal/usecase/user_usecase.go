@@ -41,212 +41,212 @@ func NewUserUsecase(userRepository *repository.UserRepository, serverRepository 
 	}
 }
 
-func (usecase *UserUsecase) Register(ctx *fiber.Ctx, payload model.UserCreateRequest) (model.TokenResponse, error) {
-	ctxContext := ctx.Context()
-	token := model.TokenResponse{}
+// func (usecase *UserUsecase) Register(ctx *fiber.Ctx, payload model.UserCreateRequest) (model.TokenResponse, error) {
+// 	ctxContext := ctx.Context()
+// 	token := model.TokenResponse{}
 
-	if payload.Username == "" {
-		return token, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Username is required to not be empty",
-			Param:   "username",
-		}
-	} else if len(payload.Username) < 4 {
-		return token, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Username must be at least 4 characters",
-			Param:   "username",
-		}
-	} else if len(payload.Username) > 22 {
-		return token, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "username must be at most 22 characters",
-			Param:   "username",
-		}
-	}
+// 	if payload.Username == "" {
+// 		return token, &model.ValidationError{
+// 			Code:    constant.ERR_VALIDATION_CODE,
+// 			Message: "Username is required to not be empty",
+// 			Param:   "username",
+// 		}
+// 	} else if len(payload.Username) < 4 {
+// 		return token, &model.ValidationError{
+// 			Code:    constant.ERR_VALIDATION_CODE,
+// 			Message: "Username must be at least 4 characters",
+// 			Param:   "username",
+// 		}
+// 	} else if len(payload.Username) > 22 {
+// 		return token, &model.ValidationError{
+// 			Code:    constant.ERR_VALIDATION_CODE,
+// 			Message: "username must be at most 22 characters",
+// 			Param:   "username",
+// 		}
+// 	}
 
-	if payload.Email == "" {
-		return token, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Email is required to not be empty",
-			Param:   "email",
-		}
-	} else if len(payload.Email) < 16 {
-		return token, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "email must be at least 16 characters",
-			Param:   "email",
-		}
-	} else if len(payload.Email) > 80 {
-		return token, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Email must be at most 80 characters",
-			Param:   "email",
-		}
-	}
+// 	if payload.Email == "" {
+// 		return token, &model.ValidationError{
+// 			Code:    constant.ERR_VALIDATION_CODE,
+// 			Message: "Email is required to not be empty",
+// 			Param:   "email",
+// 		}
+// 	} else if len(payload.Email) < 16 {
+// 		return token, &model.ValidationError{
+// 			Code:    constant.ERR_VALIDATION_CODE,
+// 			Message: "email must be at least 16 characters",
+// 			Param:   "email",
+// 		}
+// 	} else if len(payload.Email) > 80 {
+// 		return token, &model.ValidationError{
+// 			Code:    constant.ERR_VALIDATION_CODE,
+// 			Message: "Email must be at most 80 characters",
+// 			Param:   "email",
+// 		}
+// 	}
 
-	if payload.Password == "" {
-		return token, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Password is required to not be empty",
-			Param:   "email",
-		}
-	} else if len(payload.Password) < 5 {
-		return token, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Password must be at least 5 characters",
-			Param:   "email",
-		}
-	} else if len(payload.Password) > 20 {
-		return token, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Password must be at most 20 characters",
-			Param:   "email",
-		}
-	}
+// 	if payload.Password == "" {
+// 		return token, &model.ValidationError{
+// 			Code:    constant.ERR_VALIDATION_CODE,
+// 			Message: "Password is required to not be empty",
+// 			Param:   "email",
+// 		}
+// 	} else if len(payload.Password) < 5 {
+// 		return token, &model.ValidationError{
+// 			Code:    constant.ERR_VALIDATION_CODE,
+// 			Message: "Password must be at least 5 characters",
+// 			Param:   "email",
+// 		}
+// 	} else if len(payload.Password) > 20 {
+// 		return token, &model.ValidationError{
+// 			Code:    constant.ERR_VALIDATION_CODE,
+// 			Message: "Password must be at most 20 characters",
+// 			Param:   "email",
+// 		}
+// 	}
 
-	//err := usecase.UserRepository.CheckUsernameOrEmailUnique(ctxContext, payload.Username, payload.Email)
-	//if err != nil {
-	//	return token, err
-	//}
+// 	//err := usecase.UserRepository.CheckUsernameOrEmailUnique(ctxContext, payload.Username, payload.Email)
+// 	//if err != nil {
+// 	//	return token, err
+// 	//}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return token, err
-	}
+// 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
+// 	if err != nil {
+// 		return token, err
+// 	}
 
-	userUUID := uuid.New()
-	now := time.Now().UTC()
-	user := model.User{
-		Id:             userUUID,
-		Username:       payload.Username,
-		Fullname:       strings.ToTitle(payload.Username),
-		Bio:            nil,
-		AvatarImageId:  nil,
-		Email:          payload.Email,
-		Password:       string(hashedPassword),
-		Settings:       sonic.NoCopyRawMessage("{}"),
-		CreateDatetime: now,
-		UpdateDatetime: now,
-		CreateUserId:   userUUID,
-		UpdateUserId:   userUUID,
-	}
+// 	userUUID := uuid.New()
+// 	now := time.Now().UTC()
+// 	user := model.User{
+// 		Id:             userUUID,
+// 		Username:       payload.Username,
+// 		Fullname:       strings.ToTitle(payload.Username),
+// 		Bio:            nil,
+// 		AvatarImageId:  nil,
+// 		Email:          payload.Email,
+// 		Password:       string(hashedPassword),
+// 		Settings:       sonic.NoCopyRawMessage("{}"),
+// 		CreateDatetime: now,
+// 		UpdateDatetime: now,
+// 		CreateUserId:   userUUID,
+// 		UpdateUserId:   userUUID,
+// 	}
 
-	serverUUID := uuid.New()
-	server := model.Server{
-		Id:            serverUUID,
-		OwnerId:       userUUID,
-		Name:          fmt.Sprintf("%s's server", strings.ToLower(payload.Username)),
-		ShortName:     util.GenerateShortName(payload.Username),
-		CategoryId:    nil,
-		AvatarImageId: nil,
-		BannerImageId: nil,
-		Description:   nil,
-		Settings: sonic.NoCopyRawMessage(`
-		{
-			"visibility": "private",
-			"joinMode": "invite_only",
-			"discoverable": false
-		}`),
-		CreateDatetime: now,
-		UpdateDatetime: now,
-		CreateUserId:   userUUID,
-		UpdateUserId:   userUUID,
-	}
+// 	serverUUID := uuid.New()
+// 	server := model.Server{
+// 		Id:            serverUUID,
+// 		OwnerId:       userUUID,
+// 		Name:          fmt.Sprintf("%s's server", strings.ToLower(payload.Username)),
+// 		ShortName:     util.GenerateShortName(payload.Username),
+// 		CategoryId:    nil,
+// 		AvatarImageId: nil,
+// 		BannerImageId: nil,
+// 		Description:   nil,
+// 		Settings: sonic.NoCopyRawMessage(`
+// 		{
+// 			"visibility": "private",
+// 			"joinMode": "invite_only",
+// 			"discoverable": false
+// 		}`),
+// 		CreateDatetime: now,
+// 		UpdateDatetime: now,
+// 		CreateUserId:   userUUID,
+// 		UpdateUserId:   userUUID,
+// 	}
 
-	serverRoleUUID := uuid.New()
-	serverRole := model.ServerRole{
-		Id:             serverRoleUUID,
-		ServerId:       serverUUID,
-		Name:           model.OwnerRole,
-		Permissions:    sonic.NoCopyRawMessage(`{"*": true}`),
-		CreateDatetime: now,
-		UpdateDatetime: now,
-		CreateUserId:   userUUID,
-		UpdateUserId:   userUUID,
-	}
+// 	serverRoleUUID := uuid.New()
+// 	serverRole := model.ServerRole{
+// 		Id:             serverRoleUUID,
+// 		ServerId:       serverUUID,
+// 		Name:           model.OwnerRole,
+// 		Permissions:    sonic.NoCopyRawMessage(`{"*": true}`),
+// 		CreateDatetime: now,
+// 		UpdateDatetime: now,
+// 		CreateUserId:   userUUID,
+// 		UpdateUserId:   userUUID,
+// 	}
 
-	serverMemberUUID := uuid.New()
-	serverMember := model.ServerMember{
-		Id:             serverMemberUUID,
-		ServerId:       serverUUID,
-		UserId:         userUUID,
-		ServerRoleId:   serverRoleUUID,
-		Status:         model.MemberStatusActive,
-		JoinedAt:       now,
-		LeftAt:         nil,
-		CreateDatetime: now,
-		UpdateDatetime: now,
-		CreateUserId:   userUUID,
-		UpdateUserId:   userUUID,
-	}
+// 	serverMemberUUID := uuid.New()
+// 	serverMember := model.ServerMember{
+// 		Id:             serverMemberUUID,
+// 		ServerId:       serverUUID,
+// 		UserId:         userUUID,
+// 		ServerRoleId:   serverRoleUUID,
+// 		Status:         model.MemberStatusActive,
+// 		JoinedAt:       now,
+// 		LeftAt:         nil,
+// 		CreateDatetime: now,
+// 		UpdateDatetime: now,
+// 		CreateUserId:   userUUID,
+// 		UpdateUserId:   userUUID,
+// 	}
 
-	serverMemberProfileUUID := uuid.New()
-	serverMemberProfile := model.ServerMemberProfile{
-		Id:             serverMemberProfileUUID,
-		ServerMemberId: serverMemberUUID,
-		ServerId:       serverUUID,
-		UserId:         userUUID,
-		Username:       user.Username,
-		Fullname:       user.Fullname,
-		Bio:            user.Bio,
-		AvatarImageId:  nil,
-		CreateDatetime: now,
-		UpdateDatetime: now,
-		CreateUserId:   userUUID,
-		UpdateUserId:   userUUID,
-	}
+// 	serverMemberProfileUUID := uuid.New()
+// 	serverMemberProfile := model.ServerMemberProfile{
+// 		Id:             serverMemberProfileUUID,
+// 		ServerMemberId: serverMemberUUID,
+// 		ServerId:       serverUUID,
+// 		UserId:         userUUID,
+// 		Username:       user.Username,
+// 		Fullname:       user.Fullname,
+// 		Bio:            user.Bio,
+// 		AvatarImageId:  nil,
+// 		CreateDatetime: now,
+// 		UpdateDatetime: now,
+// 		CreateUserId:   userUUID,
+// 		UpdateUserId:   userUUID,
+// 	}
 
-	// start transaction
-	tx, err := usecase.DB.Begin(ctx.Context())
-	if err != nil {
-		return token, err
-	}
+// 	// start transaction
+// 	tx, err := usecase.DB.Begin(ctx.Context())
+// 	if err != nil {
+// 		return token, err
+// 	}
 
-	defer tx.Rollback(ctxContext)
+// 	defer tx.Rollback(ctxContext)
 
-	err = usecase.UserRepository.Register(ctxContext, tx, user)
-	if err != nil {
-		return token, err
-	}
+// 	err = usecase.UserRepository.Register(ctxContext, tx, user)
+// 	if err != nil {
+// 		return token, err
+// 	}
 
-	err = usecase.ServerRepository.CreateServer(ctxContext, tx, server)
-	if err != nil {
-		return token, err
-	}
+// 	err = usecase.ServerRepository.CreateServer(ctxContext, tx, server)
+// 	if err != nil {
+// 		return token, err
+// 	}
 
-	err = usecase.ServerRepository.CreateRole(ctxContext, tx, serverRole)
-	if err != nil {
-		return token, err
-	}
+// 	err = usecase.ServerRepository.CreateRole(ctxContext, tx, serverRole)
+// 	if err != nil {
+// 		return token, err
+// 	}
 
-	err = usecase.ServerRepository.CreateServerMember(ctxContext, tx, serverMember)
-	if err != nil {
-		return token, err
-	}
+// 	err = usecase.ServerRepository.CreateServerMember(ctxContext, tx, serverMember)
+// 	if err != nil {
+// 		return token, err
+// 	}
 
-	err = usecase.ServerRepository.CreateServerMemberProfile(ctxContext, tx, serverMemberProfile)
-	if err != nil {
-		return token, err
-	}
+// 	err = usecase.ServerRepository.CreateServerMemberProfile(ctxContext, tx, serverMemberProfile)
+// 	if err != nil {
+// 		return token, err
+// 	}
 
-	err = tx.Commit(ctxContext)
-	if err != nil {
-		return token, err
-	}
+// 	err = tx.Commit(ctxContext)
+// 	if err != nil {
+// 		return token, err
+// 	}
 
-	token, err = util.GenerateTokenPair(user.Id, usecase.Config.String("JWT_SECRET_KEY"))
-	if err != nil {
-		return token, err
-	}
+// 	token, err = util.GenerateTokenPair(user.Id, usecase.Config.String("JWT_SECRET_KEY"))
+// 	if err != nil {
+// 		return token, err
+// 	}
 
-	err = usecase.UserRepository.SetAuthTokenInCache(ctxContext, token.AccessToken, token.RefreshToken, user.Id)
-	if err != nil {
-		return token, err
-	}
+// 	err = usecase.UserRepository.SetAuthTokenInCache(ctxContext, token.AccessToken, token.RefreshToken, user.Id)
+// 	if err != nil {
+// 		return token, err
+// 	}
 
-	return token, nil
-}
+// 	return token, nil
+// }
 
 func (usecase *UserUsecase) Login(ctx *fiber.Ctx, payload model.UserLoginRequest) (model.TokenResponse, error) {
 	ctxContext := ctx.Context()
@@ -375,7 +375,7 @@ func (usecase *UserUsecase) UpdateAvatar(ctx *fiber.Ctx, userId uuid.UUID) error
 	if err != nil {
 		return &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Image is required to not be empty",
+			Message: "Avatar is required to not be empty",
 			Param:   fieldName,
 		}
 	}
@@ -850,7 +850,7 @@ func (usecase *UserUsecase) VerifyPassword(ctx *fiber.Ctx, payload model.UserVer
 		CreateUserId:   userId,
 		UpdateUserId:   userId,
 	}
-	
+
 	err = usecase.UserRepository.RegisterNoTx(ctx.Context(), user)
 	if err != nil {
 		return token, err

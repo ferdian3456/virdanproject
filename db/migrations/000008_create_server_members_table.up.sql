@@ -4,8 +4,8 @@ CREATE TABLE IF NOT EXISTS server_members(
     user_id uuid NOT NULL,
     server_role_id uuid NOT NULL,
     status smallint,
-    joined_at timestamptz NOT NULL,
-    left_at timestamptz,
+    joined_datetime timestamptz NOT NULL,
+    left_datetime timestamptz,
     -- Audit columns
     create_datetime timestamptz NOT NULL,
     update_datetime timestamptz NOT NULL,

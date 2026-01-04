@@ -11,5 +11,3 @@ CREATE TABLE IF NOT EXISTS server_roles (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_roles_uk_01 ON server_roles(server_id, name);
-
-

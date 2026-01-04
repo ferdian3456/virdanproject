@@ -83,9 +83,6 @@ func GenerateTokenPair(userId uuid.UUID, jwtSecretKey string) (model.TokenRespon
 
 // ValidateAccessToken validates a JWT access token and returns the user ID
 func ValidateAccessToken(accessToken string, log *zap.Logger, jwtSecretKey string) (string, uuid.UUID, error) {
-	// Don't log the full token - security risk
-	log.Debug("validating access token", zap.String("accessToken", accessToken[:20]))
-
 	if jwtSecretKey == "" {
 		return "", uuid.Nil, errors.New("jwt secret key is not configured")
 	}
@@ -95,6 +92,9 @@ func ValidateAccessToken(accessToken string, log *zap.Logger, jwtSecretKey strin
 	if err != nil {
 		return "", uuid.Nil, err
 	}
+
+	// Don't log the full token - security risk
+	log.Debug("validating access token", zap.String("accessToken", accessToken[:20]))
 
 	// Parse token with custom claims
 	token, err := jwt.ParseWithClaims(tokenString, &model.Claims{}, func(token *jwt.Token) (interface{}, error) {

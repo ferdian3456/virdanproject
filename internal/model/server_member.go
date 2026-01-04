@@ -20,8 +20,8 @@ type ServerMember struct {
 	UserId         uuid.UUID
 	ServerRoleId   uuid.UUID
 	Status         Status
-	JoinedAt       time.Time
-	LeftAt         *time.Time
+	JoinedDatetime time.Time
+	LeftDatetime   *time.Time
 	CreateDatetime time.Time
 	UpdateDatetime time.Time
 	CreateUserId   uuid.UUID

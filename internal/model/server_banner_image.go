@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type BannerImage struct {
+type ServerBannerImage struct {
 	Id             uuid.UUID
 	ServerId       uuid.UUID
 	Bucket         string

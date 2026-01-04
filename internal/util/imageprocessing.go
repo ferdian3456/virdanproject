@@ -27,7 +27,7 @@ func ValidateImage(fileHeader *multipart.FileHeader, fieldName string) (*bytes.R
 	if fileHeader.Size > constant.MAX_FILE_SIZE {
 		return nil, 0, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
-			Message: fmt.Sprintf("Image size is exceeded %d", constant.MAX_FILE_SIZE/(1024*1024)),
+			Message: fmt.Sprintf("Image size exceeded %dMB limit", constant.MAX_FILE_SIZE/(1024*1024)),
 			Param:   fieldName,
 		}
 	}
@@ -53,7 +53,11 @@ func ValidateImage(fileHeader *multipart.FileHeader, fieldName string) (*bytes.R
 
 	webBuf, err := ConvertToWebP(fileHeader, 75, 512, 512)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Failed to process image. File may be corrupted or not a valid image",
+			Param:   fieldName,
+		}
 	}
 
 	webpSize := int64(webBuf.Len())

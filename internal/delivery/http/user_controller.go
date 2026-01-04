@@ -28,29 +28,29 @@ func NewUserController(userUsecase *usecase.UserUsecase, zap *zap.Logger, koanf 
 	}
 }
 
-func (controller UserController) Register(ctx *fiber.Ctx) error {
-	var payload model.UserCreateRequest
-	err := util.ReadRequestBody(ctx, &payload)
-	if err != nil {
-		return util.SendErrorResponse(ctx, &model.ValidationError{
-			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
-			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
-		})
-	}
+// func (controller UserController) Register(ctx *fiber.Ctx) error {
+// 	var payload model.UserCreateRequest
+// 	err := util.ReadRequestBody(ctx, &payload)
+// 	if err != nil {
+// 		return util.SendErrorResponse(ctx, &model.ValidationError{
+// 			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
+// 			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
+// 		})
+// 	}
 
-	var validationErr *model.ValidationError
+// 	var validationErr *model.ValidationError
 
-	response, err := controller.UserUsecase.Register(ctx, payload)
-	if err != nil {
-		if errors.As(err, &validationErr) {
-			return util.SendErrorResponse(ctx, err)
-		}
+// 	response, err := controller.UserUsecase.Register(ctx, payload)
+// 	if err != nil {
+// 		if errors.As(err, &validationErr) {
+// 			return util.SendErrorResponse(ctx, err)
+// 		}
 
-		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
-	}
+// 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+// 	}
 
-	return util.SendSuccessResponseWithData(ctx, response)
-}
+// 	return util.SendSuccessResponseWithData(ctx, response)
+// }
 
 func (controller UserController) Login(ctx *fiber.Ctx) error {
 	var payload model.UserLoginRequest
