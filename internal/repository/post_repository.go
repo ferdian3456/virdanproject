@@ -108,3 +108,55 @@ func (repository *PostRepository) UpdatePostCaption(ctx context.Context, postId 
 
 	return nil
 }
+
+func (repository *PostRepository) DeletePost(ctx context.Context, postId uuid.UUID) error {
+	query := "DELETE FROM server_posts WHERE id = $1"
+
+	_, err := repository.DB.Exec(ctx, query, postId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repository *PostRepository) GetPostImage(ctx context.Context, tx pgx.Tx, postId uuid.UUID) (uuid.UUID, string, error) {
+	query := `
+		SELECT sp.post_image_id, spi.object_key
+		FROM server_posts sp
+		INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
+		WHERE sp.id = $1
+	`
+
+	var postImageId uuid.UUID
+	var objectKey string
+	err := tx.QueryRow(ctx, query, postId).Scan(&postImageId, &objectKey)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return uuid.Nil, "", nil
+		}
+		return uuid.Nil, "", err
+	}
+
+	return postImageId, objectKey, nil
+}
+
+func (repository *PostRepository) DeletePostImage(ctx context.Context, tx pgx.Tx, postImageId uuid.UUID) error {
+	query := "DELETE FROM server_post_images WHERE id = $1"
+
+	_, err := tx.Exec(ctx, query, postImageId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repository *PostRepository) DeletePostObject(ctx context.Context, bucketName string, objectKey string) error {
+	err := repository.DBObject.RemoveObject(ctx, bucketName, objectKey, minio.RemoveObjectOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

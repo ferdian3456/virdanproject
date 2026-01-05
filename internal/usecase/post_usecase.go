@@ -227,3 +227,110 @@ func (usecase *PostUsecase) UpdatePostCaption(ctx *fiber.Ctx, serverIdParam stri
 
 	return nil
 }
+
+func (usecase *PostUsecase) DeletePost(ctx *fiber.Ctx, serverIdParam string, postIdParam string, userId uuid.UUID) error {
+	serverId, err := uuid.Parse(serverIdParam)
+	if err != nil {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Invalid server id",
+			Param:   "serverId",
+		}
+	}
+
+	postId, err := uuid.Parse(postIdParam)
+	if err != nil {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Invalid post id",
+			Param:   "postId",
+		}
+	}
+
+	ctxContext := ctx.Context()
+
+	// Check if user is a member of the server
+	serverMemberExists, err := usecase.PostRepository.CheckServerMember(ctxContext, serverId, userId)
+	if err != nil {
+		return err
+	}
+
+	if serverMemberExists != 1 {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "You are not a member of this server",
+			Param:   "serverId",
+		}
+	}
+
+	// Check if user is the author of the post
+	postOwnerExists, err := usecase.PostRepository.CheckPostOwnership(ctxContext, postId, userId)
+	if err != nil {
+		return err
+	}
+
+	if postOwnerExists != 1 {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "You are not the author of this post",
+			Param:   "postId",
+		}
+	}
+
+	commited := false
+
+	// Start transaction
+	tx, err := usecase.DB.Begin(ctxContext)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if !commited {
+			_ = tx.Rollback(ctxContext)
+		}
+	}()
+
+	// Get post image info before deleting
+	postImageId, objectKey, err := usecase.PostRepository.GetPostImage(ctxContext, tx, postId)
+	if err != nil {
+		return err
+	}
+
+	if postImageId == uuid.Nil {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Post not found",
+			Param:   "postId",
+		}
+	}
+
+	// Delete post (CASCADE will delete comments and likes)
+	err = usecase.PostRepository.DeletePost(ctxContext, postId)
+	if err != nil {
+		return err
+	}
+
+	// Delete post image
+	err = usecase.PostRepository.DeletePostImage(ctxContext, tx, postImageId)
+	if err != nil {
+		return err
+	}
+
+	// Commit transaction first
+	err = tx.Commit(ctxContext)
+	if err != nil {
+		return err
+	}
+
+	commited = true
+
+	// Delete from MinIO after successful commit
+	bucketName := usecase.Config.String("MINIO_BUCKET_NAME")
+	err = usecase.PostRepository.DeletePostObject(ctxContext, bucketName, objectKey)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
