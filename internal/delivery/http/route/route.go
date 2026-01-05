@@ -12,6 +12,7 @@ type RouteConfig struct {
 	AuthMiddleware   *middleware.AuthMiddleware
 	UserController   *http.UserController
 	ServerController *http.ServerController
+	PostController   *http.PostController
 }
 
 func (c *RouteConfig) SetupRoute() {
@@ -56,6 +57,18 @@ func (c *RouteConfig) SetupRoute() {
 	serverGroup.Put("/:id/description", c.ServerController.UpdateServerDescription)
 	serverGroup.Put("/:id/settings", c.ServerController.UpdateServerSettings)
 	serverGroup.Delete("/:id", c.ServerController.DeleteServer)
+
+	serverPostGroup := serverGroup.Group("/:serverId/posts")
+	serverPostGroup.Post("/", c.PostController.CreatePost)
+	// serverPostGroup.Get("/", c.PostController.GetServerPosts)
+
+	// postGroup := api.Group("/posts", c.AuthMiddleware.ProtectedRoute())
+	// postGroup.Get("/:postId", c.PostController.GetPost)
+	// postGroup.Delete("/:postId", c.PostController.DeletePost)
+	// postGroup.Post("/:postId/likes", c.PostController.LikePost)
+	// postGroup.Delete("/:postId/likes", c.PostController.UnlikePost)
+	// postGroup.Post("/:postId/comments", c.PostController.CreateComment)
+	// postGroup.Get("/:postId/comments", c.PostController.GetComments)
 
 	serverPublicGroup := api.Group("/servers")
 	serverPublicGroup.Get("/invites/:inviteCode", c.ServerController.GetServerInfoForInvite)

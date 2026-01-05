@@ -33,12 +33,17 @@ func Server(config *ServerConfig) {
 	userUsecase := usecase.NewUserUsecase(userRepository, serverRepository, config.DB, config.Log, config.Config)
 	userController := http.NewUserController(userUsecase, config.Log, config.Config)
 
+	postRepository := repository.NewPostRepository(config.Log, config.DB, config.DBCache, config.MinIO)
+	postUsecase := usecase.NewPostUsecase(postRepository, config.DB, config.Log, config.Config)
+	postController := http.NewPostController(postUsecase, config.Log, config.Config)
+
 	authMiddleware := middleware.NewAuthMiddleware(config.Router, config.Log, config.Config, userUsecase)
 
 	routeConfig := route.RouteConfig{
 		App:              config.Router,
 		UserController:   userController,
 		ServerController: serverController,
+		PostController:   postController,
 		AuthMiddleware:   authMiddleware,
 	}
 

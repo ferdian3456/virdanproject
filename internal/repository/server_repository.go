@@ -231,10 +231,10 @@ func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limi
 		}
 
 		if server.AvatarImageUrl != nil {
-			*server.AvatarImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *server.AvatarImageUrl)
+			*server.AvatarImageUrl = fmt.Sprintf("%s/%s.webp", minioFullUrl, *server.AvatarImageUrl)
 		}
 		if server.BannerImageUrl != nil {
-			*server.BannerImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *server.BannerImageUrl)
+			*server.BannerImageUrl = fmt.Sprintf("%s/%s.webp", minioFullUrl, *server.BannerImageUrl)
 		}
 
 		servers = append(servers, server)
@@ -286,7 +286,7 @@ func (repository *ServerRepository) GetUserServer(ctx context.Context, limit int
 		}
 
 		if server.AvatarImageUrl != nil {
-			*server.AvatarImageUrl = fmt.Sprintf("%s%s", minioFullUrl, *server.AvatarImageUrl)
+			*server.AvatarImageUrl = fmt.Sprintf("%s%s.webp", minioFullUrl, *server.AvatarImageUrl)
 		}
 
 		servers = append(servers, server)
@@ -314,7 +314,7 @@ func (repository *ServerRepository) CheckServerEligible(ctx context.Context, ser
 
 func (repository *ServerRepository) CheckServerMember(ctx context.Context, serverId uuid.UUID, userId uuid.UUID) (int, error) {
 	query := `
-	SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2
+	SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2 AND status = 'ACTIVE'
 	`
 
 	var exists int

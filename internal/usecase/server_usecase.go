@@ -256,11 +256,11 @@ func (usecase *ServerUsecase) GetServerInfoForInvite(ctx *fiber.Ctx, inviteCode 
 	MINIO_HTTP := usecase.Config.String("MINIO_HTTP")
 
 	if server.AvatarImageId != nil {
-		*server.AvatarImageId = fmt.Sprintf("%s%s/%s/%s", MINIO_HTTP, MINIO_URL, MINIO_BUCKET_NAME, *server.AvatarImageId)
+		*server.AvatarImageId = fmt.Sprintf("%s%s/%s/%s.webp", MINIO_HTTP, MINIO_URL, MINIO_BUCKET_NAME, *server.AvatarImageId)
 	}
 
 	if server.BannerImageId != nil {
-		*server.BannerImageId = fmt.Sprintf("%s%s/%s/%s", MINIO_HTTP, MINIO_URL, MINIO_BUCKET_NAME, *server.BannerImageId)
+		*server.BannerImageId = fmt.Sprintf("%s%s/%s/%s.webp", MINIO_HTTP, MINIO_URL, MINIO_BUCKET_NAME, *server.BannerImageId)
 
 	}
 
@@ -1236,7 +1236,7 @@ func (usecase *ServerUsecase) UpdateServerAvatar(ctx *fiber.Ctx, userId uuid.UUI
 		serverAvatarImage.Id = *avatarImageId
 		serverAvatarImage.ServerId = serverId
 		serverAvatarImage.Bucket = bucketName
-		serverAvatarImage.ObjectKey = fmt.Sprintf("server/avatar/%s", *avatarImageId)
+		serverAvatarImage.ObjectKey = fmt.Sprintf("server/avatar/%s.webp", *avatarImageId)
 		serverAvatarImage.MimeType = "webp"
 		serverAvatarImage.CreateDatetime = now
 		serverAvatarImage.UpdateDatetime = now
@@ -1355,7 +1355,7 @@ func (usecase *ServerUsecase) UpdateServerBanner(ctx *fiber.Ctx, userId uuid.UUI
 		serverBannerImage.Id = *bannerImageId
 		serverBannerImage.ServerId = serverId
 		serverBannerImage.Bucket = bucketName
-		serverBannerImage.ObjectKey = fmt.Sprintf("server/banner/%s", *bannerImageId)
+		serverBannerImage.ObjectKey = fmt.Sprintf("server/banner/%s.webp", *bannerImageId)
 		serverBannerImage.MimeType = "webp"
 		serverBannerImage.CreateDatetime = now
 		serverBannerImage.UpdateDatetime = now
