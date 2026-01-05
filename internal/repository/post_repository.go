@@ -213,3 +213,66 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 
 	return posts, nil
 }
+
+func (repository *PostRepository) CheckPostLike(ctx context.Context, postId uuid.UUID, userId uuid.UUID) (int, error) {
+	query := "SELECT 1 FROM server_post_likes WHERE post_id = $1 AND user_id = $2"
+
+	var exists int
+	err := repository.DB.QueryRow(ctx, query, postId, userId).Scan(&exists)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return exists, nil
+		}
+
+		return exists, err
+	}
+
+	return exists, nil
+}
+
+func (repository *PostRepository) CreatePostLike(ctx context.Context, postLike model.ServerPostLikes) error {
+	query := "INSERT INTO server_post_likes (post_id, user_id, create_datetime, update_datetime, create_user_id, update_user_id) VALUES ($1, $2, $3, $4, $5, $6)"
+
+	_, err := repository.DB.Exec(ctx, query, postLike.PostId, postLike.UserId, postLike.CreateDatetime, postLike.UpdateDatetime, postLike.CreateUserId, postLike.UpdateUserId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repository *PostRepository) GetPostServerId(ctx context.Context, postId uuid.UUID) (uuid.UUID, error) {
+	query := "SELECT server_id FROM server_posts WHERE id = $1"
+
+	var serverId uuid.UUID
+	err := repository.DB.QueryRow(ctx, query, postId).Scan(&serverId)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return uuid.Nil, nil
+		}
+		return uuid.Nil, err
+	}
+
+	return serverId, nil
+}
+
+func (repository *PostRepository) CheckPostServerMember(ctx context.Context, postId uuid.UUID, userId uuid.UUID) (int, error) {
+	query := `
+		SELECT 1
+		FROM server_posts sp
+		INNER JOIN server_members sm ON sp.server_id = sm.server_id
+		WHERE sp.id = $1 AND sm.user_id = $2 AND sm.status = 'ACTIVE'
+	`
+
+	var exists int
+	err := repository.DB.QueryRow(ctx, query, postId, userId).Scan(&exists)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return exists, nil
+		}
+
+		return exists, err
+	}
+
+	return exists, nil
+}

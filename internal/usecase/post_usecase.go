@@ -439,3 +439,62 @@ func (usecase *PostUsecase) GetServerPosts(ctx *fiber.Ctx, serverIdParam string,
 
 	return response, nil
 }
+
+func (usecase *PostUsecase) LikePost(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID) error {
+	postId, err := uuid.Parse(postIdParam)
+	if err != nil {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Invalid post id",
+			Param:   "postId",
+		}
+	}
+
+	ctxContext := ctx.Context()
+
+	// Check if user is a member of the server where the post belongs (single query)
+	serverMemberExists, err := usecase.PostRepository.CheckPostServerMember(ctxContext, postId, userId)
+	if err != nil {
+		return err
+	}
+
+	if serverMemberExists != 1 {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "You are not a member of this server",
+			Param:   "postId",
+		}
+	}
+
+	// Check if user already liked this post
+	likeExists, err := usecase.PostRepository.CheckPostLike(ctxContext, postId, userId)
+	if err != nil {
+		return err
+	}
+
+	if likeExists == 1 {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "You already liked this post",
+			Param:   "postId",
+		}
+	}
+
+	now := time.Now().UTC()
+
+	postLike := model.ServerPostLikes{
+		PostId:         postId,
+		UserId:         userId,
+		CreateDatetime: now,
+		UpdateDatetime: now,
+		CreateUserId:   userId,
+		UpdateUserId:   userId,
+	}
+
+	err = usecase.PostRepository.CreatePostLike(ctxContext, postLike)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
