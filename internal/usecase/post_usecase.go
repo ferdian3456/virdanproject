@@ -498,3 +498,51 @@ func (usecase *PostUsecase) LikePost(ctx *fiber.Ctx, postIdParam string, userId 
 
 	return nil
 }
+
+func (usecase *PostUsecase) UnlikePost(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID) error {
+	postId, err := uuid.Parse(postIdParam)
+	if err != nil {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Invalid post id",
+			Param:   "postId",
+		}
+	}
+
+	ctxContext := ctx.Context()
+
+	// Check if user is a member of the server where the post belongs (single query)
+	serverMemberExists, err := usecase.PostRepository.CheckPostServerMember(ctxContext, postId, userId)
+	if err != nil {
+		return err
+	}
+
+	if serverMemberExists != 1 {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "You are not a member of this server",
+			Param:   "postId",
+		}
+	}
+
+	// Check if user already liked this post
+	likeExists, err := usecase.PostRepository.CheckPostLike(ctxContext, postId, userId)
+	if err != nil {
+		return err
+	}
+
+	if likeExists != 1 {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "You haven't liked this post yet",
+			Param:   "postId",
+		}
+	}
+
+	err = usecase.PostRepository.DeletePostLike(ctxContext, postId, userId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

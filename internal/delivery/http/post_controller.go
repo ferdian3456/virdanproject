@@ -140,3 +140,22 @@ func (controller *PostController) LikePost(ctx *fiber.Ctx) error {
 
 	return util.SendSuccessResponseNoData(ctx)
 }
+
+func (controller *PostController) UnlikePost(ctx *fiber.Ctx) error {
+	userId := ctx.Locals("userId").(uuid.UUID)
+
+	postIdParam := ctx.Params("postId")
+
+	var validationErr *model.ValidationError
+
+	err := controller.PostUsecase.UnlikePost(ctx, postIdParam, userId)
+	if err != nil {
+		if errors.As(err, &validationErr) {
+			return util.SendErrorResponseNotFound(ctx, err)
+		}
+
+		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	}
+
+	return util.SendSuccessResponseNoData(ctx)
+}

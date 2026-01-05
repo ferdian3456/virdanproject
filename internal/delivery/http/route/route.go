@@ -68,7 +68,7 @@ func (c *RouteConfig) SetupRoute() {
 	// postGroup.Get("/:postId", c.PostController.GetPost)
 	// postGroup.Delete("/:postId", c.PostController.DeletePost)
 	postGroup.Post("/:postId/likes", c.PostController.LikePost)
-	// postGroup.Delete("/:postId/likes", c.PostController.UnlikePost)
+	postGroup.Delete("/:postId/likes", c.PostController.UnlikePost)
 	// postGroup.Post("/:postId/comments", c.PostController.CreateComment)
 	// postGroup.Get("/:postId/comments", c.PostController.GetComments)
 

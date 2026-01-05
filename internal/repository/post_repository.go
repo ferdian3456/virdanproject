@@ -276,3 +276,14 @@ func (repository *PostRepository) CheckPostServerMember(ctx context.Context, pos
 
 	return exists, nil
 }
+
+func (repository *PostRepository) DeletePostLike(ctx context.Context, postId uuid.UUID, userId uuid.UUID) error {
+	query := "DELETE FROM server_post_likes WHERE post_id = $1 AND user_id = $2"
+
+	_, err := repository.DB.Exec(ctx, query, postId, userId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
