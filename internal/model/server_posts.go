@@ -17,3 +17,7 @@ type ServerPosts struct {
 	CreateUserId   uuid.UUID
 	UpdateUserId   uuid.UUID
 }
+
+type ServerPostUpdateCaptionRequest struct {
+	Caption string `json:"caption"`
+}

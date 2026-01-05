@@ -159,3 +159,71 @@ func (usecase *PostUsecase) CreatePost(ctx *fiber.Ctx, serverId uuid.UUID, userI
 
 	return nil
 }
+
+func (usecase *PostUsecase) UpdatePostCaption(ctx *fiber.Ctx, serverIdParam string, postIdParam string, userId uuid.UUID, payload model.ServerPostUpdateCaptionRequest) error {
+	serverId, err := uuid.Parse(serverIdParam)
+	if err != nil {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Invalid server id",
+			Param:   "serverId",
+		}
+	}
+
+	postId, err := uuid.Parse(postIdParam)
+	if err != nil {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Invalid post id",
+			Param:   "postId",
+		}
+	}
+
+	// Validate caption
+	if payload.Caption == "" {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Caption is required",
+			Param:   "caption",
+		}
+	}
+
+	ctxContext := ctx.Context()
+
+	// Check if user is a member of the server
+	serverMemberExists, err := usecase.PostRepository.CheckServerMember(ctxContext, serverId, userId)
+	if err != nil {
+		return err
+	}
+
+	if serverMemberExists != 1 {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "You are not a member of this server",
+			Param:   "serverId",
+		}
+	}
+
+	// Check if user is the author of the post
+	postOwnerExists, err := usecase.PostRepository.CheckPostOwnership(ctxContext, postId, userId)
+	if err != nil {
+		return err
+	}
+
+	if postOwnerExists != 1 {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "You are not the author of this post",
+			Param:   "postId",
+		}
+	}
+
+	now := time.Now().UTC()
+
+	err = usecase.PostRepository.UpdatePostCaption(ctxContext, postId, payload.Caption, userId, now)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

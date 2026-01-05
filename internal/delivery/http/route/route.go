@@ -60,6 +60,7 @@ func (c *RouteConfig) SetupRoute() {
 
 	serverPostGroup := serverGroup.Group("/:serverId/posts")
 	serverPostGroup.Post("/", c.PostController.CreatePost)
+	serverPostGroup.Put("/:postId", c.PostController.UpdatePost)
 	// serverPostGroup.Get("/", c.PostController.GetServerPosts)
 
 	// postGroup := api.Group("/posts", c.AuthMiddleware.ProtectedRoute())
