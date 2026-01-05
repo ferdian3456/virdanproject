@@ -2,9 +2,11 @@ package usecase
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/ferdian3456/virdanproject/internal/constant"
 	"github.com/ferdian3456/virdanproject/internal/model"
 	"github.com/ferdian3456/virdanproject/internal/repository"
@@ -333,4 +335,107 @@ func (usecase *PostUsecase) DeletePost(ctx *fiber.Ctx, serverIdParam string, pos
 	}
 
 	return nil
+}
+
+func (usecase *PostUsecase) GetServerPosts(ctx *fiber.Ctx, serverIdParam string, userId uuid.UUID) (model.ServerPostListResponse, error) {
+	response := model.ServerPostListResponse{}
+
+	limit := ctx.QueryInt("limit", constant.DEFAULT_LIMIT)
+	cursor := ctx.Query("cursor", "")
+
+	serverId, err := uuid.Parse(serverIdParam)
+	if err != nil {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Invalid server id",
+			Param:   "serverId",
+		}
+	}
+
+	if limit < 0 {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Limit must be greater or equal than 0",
+			Param:   "limit",
+		}
+	} else if limit > constant.MAX_LIMIT {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: fmt.Sprintf("Limit is exceeded max limit: %d", constant.MAX_LIMIT),
+			Param:   "limit",
+		}
+	}
+
+	ctxContext := ctx.Context()
+
+	// Check if user is a member of the server
+	serverMemberExists, err := usecase.PostRepository.CheckServerMember(ctxContext, serverId, userId)
+	if err != nil {
+		return response, err
+	}
+
+	if serverMemberExists != 1 {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "You are not a member of this server",
+			Param:   "serverId",
+		}
+	}
+
+	var serverPostCursor model.ServerPostCursor
+	if cursor != "" {
+		b, err := base64.RawURLEncoding.DecodeString(cursor)
+		if err != nil {
+			return response, err
+		}
+
+		err = sonic.Unmarshal(b, &serverPostCursor)
+		if err != nil {
+			return response, err
+		}
+	}
+
+	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
+
+	// Fetch limit + 1 untuk cek apakah ada data lagi
+	serverPosts, err := usecase.PostRepository.GetServerPosts(ctxContext, limit+1, serverId, &serverPostCursor, MINIO_FULL_URL)
+	if err != nil {
+		return response, err
+	}
+
+	// Add URL prefix to post images
+	for i := range serverPosts {
+		serverPosts[i].PostImageUrl = fmt.Sprintf("%s/%s.webp", MINIO_FULL_URL, serverPosts[i].PostImageUrl)
+	}
+
+	// Initialize with empty array
+	response.Data = []model.ServerPostResponse{}
+
+	if len(serverPosts) > limit {
+		// Ada data lagi, return limit items dan buat cursor
+		response.Data = serverPosts[:limit]
+
+		last := serverPosts[limit-1]
+
+		// Create cursor properly using ServerPostCursor
+		postCursor := model.ServerPostCursor{
+			Id:             last.PostId,
+			CreateDatetime: last.CreateDatetime,
+		}
+
+		b, err := sonic.Marshal(postCursor)
+		if err != nil {
+			return response, err
+		}
+
+		response.Page.NextCursor = base64.RawURLEncoding.EncodeToString(b)
+	} else {
+		// Tidak ada data lagi, return semua data tanpa cursor
+		if len(serverPosts) > 0 {
+			response.Data = serverPosts
+		}
+		// Jika kosong, Data sudah []empty array dari inisialisasi
+	}
+
+	return response, nil
 }

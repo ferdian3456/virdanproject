@@ -62,7 +62,7 @@ func (c *RouteConfig) SetupRoute() {
 	serverPostGroup.Post("/", c.PostController.CreatePost)
 	serverPostGroup.Put("/:postId", c.PostController.UpdatePost)
 	serverPostGroup.Delete("/:postId", c.PostController.DeletePost)
-	// serverPostGroup.Get("/", c.PostController.GetServerPosts)
+	serverPostGroup.Get("/", c.PostController.GetServerPosts)
 
 	// postGroup := api.Group("/posts", c.AuthMiddleware.ProtectedRoute())
 	// postGroup.Get("/:postId", c.PostController.GetPost)

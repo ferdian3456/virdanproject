@@ -102,3 +102,22 @@ func (controller *PostController) DeletePost(ctx *fiber.Ctx) error {
 
 	return util.SendSuccessResponseNoData(ctx)
 }
+
+func (controller *PostController) GetServerPosts(ctx *fiber.Ctx) error {
+	userId := ctx.Locals("userId").(uuid.UUID)
+
+	serverIdParam := ctx.Params("serverId")
+
+	var validationErr *model.ValidationError
+
+	response, err := controller.PostUsecase.GetServerPosts(ctx, serverIdParam, userId)
+	if err != nil {
+		if errors.As(err, &validationErr) {
+			return util.SendErrorResponseNotFound(ctx, err)
+		}
+
+		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	}
+
+	return util.SendSuccessResponseWithData(ctx, response)
+}

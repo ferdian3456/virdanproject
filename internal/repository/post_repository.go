@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/ferdian3456/virdanproject/internal/model"
@@ -159,4 +160,56 @@ func (repository *PostRepository) DeletePostObject(ctx context.Context, bucketNa
 	}
 
 	return nil
+}
+
+func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int, serverId uuid.UUID, cursor *model.ServerPostCursor, minioFullUrl string) ([]model.ServerPostResponse, error) {
+	var rows pgx.Rows
+	var err error
+
+	// Check if cursor is provided (not first page)
+	if cursor.Id != uuid.Nil && !cursor.CreateDatetime.IsZero() {
+		// Query with cursor for pagination
+		queryWithCursor := `
+			SELECT sp.author_id, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime
+			FROM server_posts sp
+			INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
+			WHERE sp.server_id = $1
+			AND (sp.create_datetime < $2 OR (sp.create_datetime = $2 AND sp.id < $3))
+			ORDER BY sp.create_datetime DESC, sp.id DESC
+			LIMIT $4
+		`
+		rows, err = repository.DB.Query(ctx, queryWithCursor, serverId, cursor.CreateDatetime, cursor.Id, limit)
+	} else {
+		// Query without cursor for first page
+		query := `
+			SELECT sp.author_id, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime
+			FROM server_posts sp
+			INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
+			WHERE sp.server_id = $1
+			ORDER BY sp.create_datetime DESC, sp.id DESC
+			LIMIT $2
+		`
+		rows, err = repository.DB.Query(ctx, query, serverId, limit)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	posts := []model.ServerPostResponse{}
+
+	for rows.Next() {
+		var post model.ServerPostResponse
+		err := rows.Scan(&post.OwnerId, &post.PostId, &post.PostImageUrl, &post.Caption, &post.CreateDatetime, &post.UpdateDatetime)
+		if err != nil {
+			return nil, err
+		}
+
+		post.PostImageUrl = fmt.Sprintf("%s/%s.webp", minioFullUrl, post.PostImageUrl)
+
+		posts = append(posts, post)
+	}
+
+	return posts, nil
 }
