@@ -546,3 +546,173 @@ func (usecase *PostUsecase) UnlikePost(ctx *fiber.Ctx, postIdParam string, userI
 
 	return nil
 }
+
+func (usecase *PostUsecase) CreateComment(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID, payload model.ServerCommentCreateRequest) error {
+	postId, err := uuid.Parse(postIdParam)
+	if err != nil {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Invalid post id",
+			Param:   "postId",
+		}
+	}
+
+	// Validate content
+	if payload.Content == "" {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Content is required",
+			Param:   "content",
+		}
+	}
+
+	ctxContext := ctx.Context()
+
+	// Check if user is a member of the server where the post belongs (single query)
+	serverMemberExists, err := usecase.PostRepository.CheckPostServerMember(ctxContext, postId, userId)
+	if err != nil {
+		return err
+	}
+
+	if serverMemberExists != 1 {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "You are not a member of this server",
+			Param:   "postId",
+		}
+	}
+
+	// If parentId is provided, check if parent comment exists and belongs to the same post
+	if payload.ParentId != nil {
+		parentExists, err := usecase.PostRepository.CheckCommentExists(ctxContext, *payload.ParentId, postId)
+		if err != nil {
+			return err
+		}
+
+		if parentExists != 1 {
+			return &model.ValidationError{
+				Code:    constant.ERR_VALIDATION_CODE,
+				Message: "Parent comment not found",
+				Param:   "parentId",
+			}
+		}
+	}
+
+	now := time.Now().UTC()
+	commentId := uuid.New()
+
+	comment := model.ServerPostComments{
+		Id:             commentId,
+		PostId:         postId,
+		AuthorId:       userId,
+		ParentId:       payload.ParentId,
+		Content:        payload.Content,
+		CreateDatetime: now,
+		UpdateDatetime: now,
+		CreateUserId:   userId,
+		UpdateUserId:   userId,
+	}
+
+	err = usecase.PostRepository.CreateComment(ctxContext, comment)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (usecase *PostUsecase) GetComments(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID) (model.ServerCommentListResponse, error) {
+	response := model.ServerCommentListResponse{}
+
+	limit := ctx.QueryInt("limit", constant.DEFAULT_LIMIT)
+	cursor := ctx.Query("cursor", "")
+
+	postId, err := uuid.Parse(postIdParam)
+	if err != nil {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Invalid post id",
+			Param:   "postId",
+		}
+	}
+
+	if limit < 0 {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Limit must be greater or equal than 0",
+			Param:   "limit",
+		}
+	} else if limit > constant.MAX_LIMIT {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: fmt.Sprintf("Limit is exceeded max limit: %d", constant.MAX_LIMIT),
+			Param:   "limit",
+		}
+	}
+
+	ctxContext := ctx.Context()
+
+	// Check if user is a member of the server where the post belongs (single query)
+	serverMemberExists, err := usecase.PostRepository.CheckPostServerMember(ctxContext, postId, userId)
+	if err != nil {
+		return response, err
+	}
+
+	if serverMemberExists != 1 {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "You are not a member of this server",
+			Param:   "postId",
+		}
+	}
+
+	var serverCommentCursor model.ServerCommentCursor
+	if cursor != "" {
+		b, err := base64.RawURLEncoding.DecodeString(cursor)
+		if err != nil {
+			return response, err
+		}
+
+		err = sonic.Unmarshal(b, &serverCommentCursor)
+		if err != nil {
+			return response, err
+		}
+	}
+
+	// Fetch limit + 1 to check if there's more data
+	comments, err := usecase.PostRepository.GetComments(ctxContext, limit+1, postId, &serverCommentCursor)
+	if err != nil {
+		return response, err
+	}
+
+	// Initialize with empty array
+	response.Data = []model.ServerCommentResponse{}
+
+	if len(comments) > limit {
+		// There's more data, return limit items and create cursor
+		response.Data = comments[:limit]
+
+		last := comments[limit-1]
+
+		// Create cursor properly using ServerCommentCursor
+		commentCursor := model.ServerCommentCursor{
+			Id:             last.Id,
+			CreateDatetime: last.CreateDatetime,
+		}
+
+		b, err := sonic.Marshal(commentCursor)
+		if err != nil {
+			return response, err
+		}
+
+		response.Page.NextCursor = base64.RawURLEncoding.EncodeToString(b)
+	} else {
+		// No more data, return all data without cursor
+		if len(comments) > 0 {
+			response.Data = comments
+		}
+		// If empty, Data is already []empty array from initialization
+	}
+
+	return response, nil
+}

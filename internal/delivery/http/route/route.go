@@ -69,8 +69,8 @@ func (c *RouteConfig) SetupRoute() {
 	// postGroup.Delete("/:postId", c.PostController.DeletePost)
 	postGroup.Post("/:postId/likes", c.PostController.LikePost)
 	postGroup.Delete("/:postId/likes", c.PostController.UnlikePost)
-	// postGroup.Post("/:postId/comments", c.PostController.CreateComment)
-	// postGroup.Get("/:postId/comments", c.PostController.GetComments)
+	postGroup.Post("/:postId/comments", c.PostController.CreateComment)
+	postGroup.Get("/:postId/comments", c.PostController.GetComments)
 
 	serverPublicGroup := api.Group("/servers")
 	serverPublicGroup.Get("/invites/:inviteCode", c.ServerController.GetServerInfoForInvite)

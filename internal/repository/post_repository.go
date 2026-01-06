@@ -287,3 +287,78 @@ func (repository *PostRepository) DeletePostLike(ctx context.Context, postId uui
 
 	return nil
 }
+
+func (repository *PostRepository) CheckCommentExists(ctx context.Context, commentId uuid.UUID, postId uuid.UUID) (int, error) {
+	query := "SELECT 1 FROM server_post_comments WHERE id = $1 AND post_id = $2"
+
+	var exists int
+	err := repository.DB.QueryRow(ctx, query, commentId, postId).Scan(&exists)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return exists, nil
+		}
+
+		return exists, err
+	}
+
+	return exists, nil
+}
+
+func (repository *PostRepository) CreateComment(ctx context.Context, comment model.ServerPostComments) error {
+	query := "INSERT INTO server_post_comments (id, post_id, author_id, parent_id, content, create_datetime, update_datetime, create_user_id, update_user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"
+
+	_, err := repository.DB.Exec(ctx, query, comment.Id, comment.PostId, comment.AuthorId, comment.ParentId, comment.Content, comment.CreateDatetime, comment.UpdateDatetime, comment.CreateUserId, comment.UpdateUserId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repository *PostRepository) GetComments(ctx context.Context, limit int, postId uuid.UUID, cursor *model.ServerCommentCursor) ([]model.ServerCommentResponse, error) {
+	var rows pgx.Rows
+	var err error
+
+	// Check if cursor is provided (not first page)
+	if cursor.Id != uuid.Nil && !cursor.CreateDatetime.IsZero() {
+		// Query with cursor for pagination
+		queryWithCursor := `
+			SELECT id, author_id, parent_id, content, create_datetime, update_datetime
+			FROM server_post_comments
+			WHERE post_id = $1
+			AND (create_datetime < $2 OR (create_datetime = $2 AND id < $3))
+			ORDER BY create_datetime DESC, id DESC
+			LIMIT $4
+		`
+		rows, err = repository.DB.Query(ctx, queryWithCursor, postId, cursor.CreateDatetime, cursor.Id, limit)
+	} else {
+		// Query without cursor for first page
+		query := `
+			SELECT id, author_id, parent_id, content, create_datetime, update_datetime
+			FROM server_post_comments
+			WHERE post_id = $1
+			ORDER BY create_datetime DESC, id DESC
+			LIMIT $2
+		`
+		rows, err = repository.DB.Query(ctx, query, postId, limit)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	comments := []model.ServerCommentResponse{}
+
+	for rows.Next() {
+		var comment model.ServerCommentResponse
+		err := rows.Scan(&comment.Id, &comment.AuthorId, &comment.ParentId, &comment.Content, &comment.CreateDatetime, &comment.UpdateDatetime)
+		if err != nil {
+			return nil, err
+		}
+
+		comments = append(comments, comment)
+	}
+
+	return comments, nil
+}
