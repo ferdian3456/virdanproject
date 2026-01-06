@@ -38,7 +38,7 @@ func (c *RouteConfig) SetupRoute() {
 	userGroup.Get("/me", c.UserController.GetUserInfo)
 	userGroup.Post("/logout", c.UserController.Logout)
 	userGroup.Put("/username", c.UserController.UpdateUsername)
-	// userGroup.Put("/fullname", c.UserController.UpdateFullName)
+	userGroup.Put("/fullname", c.UserController.UpdateFullname)
 	// userGroup.Put("/bio", c.UserController.UpdateBio)
 	//userGroup.Put("/avatar", c.UserController.UpdateAvatar)
 	//userGroup.Patch("/password", c.UserController.ChangePassword)

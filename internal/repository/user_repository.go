@@ -413,3 +413,14 @@ func (repository *UserRepository) UpdateUsername(ctx context.Context, userId uui
 
 	return nil
 }
+
+func (repository *UserRepository) UpdateFullname(ctx context.Context, userId uuid.UUID, fullname string, updateUserId uuid.UUID, updateDatetime time.Time) error {
+	query := "UPDATE users SET fullname = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4"
+
+	_, err := repository.DB.Exec(ctx, query, fullname, updateDatetime, updateUserId, userId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

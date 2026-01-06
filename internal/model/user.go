@@ -29,6 +29,10 @@ type UsernameUpdateRequest struct {
 	Username string `json:"username"`
 }
 
+type FullnameUpdateRequest struct {
+	Fullname string `json:"fullname"`
+}
+
 type UserSignupStartRequest struct {
 	Email string `json:"email"`
 }

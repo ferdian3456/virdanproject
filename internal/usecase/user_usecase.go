@@ -951,3 +951,37 @@ func (usecase *UserUsecase) UpdateUsername(ctx *fiber.Ctx, userId uuid.UUID, pay
 
 	return nil
 }
+
+func (usecase *UserUsecase) UpdateFullname(ctx *fiber.Ctx, userId uuid.UUID, payload model.FullnameUpdateRequest) error {
+	ctxContext := ctx.Context()
+
+	// Validate fullname
+	if payload.Fullname == "" {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Fullname is required to not be empty",
+			Param:   "fullname",
+		}
+	} else if len(payload.Fullname) < 4 {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Fullname must be at least 4 characters",
+			Param:   "fullname",
+		}
+	} else if len(payload.Fullname) > 40 {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Fullname must be at most 40 characters",
+			Param:   "fullname",
+		}
+	}
+
+	now := time.Now().UTC()
+
+	err := usecase.UserRepository.UpdateFullname(ctxContext, userId, payload.Fullname, userId, now)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
