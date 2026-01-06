@@ -402,3 +402,14 @@ func (repository *UserRepository) DeleteEmailSignupSession(ctx context.Context, 
 
 	return nil
 }
+
+func (repository *UserRepository) UpdateUsername(ctx context.Context, userId uuid.UUID, username string, updateUserId uuid.UUID, updateDatetime time.Time) error {
+	query := "UPDATE users SET username = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4"
+
+	_, err := repository.DB.Exec(ctx, query, username, updateDatetime, updateUserId, userId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

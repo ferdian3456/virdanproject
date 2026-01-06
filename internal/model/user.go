@@ -25,6 +25,10 @@ type UserLoginRequest struct {
 	Password string `json:"password"`
 }
 
+type UsernameUpdateRequest struct {
+	Username string `json:"username"`
+}
+
 type UserSignupStartRequest struct {
 	Email string `json:"email"`
 }

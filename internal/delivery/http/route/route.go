@@ -37,7 +37,7 @@ func (c *RouteConfig) SetupRoute() {
 	userGroup := api.Group("/users", c.AuthMiddleware.ProtectedRoute())
 	userGroup.Get("/me", c.UserController.GetUserInfo)
 	userGroup.Post("/logout", c.UserController.Logout)
-	// userGroup.Put("/username", c.UserController.UpdateUsername)
+	userGroup.Put("/username", c.UserController.UpdateUsername)
 	// userGroup.Put("/fullname", c.UserController.UpdateFullName)
 	// userGroup.Put("/bio", c.UserController.UpdateBio)
 	//userGroup.Put("/avatar", c.UserController.UpdateAvatar)

@@ -903,3 +903,51 @@ func (usecase *UserUsecase) GetSignupStatus(ctx *fiber.Ctx, sessionId string) (m
 
 	return response, nil
 }
+
+func (usecase *UserUsecase) UpdateUsername(ctx *fiber.Ctx, userId uuid.UUID, payload model.UsernameUpdateRequest) error {
+	ctxContext := ctx.Context()
+
+	// Validate username
+	if payload.Username == "" {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Username is required to not be empty",
+			Param:   "username",
+		}
+	} else if len(payload.Username) < 4 {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Username must be at least 4 characters",
+			Param:   "username",
+		}
+	} else if len(payload.Username) > 22 {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "username must be at most 22 characters",
+			Param:   "username",
+		}
+	}
+
+	// Check if username is already taken
+	exists, err := usecase.UserRepository.CheckUsernameUnique(ctxContext, payload.Username)
+	if err != nil {
+		return err
+	}
+
+	if exists == 1 {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Username is already taken",
+			Param:   "username",
+		}
+	}
+
+	now := time.Now().UTC()
+
+	err = usecase.UserRepository.UpdateUsername(ctxContext, userId, payload.Username, userId, now)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

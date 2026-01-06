@@ -229,3 +229,29 @@ func (controller UserController) VerifyPassword(ctx *fiber.Ctx) error {
 
 	return util.SendSuccessResponseWithData(ctx, response)
 }
+
+func (controller UserController) UpdateUsername(ctx *fiber.Ctx) error {
+	userId := ctx.Locals("userId").(uuid.UUID)
+
+	var payload model.UsernameUpdateRequest
+	err := util.ReadRequestBody(ctx, &payload)
+	if err != nil {
+		return util.SendErrorResponse(ctx, &model.ValidationError{
+			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
+			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
+		})
+	}
+
+	var validationErr *model.ValidationError
+
+	err = controller.UserUsecase.UpdateUsername(ctx, userId, payload)
+	if err != nil {
+		if errors.As(err, &validationErr) {
+			return util.SendErrorResponseNotFound(ctx, err)
+		}
+
+		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	}
+
+	return util.SendSuccessResponseNoData(ctx)
+}
