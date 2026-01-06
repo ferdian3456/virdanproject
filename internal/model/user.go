@@ -33,6 +33,10 @@ type FullnameUpdateRequest struct {
 	Fullname string `json:"fullname"`
 }
 
+type BioUpdateRequest struct {
+	Bio string `json:"bio"`
+}
+
 type UserSignupStartRequest struct {
 	Email string `json:"email"`
 }

@@ -281,3 +281,29 @@ func (controller UserController) UpdateFullname(ctx *fiber.Ctx) error {
 
 	return util.SendSuccessResponseNoData(ctx)
 }
+
+func (controller UserController) UpdateBio(ctx *fiber.Ctx) error {
+	userId := ctx.Locals("userId").(uuid.UUID)
+
+	var payload model.BioUpdateRequest
+	err := util.ReadRequestBody(ctx, &payload)
+	if err != nil {
+		return util.SendErrorResponse(ctx, &model.ValidationError{
+			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
+			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
+		})
+	}
+
+	var validationErr *model.ValidationError
+
+	err = controller.UserUsecase.UpdateBio(ctx, userId, payload)
+	if err != nil {
+		if errors.As(err, &validationErr) {
+			return util.SendErrorResponseNotFound(ctx, err)
+		}
+
+		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	}
+
+	return util.SendSuccessResponseNoData(ctx)
+}

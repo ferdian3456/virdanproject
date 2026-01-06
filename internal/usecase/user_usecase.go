@@ -985,3 +985,23 @@ func (usecase *UserUsecase) UpdateFullname(ctx *fiber.Ctx, userId uuid.UUID, pay
 
 	return nil
 }
+
+func (usecase *UserUsecase) UpdateBio(ctx *fiber.Ctx, userId uuid.UUID, payload model.BioUpdateRequest) error {
+	ctxContext := ctx.Context()
+
+	// No validation needed for bio
+	// Convert empty string to nil for NULL in database
+	var bioPtr *string
+	if payload.Bio != "" {
+		bioPtr = &payload.Bio
+	}
+
+	now := time.Now().UTC()
+
+	err := usecase.UserRepository.UpdateBio(ctxContext, userId, bioPtr, userId, now)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
