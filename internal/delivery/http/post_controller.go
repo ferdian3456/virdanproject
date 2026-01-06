@@ -122,6 +122,25 @@ func (controller *PostController) GetServerPosts(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+func (controller *PostController) GetPost(ctx *fiber.Ctx) error {
+	userId := ctx.Locals("userId").(uuid.UUID)
+
+	postIdParam := ctx.Params("postId")
+
+	var validationErr *model.ValidationError
+
+	response, err := controller.PostUsecase.GetPost(ctx, postIdParam, userId)
+	if err != nil {
+		if errors.As(err, &validationErr) {
+			return util.SendErrorResponseNotFound(ctx, err)
+		}
+
+		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	}
+
+	return util.SendSuccessResponseWithData(ctx, response)
+}
+
 func (controller *PostController) LikePost(ctx *fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 

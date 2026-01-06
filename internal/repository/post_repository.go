@@ -170,9 +170,21 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 	if cursor.Id != uuid.Nil && !cursor.CreateDatetime.IsZero() {
 		// Query with cursor for pagination
 		queryWithCursor := `
-			SELECT sp.author_id, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime
+			SELECT sp.author_id, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
+			       COALESCE(comment_counts.comment_count, 0) as comment_count,
+			       COALESCE(like_counts.like_count, 0) as like_count
 			FROM server_posts sp
 			INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
+			LEFT JOIN (
+				SELECT post_id, COUNT(*) as comment_count
+				FROM server_post_comments
+				GROUP BY post_id
+			) comment_counts ON sp.id = comment_counts.post_id
+			LEFT JOIN (
+				SELECT post_id, COUNT(*) as like_count
+				FROM server_post_likes
+				GROUP BY post_id
+			) like_counts ON sp.id = like_counts.post_id
 			WHERE sp.server_id = $1
 			AND (sp.create_datetime < $2 OR (sp.create_datetime = $2 AND sp.id < $3))
 			ORDER BY sp.create_datetime DESC, sp.id DESC
@@ -182,9 +194,21 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 	} else {
 		// Query without cursor for first page
 		query := `
-			SELECT sp.author_id, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime
+			SELECT sp.author_id, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
+			       COALESCE(comment_counts.comment_count, 0) as comment_count,
+			       COALESCE(like_counts.like_count, 0) as like_count
 			FROM server_posts sp
 			INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
+			LEFT JOIN (
+				SELECT post_id, COUNT(*) as comment_count
+				FROM server_post_comments
+				GROUP BY post_id
+			) comment_counts ON sp.id = comment_counts.post_id
+			LEFT JOIN (
+				SELECT post_id, COUNT(*) as like_count
+				FROM server_post_likes
+				GROUP BY post_id
+			) like_counts ON sp.id = like_counts.post_id
 			WHERE sp.server_id = $1
 			ORDER BY sp.create_datetime DESC, sp.id DESC
 			LIMIT $2
@@ -201,7 +225,7 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 
 	for rows.Next() {
 		var post model.ServerPostResponse
-		err := rows.Scan(&post.OwnerId, &post.PostId, &post.PostImageUrl, &post.Caption, &post.CreateDatetime, &post.UpdateDatetime)
+		err := rows.Scan(&post.OwnerId, &post.PostId, &post.PostImageUrl, &post.Caption, &post.CreateDatetime, &post.UpdateDatetime, &post.CommentCount, &post.LikeCount)
 		if err != nil {
 			return nil, err
 		}
@@ -212,6 +236,40 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 	}
 
 	return posts, nil
+}
+
+func (repository *PostRepository) GetPost(ctx context.Context, postId uuid.UUID, minioFullUrl string) (model.ServerPostResponse, error) {
+	query := `
+		SELECT sp.author_id, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
+		       COALESCE(comment_counts.comment_count, 0) as comment_count,
+		       COALESCE(like_counts.like_count, 0) as like_count
+		FROM server_posts sp
+		INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
+		LEFT JOIN (
+			SELECT post_id, COUNT(*) as comment_count
+			FROM server_post_comments
+			GROUP BY post_id
+		) comment_counts ON sp.id = comment_counts.post_id
+		LEFT JOIN (
+			SELECT post_id, COUNT(*) as like_count
+			FROM server_post_likes
+			GROUP BY post_id
+		) like_counts ON sp.id = like_counts.post_id
+		WHERE sp.id = $1
+	`
+
+	var post model.ServerPostResponse
+	err := repository.DB.QueryRow(ctx, query, postId).Scan(
+		&post.OwnerId, &post.PostId, &post.PostImageUrl, &post.Caption,
+		&post.CreateDatetime, &post.UpdateDatetime, &post.CommentCount, &post.LikeCount,
+	)
+	if err != nil {
+		return post, err
+	}
+
+	post.PostImageUrl = fmt.Sprintf("%s/%s.webp", minioFullUrl, post.PostImageUrl)
+
+	return post, nil
 }
 
 func (repository *PostRepository) CheckPostLike(ctx context.Context, postId uuid.UUID, userId uuid.UUID) (int, error) {

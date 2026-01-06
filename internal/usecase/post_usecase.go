@@ -440,6 +440,44 @@ func (usecase *PostUsecase) GetServerPosts(ctx *fiber.Ctx, serverIdParam string,
 	return response, nil
 }
 
+func (usecase *PostUsecase) GetPost(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID) (model.ServerPostResponse, error) {
+	var response model.ServerPostResponse
+
+	postId, err := uuid.Parse(postIdParam)
+	if err != nil {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Invalid post id",
+			Param:   "postId",
+		}
+	}
+
+	ctxContext := ctx.Context()
+
+	// Check if user is a member of the server where the post belongs (single query)
+	serverMemberExists, err := usecase.PostRepository.CheckPostServerMember(ctxContext, postId, userId)
+	if err != nil {
+		return response, err
+	}
+
+	if serverMemberExists != 1 {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "You are not a member of this server",
+			Param:   "postId",
+		}
+	}
+
+	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
+
+	response, err = usecase.PostRepository.GetPost(ctxContext, postId, MINIO_FULL_URL)
+	if err != nil {
+		return response, err
+	}
+
+	return response, nil
+}
+
 func (usecase *PostUsecase) LikePost(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID) error {
 	postId, err := uuid.Parse(postIdParam)
 	if err != nil {

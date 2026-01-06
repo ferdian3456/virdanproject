@@ -37,6 +37,9 @@ func (c *RouteConfig) SetupRoute() {
 	userGroup := api.Group("/users", c.AuthMiddleware.ProtectedRoute())
 	userGroup.Get("/me", c.UserController.GetUserInfo)
 	userGroup.Post("/logout", c.UserController.Logout)
+	// userGroup.Put("/username", c.UserController.UpdateUsername)
+	// userGroup.Put("/fullname", c.UserController.UpdateFullName)
+	// userGroup.Put("/bio", c.UserController.UpdateBio)
 	//userGroup.Put("/avatar", c.UserController.UpdateAvatar)
 	//userGroup.Patch("/password", c.UserController.ChangePassword)
 	//userGroup.Delete("/account", c.UserController.DeleteAccount)
@@ -65,7 +68,7 @@ func (c *RouteConfig) SetupRoute() {
 	serverPostGroup.Get("/", c.PostController.GetServerPosts)
 
 	postGroup := api.Group("/posts", c.AuthMiddleware.ProtectedRoute())
-	// postGroup.Get("/:postId", c.PostController.GetPost)
+	postGroup.Get("/:postId", c.PostController.GetPost)
 	// postGroup.Delete("/:postId", c.PostController.DeletePost)
 	postGroup.Post("/:postId/likes", c.PostController.LikePost)
 	postGroup.Delete("/:postId/likes", c.PostController.UnlikePost)

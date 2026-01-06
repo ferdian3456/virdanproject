@@ -37,6 +37,8 @@ type ServerPostResponse struct {
 	PostId         uuid.UUID  `json:"postId"`
 	PostImageUrl   string     `json:"postImageUrl"`
 	Caption        string     `json:"caption"`
+	CommentCount   int        `json:"commentCount"`
+	LikeCount      int        `json:"likeCount"`
 	CreateDatetime time.Time  `json:"createDatetime"`
 	UpdateDatetime time.Time  `json:"updateDatetime"`
 }
