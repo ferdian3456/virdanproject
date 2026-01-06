@@ -206,3 +206,23 @@ func (controller *PostController) GetComments(ctx *fiber.Ctx) error {
 
 	return util.SendSuccessResponseWithData(ctx, response)
 }
+
+func (controller *PostController) DeleteComment(ctx *fiber.Ctx) error {
+	userId := ctx.Locals("userId").(uuid.UUID)
+
+	postIdParam := ctx.Params("postId")
+	commentIdParam := ctx.Params("commentId")
+
+	var validationErr *model.ValidationError
+
+	err := controller.PostUsecase.DeleteComment(ctx, postIdParam, commentIdParam, userId)
+	if err != nil {
+		if errors.As(err, &validationErr) {
+			return util.SendErrorResponseNotFound(ctx, err)
+		}
+
+		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	}
+
+	return util.SendSuccessResponseNoData(ctx)
+}

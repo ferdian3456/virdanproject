@@ -716,3 +716,60 @@ func (usecase *PostUsecase) GetComments(ctx *fiber.Ctx, postIdParam string, user
 
 	return response, nil
 }
+
+func (usecase *PostUsecase) DeleteComment(ctx *fiber.Ctx, postIdParam string, commentIdParam string, userId uuid.UUID) error {
+	postId, err := uuid.Parse(postIdParam)
+	if err != nil {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Invalid post id",
+			Param:   "postId",
+		}
+	}
+
+	commentId, err := uuid.Parse(commentIdParam)
+	if err != nil {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Invalid comment id",
+			Param:   "commentId",
+		}
+	}
+
+	ctxContext := ctx.Context()
+
+	// Check if user is a member of the server where the post belongs (single query)
+	serverMemberExists, err := usecase.PostRepository.CheckPostServerMember(ctxContext, postId, userId)
+	if err != nil {
+		return err
+	}
+
+	if serverMemberExists != 1 {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "You are not a member of this server",
+			Param:   "postId",
+		}
+	}
+
+	// Check if user is the author of the comment
+	commentOwnerExists, err := usecase.PostRepository.CheckCommentOwnership(ctxContext, commentId, userId)
+	if err != nil {
+		return err
+	}
+
+	if commentOwnerExists != 1 {
+		return &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "You are not the author of this comment",
+			Param:   "commentId",
+		}
+	}
+
+	err = usecase.PostRepository.DeleteComment(ctxContext, commentId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

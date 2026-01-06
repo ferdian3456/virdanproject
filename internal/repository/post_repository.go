@@ -362,3 +362,30 @@ func (repository *PostRepository) GetComments(ctx context.Context, limit int, po
 
 	return comments, nil
 }
+
+func (repository *PostRepository) CheckCommentOwnership(ctx context.Context, commentId uuid.UUID, userId uuid.UUID) (int, error) {
+	query := "SELECT 1 FROM server_post_comments WHERE id = $1 AND author_id = $2"
+
+	var exists int
+	err := repository.DB.QueryRow(ctx, query, commentId, userId).Scan(&exists)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return exists, nil
+		}
+
+		return exists, err
+	}
+
+	return exists, nil
+}
+
+func (repository *PostRepository) DeleteComment(ctx context.Context, commentId uuid.UUID) error {
+	query := "DELETE FROM server_post_comments WHERE id = $1"
+
+	_, err := repository.DB.Exec(ctx, query, commentId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
