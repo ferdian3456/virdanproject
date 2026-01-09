@@ -409,6 +409,7 @@ func updateRouteGo(data TemplateData) error {
 
 	// Write back to file
 	updatedContent := strings.Join(newLines, "\n")
+	// #nosec G306 -- File permissions 0644 are acceptable for source code files
 	if err := os.WriteFile(filePath, []byte(updatedContent), 0644); err != nil {
 		return fmt.Errorf("error writing updated route.go: %w", err)
 	}
