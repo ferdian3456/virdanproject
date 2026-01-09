@@ -274,26 +274,33 @@ jobs:
           if [ -f "artifacts/integration-test-results/test-results.txt" ]; then
             TEST_RESULTS=$(cat "artifacts/integration-test-results/test-results.txt")
 
-            # Count total tests
-            TOTAL_TESTS=$(echo "$TEST_RESULTS" | grep -c "^=== RUN" || echo "0")
+            # Count total tests (sanitize output)
+            TOTAL_TESTS=$(echo "$TEST_RESULTS" | grep -c "^=== RUN" 2>/dev/null || echo "0")
+            TOTAL_TESTS=$(echo "$TOTAL_TESTS" | tr -d '[:space:]' | grep -o '[0-9]*' | head -1)
+            [ -z "$TOTAL_TESTS" ] && TOTAL_TESTS=0
 
-            # Count passed tests
-            PASSED_TESTS=$(echo "$TEST_RESULTS" | grep -c "^--- PASS:" || echo "0")
+            # Count passed tests (sanitize output)
+            PASSED_TESTS=$(echo "$TEST_RESULTS" | grep -c "^--- PASS:" 2>/dev/null || echo "0")
+            PASSED_TESTS=$(echo "$PASSED_TESTS" | tr -d '[:space:]' | grep -o '[0-9]*' | head -1)
+            [ -z "$PASSED_TESTS" ] && PASSED_TESTS=0
 
-            # Count failed tests
-            FAILED_TESTS=$(echo "$TEST_RESULTS" | grep -c "^--- FAIL:" || echo "0")
+            # Count failed tests (sanitize output)
+            FAILED_TESTS=$(echo "$TEST_RESULTS" | grep -c "^--- FAIL:" 2>/dev/null || echo "0")
+            FAILED_TESTS=$(echo "$FAILED_TESTS" | tr -d '[:space:]' | grep -o '[0-9]*' | head -1)
+            [ -z "$FAILED_TESTS" ] && FAILED_TESTS=0
 
             # Extract failed test names
             if [ "$FAILED_TESTS" -gt 0 ]; then
-              FAILED_TEST_NAMES=$(echo "$TEST_RESULTS" | grep "^--- FAIL:" | sed 's/--- FAIL: \([^ ]*\).*/\1/' || echo "")
+              FAILED_TEST_NAMES=$(echo "$TEST_RESULTS" | grep "^--- FAIL:" | sed 's/--- FAIL: \([^ ]*\).*/\1/' 2>/dev/null || echo "")
             fi
           fi
 
-          # Calculate coverage if available
+          # Calculate coverage if available (skip to avoid module errors)
           COVERAGE_PERCENTAGE="N/A"
-          if [ -f "artifacts/coverage-reports/coverage.out" ]; then
-            COVERAGE_PERCENTAGE=$(go tool cover -func="artifacts/coverage-reports/coverage.out" | grep total | awk '{print $3}' || echo "N/A")
-          fi
+          # Coverage calculation disabled due to go.mod path issues
+          # if [ -f "artifacts/coverage-reports/coverage.out" ]; then
+          #   COVERAGE_PERCENTAGE=$(cd /home/runner/work/virdanproject/virdanproject && go tool cover -func="artifacts/coverage-reports/coverage.out" | grep total | awk '{print $3}' 2>/dev/null || echo "N/A")
+          # fi
 
           # Save to outputs
           echo "total_tests=$TOTAL_TESTS" >> $GITHUB_OUTPUT
