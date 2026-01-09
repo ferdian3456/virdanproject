@@ -290,6 +290,7 @@ func generateFile(filePath, templateStr string, data TemplateData) error {
 	}
 
 	// Write file
+	// #nosec G306 -- File permissions 0644 are acceptable for source code files
 	if err := os.WriteFile(filePath, formatted, 0644); err != nil {
 		return fmt.Errorf("error writing file: %w", err)
 	}
@@ -303,6 +304,7 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
+	// #nosec G306 -- File permissions 0644 are acceptable for source code files
 	return os.WriteFile(dst, input, 0644)
 }
 
@@ -361,6 +363,7 @@ func updateAppGo(data TemplateData) error {
 
 	// Write back to file
 	updatedContent := strings.Join(newLines, "\n")
+	// #nosec G306 -- File permissions 0644 are acceptable for source code files
 	if err := os.WriteFile(filePath, []byte(updatedContent), 0644); err != nil {
 		return fmt.Errorf("error writing updated app.go: %w", err)
 	}

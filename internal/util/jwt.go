@@ -19,6 +19,7 @@ import (
 
 var (
 	BearerPrefix            = "Bearer "
+	// #nosec G101 -- TokenIssuer is a public identifier, not a credential
 	TokenIssuer             = "github.com/ferdian3456/virdanproject"
 	AccessTokenDuration     = 15 * time.Minute
 	RefreshTokenDuration    = 7 * 24 * time.Hour

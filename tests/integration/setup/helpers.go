@@ -172,6 +172,7 @@ func GetOTPFromMailhog(t *testing.T, mailhogURL, email string) string {
 		t.Logf("Attempt %d: Fetching messages from MailHog", i+1)
 
 		// HTTP GET ke MailHog API
+		// #nosec G107 -- apiURL is a trusted localhost test server (MailHog)
 		resp, err := http.Get(apiURL)
 		require.NoError(t, err, "failed to fetch messages from MailHog")
 		defer func() { _ = resp.Body.Close() }()
@@ -250,6 +251,7 @@ func GenerateRandomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	b := make([]byte, length)
 	for i := range b {
+		// #nosec G404 -- Weak randomness is acceptable for non-security test data
 		b[i] = charset[rand.Intn(len(charset))]
 	}
 	return string(b)
