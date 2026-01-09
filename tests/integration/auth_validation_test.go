@@ -22,11 +22,11 @@ func TestSignupEmailAlreadyRegistered(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	// 2. Run migrations
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	// 3. Setup test app
 	t.Log("=== Setting Up Test Application ===")
@@ -106,11 +106,11 @@ func TestSignupOTPValidation(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	// 2. Run migrations
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	// 3. Setup test app
 	t.Log("=== Setting Up Test Application ===")
@@ -189,11 +189,11 @@ func TestSignupUsernameValidation(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	// 2. Run migrations
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	// 3. Setup test app
 	t.Log("=== Setting Up Test Application ===")
@@ -215,7 +215,7 @@ func TestSignupUsernameValidation(t *testing.T) {
 	otp := setup.GetOTPFromMailhog(t, infra.MailhogURL, testEmail)
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","otp":"%s"}`, sessionId, otp))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/otp", reqBody)
-	resp, err = app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "verify OTP should succeed")
 
 	// Test 1: Empty username
@@ -277,11 +277,11 @@ func TestSignupUsernameAlreadyTaken(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	// 2. Run migrations
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	// 3. Setup test app
 	t.Log("=== Setting Up Test Application ===")
@@ -304,12 +304,12 @@ func TestSignupUsernameAlreadyTaken(t *testing.T) {
 	otp1 := setup.GetOTPFromMailhog(t, infra.MailhogURL, testEmail1)
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","otp":"%s"}`, sessionId1, otp1))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/otp", reqBody)
-	resp, err = app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "verify OTP should succeed")
 
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","username":"%s"}`, sessionId1, existingUsername))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/username", reqBody)
-	resp, err = app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "set username should succeed")
 
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","password":"password123"}`, sessionId1))
@@ -334,7 +334,7 @@ func TestSignupUsernameAlreadyTaken(t *testing.T) {
 	otp2 := setup.GetOTPFromMailhog(t, infra.MailhogURL, testEmail2)
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","otp":"%s"}`, sessionId2, otp2))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/otp", reqBody)
-	resp, err = app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "verify OTP should succeed")
 
 	// Try to use the same username
@@ -363,11 +363,11 @@ func TestSignupPasswordValidation(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	// 2. Run migrations
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	// 3. Setup test app
 	t.Log("=== Setting Up Test Application ===")
@@ -388,12 +388,12 @@ func TestSignupPasswordValidation(t *testing.T) {
 	otp := setup.GetOTPFromMailhog(t, infra.MailhogURL, testEmail)
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","otp":"%s"}`, sessionId, otp))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/otp", reqBody)
-	resp, err = app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "verify OTP should succeed")
 
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","username":"testuser"}`, sessionId))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/username", reqBody)
-	resp, err = app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "set username should succeed")
 
 	// Test 1: Empty password
@@ -461,11 +461,11 @@ func TestSignupEmailValidation(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	// 2. Run migrations
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	// 3. Setup test app
 	t.Log("=== Setting Up Test Application ===")

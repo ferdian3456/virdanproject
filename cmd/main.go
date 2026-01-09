@@ -64,10 +64,10 @@ func main() {
 	err = fiber.ShutdownWithContext(ctx)
 	if err != nil {
 		zap.Warn("timeout, forced kill!", zapLog.Error(err))
-		zap.Sync()
+		_ = zap.Sync()
 		os.Exit(1)
 	}
 
 	zap.Info("server has shut down gracefully")
-	zap.Sync()
+	_ = zap.Sync()
 }

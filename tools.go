@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
-	"io/ioutil"
+	
 	"os"
 	"path/filepath"
 	"strconv"
@@ -245,7 +245,7 @@ func generateFile(filePath, templateStr string, data TemplateData) error {
 		fmt.Printf("Choose option (1/2/3): ")
 
 		var choice string
-		fmt.Scanln(&choice)
+		_, _ = fmt.Scanln(&choice)
 
 		switch choice {
 		case "1":
@@ -290,7 +290,7 @@ func generateFile(filePath, templateStr string, data TemplateData) error {
 	}
 
 	// Write file
-	if err := ioutil.WriteFile(filePath, formatted, 0644); err != nil {
+	if err := os.WriteFile(filePath, formatted, 0644); err != nil {
 		return fmt.Errorf("error writing file: %w", err)
 	}
 
@@ -299,18 +299,18 @@ func generateFile(filePath, templateStr string, data TemplateData) error {
 }
 
 func copyFile(src, dst string) error {
-	input, err := ioutil.ReadFile(src)
+	input, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(dst, input, 0644)
+	return os.WriteFile(dst, input, 0644)
 }
 
 func updateAppGo(data TemplateData) error {
 	filePath := "internal/config/app.go"
 
 	// Read the file
-	content, err := ioutil.ReadFile(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("error reading app.go: %w", err)
 	}
@@ -346,7 +346,7 @@ func updateAppGo(data TemplateData) error {
 			// Add the new controller field to RouteConfig
 			routeTmpl, _ := template.New("routeConfigField").Parse(routeConfigFieldTemplate)
 			var routeBuf bytes.Buffer
-			routeTmpl.Execute(&routeBuf, data)
+			_ = routeTmpl.Execute(&routeBuf, data)
 			newLines = append(newLines, routeBuf.String())
 		}
 
@@ -354,14 +354,14 @@ func updateAppGo(data TemplateData) error {
 		if strings.Contains(line, "UserController: userController,") {
 			routeInitTmpl, _ := template.New("routeConfigInit").Parse(routeConfigInitTemplate)
 			var routeInitBuf bytes.Buffer
-			routeInitTmpl.Execute(&routeInitBuf, data)
+			_ = routeInitTmpl.Execute(&routeInitBuf, data)
 			newLines = append(newLines, routeInitBuf.String())
 		}
 	}
 
 	// Write back to file
 	updatedContent := strings.Join(newLines, "\n")
-	if err := ioutil.WriteFile(filePath, []byte(updatedContent), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(updatedContent), 0644); err != nil {
 		return fmt.Errorf("error writing updated app.go: %w", err)
 	}
 
@@ -373,7 +373,7 @@ func updateRouteGo(data TemplateData) error {
 	filePath := "internal/delivery/http/route/route.go"
 
 	// Read the file
-	content, err := ioutil.ReadFile(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("error reading route.go: %w", err)
 	}
@@ -406,7 +406,7 @@ func updateRouteGo(data TemplateData) error {
 
 	// Write back to file
 	updatedContent := strings.Join(newLines, "\n")
-	if err := ioutil.WriteFile(filePath, []byte(updatedContent), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(updatedContent), 0644); err != nil {
 		return fmt.Errorf("error writing updated route.go: %w", err)
 	}
 
@@ -544,7 +544,7 @@ func runMigrateRename() {
 	if err := os.Rename(selectedDown, tempDown); err != nil {
 		logError(fmt.Sprintf("Error moving file to temp: %v", err))
 		// Restore the up file
-		os.Rename(tempUp, selectedUp)
+		_ = os.Rename(tempUp, selectedUp)
 		return
 	}
 

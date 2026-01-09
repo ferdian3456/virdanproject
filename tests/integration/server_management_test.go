@@ -38,10 +38,10 @@ func TestCreateServer(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	t.Log("=== Setting Up Test Application ===")
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
@@ -179,10 +179,10 @@ func TestGetUserServers(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	t.Log("=== Setting Up Test Application ===")
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
@@ -280,10 +280,10 @@ func TestUpdateServerName(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	t.Log("=== Setting Up Test Application ===")
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
@@ -383,10 +383,10 @@ func TestUpdateServerShortName(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	t.Log("=== Setting Up Test Application ===")
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
@@ -398,7 +398,7 @@ func TestUpdateServerShortName(t *testing.T) {
 
 	reqBody := []byte(`{"name":"Test Server","shortName":"oldname","categoryId":1,"settings":{"isPrivate":false}}`)
 	req := setup.CreateAuthRequest(http.MethodPost, "/api/servers/create", reqBody, accessToken)
-	resp, err := app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "create server should succeed")
 
 	// Get serverId from user's servers list
@@ -408,7 +408,7 @@ func TestUpdateServerShortName(t *testing.T) {
 	t.Log("=== Test 1: Update Short Name Successfully ===")
 	reqBody = []byte(`{"shortName":"newname"}`)
 	req = setup.CreateAuthRequest(http.MethodPut, fmt.Sprintf("/api/servers/%s/shortName", serverId), reqBody, accessToken)
-	resp, err = app.Test(req)
+	resp, err := app.Test(req)
 	require.NoError(t, err, "update shortName request should complete")
 	require.Equal(t, 200, resp.StatusCode, "update shortName should return 200")
 
@@ -467,10 +467,10 @@ func TestUpdateServerCategory(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	t.Log("=== Setting Up Test Application ===")
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
@@ -482,7 +482,7 @@ func TestUpdateServerCategory(t *testing.T) {
 
 	reqBody := []byte(`{"name":"Test Server","shortName":"testsvr","categoryId":1,"settings":{"isPrivate":false}}`)
 	req := setup.CreateAuthRequest(http.MethodPost, "/api/servers/create", reqBody, accessToken)
-	resp, err := app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "create server should succeed")
 
 	// Get serverId from user's servers list
@@ -492,7 +492,7 @@ func TestUpdateServerCategory(t *testing.T) {
 	t.Log("=== Test 1: Update Category Successfully ===")
 	reqBody = []byte(`{"categoryId":4}`) // Technology category
 	req = setup.CreateAuthRequest(http.MethodPut, fmt.Sprintf("/api/servers/%s/category", serverId), reqBody, accessToken)
-	resp, err = app.Test(req)
+	resp, err := app.Test(req)
 	require.NoError(t, err, "update category request should complete")
 	require.Equal(t, 200, resp.StatusCode, "update category should return 200")
 
@@ -521,10 +521,10 @@ func TestUpdateServerDescription(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	t.Log("=== Setting Up Test Application ===")
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
@@ -536,7 +536,7 @@ func TestUpdateServerDescription(t *testing.T) {
 
 	reqBody := []byte(`{"name":"Test Server","shortName":"testsvr","categoryId":1,"settings":{"isPrivate":false}}`)
 	req := setup.CreateAuthRequest(http.MethodPost, "/api/servers/create", reqBody, accessToken)
-	resp, err := app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "create server should succeed")
 
 	// Get serverId from user's servers list
@@ -547,7 +547,7 @@ func TestUpdateServerDescription(t *testing.T) {
 	descText := "This is a test server for integration testing"
 	reqBody = []byte(fmt.Sprintf(`{"description":"%s"}`, descText))
 	req = setup.CreateAuthRequest(http.MethodPut, fmt.Sprintf("/api/servers/%s/description", serverId), reqBody, accessToken)
-	resp, err = app.Test(req)
+	resp, err := app.Test(req)
 	require.NoError(t, err, "update description request should complete")
 	require.Equal(t, 200, resp.StatusCode, "update description should return 200")
 
@@ -599,10 +599,10 @@ func TestDeleteServer(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	t.Log("=== Setting Up Test Application ===")
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
@@ -616,6 +616,7 @@ func TestDeleteServer(t *testing.T) {
 	req := setup.CreateAuthRequest(http.MethodPost, "/api/servers/create", reqBody, accessToken)
 	resp, err := app.Test(req)
 	require.NoError(t, err, "create server should succeed")
+	require.Equal(t, 200, resp.StatusCode, "create server should return 200")
 
 	// Get serverId from user's servers list
 	serverId := getFirstServerId(t, app, accessToken)

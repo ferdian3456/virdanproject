@@ -28,20 +28,20 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 
 	// 1. Create test config dengan test infrastructure values
 	testConfig := koanf.New(".")
-	testConfig.Set("postgres_url", pgURL)
-	testConfig.Set("redis_addr", redisURL)
-	testConfig.Set("minio_url", minioURL)
-	testConfig.Set("minio_http", "http://")
-	testConfig.Set("minio_bucket_name", "virdan-test")
-	testConfig.Set("minio_access_key", "minioadmin")
-	testConfig.Set("minio_secret_key", "minioadmin")
-	testConfig.Set("jwt_secret_key", "test-secret-key-for-jwt-token-generation")
+	_ = testConfig.Set("postgres_url", pgURL)
+	_ = testConfig.Set("redis_addr", redisURL)
+	_ = testConfig.Set("minio_url", minioURL)
+	_ = testConfig.Set("minio_http", "http://")
+	_ = testConfig.Set("minio_bucket_name", "virdan-test")
+	_ = testConfig.Set("minio_access_key", "minioadmin")
+	_ = testConfig.Set("minio_secret_key", "minioadmin")
+	_ = testConfig.Set("jwt_secret_key", "test-secret-key-for-jwt-token-generation")
 
 	// Set uppercase keys for compatibility with existing code
-	testConfig.Set("JWT_SECRET_KEY", "test-secret-key-for-jwt-token-generation")
-	testConfig.Set("MINIO_BUCKET_NAME", "virdan-test")
-	testConfig.Set("MINIO_ACCESS_KEY", "minioadmin")
-	testConfig.Set("MINIO_SECRET_KEY", "minioadmin")
+	_ = testConfig.Set("JWT_SECRET_KEY", "test-secret-key-for-jwt-token-generation")
+	_ = testConfig.Set("MINIO_BUCKET_NAME", "virdan-test")
+	_ = testConfig.Set("MINIO_ACCESS_KEY", "minioadmin")
+	_ = testConfig.Set("MINIO_SECRET_KEY", "minioadmin")
 
 	// Use MailHog for SMTP
 	// mailhogSMTP format: host:port (e.g., localhost:32768)
@@ -49,18 +49,18 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 	smtpHost := smtpParts[0]
 	smtpPort, _ := strconv.Atoi(smtpParts[1])
 
-	testConfig.Set("smtp_host", smtpHost)
-	testConfig.Set("smtp_port", smtpPort)
-	testConfig.Set("sender_name", "Virdan Test")
-	testConfig.Set("sender_email", "noreply@virdan.test")
-	testConfig.Set("sender_password", "")
+	_ = testConfig.Set("smtp_host", smtpHost)
+	_ = testConfig.Set("smtp_port", smtpPort)
+	_ = testConfig.Set("sender_name", "Virdan Test")
+	_ = testConfig.Set("sender_email", "noreply@virdan.test")
+	_ = testConfig.Set("sender_password", "")
 
 	// Set uppercase keys for compatibility with existing code
-	testConfig.Set("SMTP_HOST", smtpHost)
-	testConfig.Set("SMTP_PORT", smtpPort)
-	testConfig.Set("SENDER_NAME", "Virdan Test <noreply@virdan.test>") // Include email address
-	testConfig.Set("SENDER_EMAIL", "noreply@virdan.test")
-	testConfig.Set("SENDER_PASSWORD", "")
+	_ = testConfig.Set("SMTP_HOST", smtpHost)
+	_ = testConfig.Set("SMTP_PORT", smtpPort)
+	_ = testConfig.Set("SENDER_NAME", "Virdan Test <noreply@virdan.test>") // Include email address
+	_ = testConfig.Set("SENDER_EMAIL", "noreply@virdan.test")
+	_ = testConfig.Set("SENDER_PASSWORD", "")
 
 	// 3. Connect to PostgreSQL
 	t.Log("Connecting to test PostgreSQL...")

@@ -38,46 +38,6 @@ func createTestServer(t *testing.T, app *fiber.App, accessToken string) map[stri
 	return result
 }
 
-// createTestPost is a helper function to create a test post with image
-func createTestPost(t *testing.T, app *fiber.App, accessToken string, serverId string, caption string) map[string]interface{} {
-	// Read real test image
-	testImageData, err := getTestImage()
-	require.NoError(t, err, "should read test image")
-
-	// Create multipart form data
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	// Add image file with proper Content-Type header
-	h := make(textproto.MIMEHeader)
-	h.Set("Content-Disposition", `form-data; name="image"; filename="test_image.jpg"`)
-	h.Set("Content-Type", "image/jpeg")
-	part, err := writer.CreatePart(h)
-	require.NoError(t, err, "should create form part")
-	_, err = part.Write(testImageData)
-	require.NoError(t, err, "should write image data")
-
-	// Add caption
-	err = writer.WriteField("caption", caption)
-	require.NoError(t, err, "should write caption field")
-
-	err = writer.Close()
-	require.NoError(t, err, "should close writer")
-
-	// Create request
-	url := fmt.Sprintf("/api/servers/%s/posts", serverId)
-	reqBody := body.Bytes()
-	req := setup.CreateAuthRequest(http.MethodPost, url, reqBody, accessToken)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	resp, err := app.Test(req)
-	require.NoError(t, err, "create post request should complete")
-	require.Equal(t, 200, resp.StatusCode, "create post should return 200")
-
-	result := setup.ParseJSONResponse(t, resp)
-	return result
-}
-
 // TestCreatePost tests the POST /api/servers/:serverId/posts endpoint
 func TestCreatePost(t *testing.T) {
 	if testing.Short() {
@@ -487,13 +447,13 @@ func TestGetPostDetail(t *testing.T) {
 	req := setup.CreateAuthRequest(http.MethodPost, url, reqBody, accessToken)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	resp, err := app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "create post should succeed")
 
 	// We need to get the postId first - let's fetch server posts
 	url = fmt.Sprintf("/api/servers/%s/posts", serverId)
 	req = setup.CreateAuthRequest(http.MethodGet, url, nil, accessToken)
-	resp, err = app.Test(req)
+	resp, err := app.Test(req)
 	require.NoError(t, err, "get posts should succeed")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -630,13 +590,13 @@ func TestUpdatePostCaption(t *testing.T) {
 	req := setup.CreateAuthRequest(http.MethodPost, url, reqBody, accessToken)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	resp, err := app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "create post should succeed")
 
 	// Get postId from server posts
 	url = fmt.Sprintf("/api/servers/%s/posts", serverId)
 	req = setup.CreateAuthRequest(http.MethodGet, url, nil, accessToken)
-	resp, err = app.Test(req)
+	resp, err := app.Test(req)
 	require.NoError(t, err, "get posts should succeed")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -711,13 +671,13 @@ func TestUpdatePostCaption(t *testing.T) {
 	req2 := setup.CreateAuthRequest(http.MethodPost, url2, reqBody2, otherAccessToken)
 	req2.Header.Set("Content-Type", writer2.FormDataContentType())
 
-	resp2, err := app.Test(req2)
+	_, err = app.Test(req2)
 	require.NoError(t, err, "create post should succeed")
 
 	// Get the postId
 	url2 = fmt.Sprintf("/api/servers/%s/posts", otherServerId)
 	req2 = setup.CreateAuthRequest(http.MethodGet, url2, nil, otherAccessToken)
-	resp2, err = app.Test(req2)
+	resp2, err := app.Test(req2)
 	require.NoError(t, err, "get posts should succeed")
 
 	result2 := setup.ParseJSONResponse(t, resp2)
@@ -798,13 +758,13 @@ func TestLikeUnlikePost(t *testing.T) {
 	req := setup.CreateAuthRequest(http.MethodPost, url, reqBody, accessToken)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	resp, err := app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "create post should succeed")
 
 	// Get postId
 	url = fmt.Sprintf("/api/servers/%s/posts", serverId)
 	req = setup.CreateAuthRequest(http.MethodGet, url, nil, accessToken)
-	resp, err = app.Test(req)
+	resp, err := app.Test(req)
 	require.NoError(t, err, "get posts should succeed")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -936,13 +896,13 @@ func TestCreateComment(t *testing.T) {
 	req := setup.CreateAuthRequest(http.MethodPost, url, reqBody, accessToken)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	resp, err := app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "create post should succeed")
 
 	// Get postId
 	url = fmt.Sprintf("/api/servers/%s/posts", serverId)
 	req = setup.CreateAuthRequest(http.MethodGet, url, nil, accessToken)
-	resp, err = app.Test(req)
+	resp, err := app.Test(req)
 	require.NoError(t, err, "get posts should succeed")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -1113,13 +1073,13 @@ func TestGetComments(t *testing.T) {
 	req := setup.CreateAuthRequest(http.MethodPost, url, reqBody, accessToken)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	resp, err := app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "create post should succeed")
 
 	// Get postId
 	url = fmt.Sprintf("/api/servers/%s/posts", serverId)
 	req = setup.CreateAuthRequest(http.MethodGet, url, nil, accessToken)
-	resp, err = app.Test(req)
+	resp, err := app.Test(req)
 	require.NoError(t, err, "get posts should succeed")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -1282,13 +1242,13 @@ func TestDeleteComment(t *testing.T) {
 	req := setup.CreateAuthRequest(http.MethodPost, url, reqBody, accessToken)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	resp, err := app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "create post should succeed")
 
 	// Get postId
 	url = fmt.Sprintf("/api/servers/%s/posts", serverId)
 	req = setup.CreateAuthRequest(http.MethodGet, url, nil, accessToken)
-	resp, err = app.Test(req)
+	resp, err := app.Test(req)
 	require.NoError(t, err, "get posts should succeed")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -1301,7 +1261,7 @@ func TestDeleteComment(t *testing.T) {
 	reqBody = []byte(`{"content":"Comment to be deleted"}`)
 	url = fmt.Sprintf("/api/posts/%s/comments", postId)
 	req = setup.CreateAuthRequest(http.MethodPost, url, reqBody, accessToken)
-	resp, err = app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "create comment should succeed")
 
 	// Get commentId
@@ -1351,7 +1311,7 @@ func TestDeleteComment(t *testing.T) {
 	reqBody = []byte(`{"content":"Another comment"}`)
 	url = fmt.Sprintf("/api/posts/%s/comments", postId)
 	req = setup.CreateAuthRequest(http.MethodPost, url, reqBody, accessToken)
-	resp, err = app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "create comment should succeed")
 
 	// Get commentId
@@ -1452,13 +1412,13 @@ func TestDeletePost(t *testing.T) {
 	req := setup.CreateAuthRequest(http.MethodPost, url, reqBody, accessToken)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	resp, err := app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "create post should succeed")
 
 	// Get postId
 	url = fmt.Sprintf("/api/servers/%s/posts", serverId)
 	req = setup.CreateAuthRequest(http.MethodGet, url, nil, accessToken)
-	resp, err = app.Test(req)
+	resp, err := app.Test(req)
 	require.NoError(t, err, "get posts should succeed")
 
 	result := setup.ParseJSONResponse(t, resp)

@@ -70,7 +70,7 @@ func ConvertToWebP(file *multipart.FileHeader, quality int, maxW int, maxH int) 
 	if err != nil {
 		return nil, err
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	// Read file into buffer
 	buffer := new(bytes.Buffer)

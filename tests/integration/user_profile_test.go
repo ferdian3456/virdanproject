@@ -27,13 +27,13 @@ func createTestUser(t *testing.T, app *fiber.App, mailhogURL, email, username, p
 	otp := setup.GetOTPFromMailhog(t, mailhogURL, email)
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","otp":"%s"}`, sessionId, otp))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/otp", reqBody)
-	resp, err = app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "OTP verification should succeed")
 
 	// Set username
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","username":"%s"}`, sessionId, username))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/username", reqBody)
-	resp, err = app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "username set should succeed")
 
 	// Set password
@@ -66,10 +66,10 @@ func TestGetUserProfile(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	t.Log("=== Setting Up Test Application ===")
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
@@ -130,10 +130,10 @@ func TestLogoutUser(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	t.Log("=== Setting Up Test Application ===")
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
@@ -187,10 +187,10 @@ func TestUpdateUsername(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	t.Log("=== Setting Up Test Application ===")
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
@@ -305,10 +305,10 @@ func TestUpdateFullname(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	t.Log("=== Setting Up Test Application ===")
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
@@ -404,10 +404,10 @@ func TestUpdateBio(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	t.Log("=== Setting Up Test Application ===")
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)

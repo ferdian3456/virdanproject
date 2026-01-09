@@ -410,7 +410,9 @@ func (usecase *UserUsecase) UpdateAvatar(ctx *fiber.Ctx, userId uuid.UUID) error
 		return err
 	}
 
-	defer tx.Rollback(ctxContext)
+	defer func() {
+		_ = tx.Rollback(ctxContext)
+	}()
 
 	fileName, err := usecase.UserRepository.GetUserAvatar(ctxContext, tx, userId)
 	if err != nil {

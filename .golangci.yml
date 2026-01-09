@@ -1,0 +1,12 @@
+version: "2"
+
+linters:
+  disable:
+    - errcheck
+    - ineffassign
+  enable:
+    - gosec
+
+run:
+  timeout: 5m
+  tests: true

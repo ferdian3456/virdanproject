@@ -22,11 +22,11 @@ func TestErrorStructureValidation(t *testing.T) {
 	t.Log("=== Starting Test Infrastructure ===")
 	infra, err := setup.StartInfra(ctx, t)
 	require.NoError(t, err, "infrastructure should start successfully")
-	defer infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 
 	// 2. Run migrations
 	t.Log("=== Running Database Migrations ===")
-	setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 
 	// 3. Setup test app
 	t.Log("=== Setting Up Test Application ===")
@@ -83,12 +83,12 @@ func TestErrorStructureValidation(t *testing.T) {
 	otp := setup.GetOTPFromMailhog(t, infra.MailhogURL, testEmail)
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","otp":"%s"}`, sessionId, otp))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/otp", reqBody)
-	resp, err = app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "verify OTP should succeed")
 
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","username":"testuser"}`, sessionId))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/username", reqBody)
-	resp, err = app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "set username should succeed")
 
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","password":"password123"}`, sessionId))
@@ -160,7 +160,7 @@ func TestErrorStructureValidation(t *testing.T) {
 	otp = setup.GetOTPFromMailhog(t, infra.MailhogURL, testEmail2)
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","otp":"%s"}`, sessionId, otp))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/otp", reqBody)
-	resp, err = app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "verify OTP should succeed")
 
 	// Test 6a: Empty username
@@ -215,7 +215,7 @@ func TestErrorStructureValidation(t *testing.T) {
 	// Set valid username first
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","username":"validuser"}`, sessionId))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/username", reqBody)
-	resp, err = app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "set username should succeed")
 
 	// Test 7a: Empty password

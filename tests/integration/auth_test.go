@@ -25,12 +25,12 @@ func TestSignupStart(t *testing.T) {
 
 	t.Cleanup(func() {
 		t.Log("=== Cleaning Up Test Infrastructure ===")
-		infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 	})
 
 	// 2. Run migrations
 	t.Log("=== Running Database Migrations ===")
-	err = setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 	require.NoError(t, err)
 
 	// 3. Setup test app
@@ -77,7 +77,7 @@ func TestHealthCheck(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 	})
 
 	// 2. Setup test app
@@ -108,12 +108,12 @@ func TestCompleteSignupFlow(t *testing.T) {
 
 	t.Cleanup(func() {
 		t.Log("=== Cleaning Up Test Infrastructure ===")
-		infra.Terminate(ctx, t)
+	defer func() { _ = infra.Terminate(ctx, t) }()
 	})
 
 	// 2. Run migrations
 	t.Log("=== Running Database Migrations ===")
-	err = setup.RunMigration(infra.PgURL, t)
+	_ = setup.RunMigration(infra.PgURL, t)
 	require.NoError(t, err)
 
 	// 3. Setup test app

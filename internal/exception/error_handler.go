@@ -32,7 +32,7 @@ func Recovery(log *zap.Logger) fiber.Handler {
 				log.Error("panic occurred and recovered", zap.String("error", errMsg))
 
 				// Send standardized error response
-				c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				_ = c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": fiber.Map{
 						"code":    constant.ERR_INTERNAL_SERVER_ERROR_CODE,
 						"message": constant.ERR_INTENRAL_SERVER_ERROR_MESSAGE,

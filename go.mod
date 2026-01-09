@@ -1,8 +1,6 @@
 module github.com/ferdian3456/virdanproject
 
-go 1.24.0
-
-toolchain go1.24.9
+go 1.24.9
 
 require (
 	github.com/bytedance/sonic v1.14.1

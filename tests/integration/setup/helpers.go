@@ -174,7 +174,7 @@ func GetOTPFromMailhog(t *testing.T, mailhogURL, email string) string {
 		// HTTP GET ke MailHog API
 		resp, err := http.Get(apiURL)
 		require.NoError(t, err, "failed to fetch messages from MailHog")
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// Parse JSON response
 		body, err := io.ReadAll(resp.Body)
