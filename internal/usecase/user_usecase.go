@@ -276,19 +276,19 @@ func (usecase *UserUsecase) Login(ctx *fiber.Ctx, payload model.UserLoginRequest
 		return token, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Password is required to not be empty",
-			Param:   "email",
+			Param:   "password",
 		}
 	} else if len(payload.Password) < 5 {
 		return token, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Password must be at least 5 characters",
-			Param:   "email",
+			Param:   "password",
 		}
 	} else if len(payload.Password) > 20 {
 		return token, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Password must be at most 20 characters",
-			Param:   "email",
+			Param:   "password",
 		}
 	}
 

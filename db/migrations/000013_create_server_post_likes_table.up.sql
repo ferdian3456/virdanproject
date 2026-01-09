@@ -1,4 +1,5 @@
 CREATE TABLE IF NOT EXISTS server_post_likes (
+    id          uuid PRIMARY KEY,
     post_id     uuid NOT NULL,
     user_id     uuid NOT NULL,
     create_user_id uuid NOT NULL,

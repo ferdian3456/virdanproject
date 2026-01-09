@@ -42,3 +42,8 @@ type ServerPostResponse struct {
 	CreateDatetime time.Time  `json:"createDatetime"`
 	UpdateDatetime time.Time  `json:"updateDatetime"`
 }
+
+// PostLikeResponse represents response after like/unlike operation
+type PostLikeResponse struct {
+	LikeCount int `json:"likeCount"`
+}

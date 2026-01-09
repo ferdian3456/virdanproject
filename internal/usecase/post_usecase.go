@@ -34,17 +34,18 @@ func NewPostUsecase(postRepository *repository.PostRepository, db *pgxpool.Pool,
 	}
 }
 
-func (usecase *PostUsecase) CreatePost(ctx *fiber.Ctx, serverId uuid.UUID, userId uuid.UUID) error {
+func (usecase *PostUsecase) CreatePost(ctx *fiber.Ctx, serverId uuid.UUID, userId uuid.UUID) (model.ServerPostResponse, error) {
+	response := model.ServerPostResponse{}
 	ctxContext := ctx.Context()
 
 	// Check if user is a member of the server
 	exists, err := usecase.PostRepository.CheckServerMember(ctxContext, serverId, userId)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	if exists != 1 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not a member of this server",
 			Param:   "serverId",
@@ -55,7 +56,7 @@ func (usecase *PostUsecase) CreatePost(ctx *fiber.Ctx, serverId uuid.UUID, userI
 	fieldName := "image"
 	fileHeader, err := ctx.FormFile(fieldName)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	var imageFile *bytes.Reader
@@ -65,13 +66,13 @@ func (usecase *PostUsecase) CreatePost(ctx *fiber.Ctx, serverId uuid.UUID, userI
 	if fileHeader.Size != 0 {
 		imageFile, imageSize, err = util.ValidateImage(fileHeader, fieldName)
 		if err != nil {
-			return err
+			return response, err
 		}
 
 		id := uuid.New()
 		postImageId = &id
 	} else {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Image is required",
 			Param:   "image",
@@ -81,7 +82,7 @@ func (usecase *PostUsecase) CreatePost(ctx *fiber.Ctx, serverId uuid.UUID, userI
 	// Validate caption
 	caption := ctx.FormValue("caption")
 	if caption == "" {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Caption is required",
 			Param:   "caption",
@@ -124,7 +125,7 @@ func (usecase *PostUsecase) CreatePost(ctx *fiber.Ctx, serverId uuid.UUID, userI
 	// Start transaction
 	tx, err := usecase.DB.Begin(ctxContext)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	defer func() {
@@ -136,36 +137,45 @@ func (usecase *PostUsecase) CreatePost(ctx *fiber.Ctx, serverId uuid.UUID, userI
 	// Upload image to MinIO
 	err = usecase.PostRepository.UploadPostObject(ctxContext, bucketName, serverPostImage.ObjectKey, imageFile, imageSize)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	// Insert post image to database
 	err = usecase.PostRepository.CreateServerPostImage(ctxContext, tx, serverPostImage)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	// Insert post to database
 	err = usecase.PostRepository.CreateServerPost(ctxContext, tx, serverPost)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	// Commit transaction
 	err = tx.Commit(ctxContext)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	commited = true
 
-	return nil
+	// Fetch full post object after creation
+	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
+	response, err = usecase.PostRepository.GetPost(ctxContext, postId, MINIO_FULL_URL)
+	if err != nil {
+		return response, err
+	}
+
+	return response, nil
 }
 
-func (usecase *PostUsecase) UpdatePostCaption(ctx *fiber.Ctx, serverIdParam string, postIdParam string, userId uuid.UUID, payload model.ServerPostUpdateCaptionRequest) error {
+func (usecase *PostUsecase) UpdatePostCaption(ctx *fiber.Ctx, serverIdParam string, postIdParam string, userId uuid.UUID, payload model.ServerPostUpdateCaptionRequest) (model.ServerPostResponse, error) {
+	response := model.ServerPostResponse{}
+
 	serverId, err := uuid.Parse(serverIdParam)
 	if err != nil {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Invalid server id",
 			Param:   "serverId",
@@ -174,7 +184,7 @@ func (usecase *PostUsecase) UpdatePostCaption(ctx *fiber.Ctx, serverIdParam stri
 
 	postId, err := uuid.Parse(postIdParam)
 	if err != nil {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Invalid post id",
 			Param:   "postId",
@@ -183,7 +193,7 @@ func (usecase *PostUsecase) UpdatePostCaption(ctx *fiber.Ctx, serverIdParam stri
 
 	// Validate caption
 	if payload.Caption == "" {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Caption is required",
 			Param:   "caption",
@@ -195,11 +205,11 @@ func (usecase *PostUsecase) UpdatePostCaption(ctx *fiber.Ctx, serverIdParam stri
 	// Check if user is a member of the server
 	serverMemberExists, err := usecase.PostRepository.CheckServerMember(ctxContext, serverId, userId)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	if serverMemberExists != 1 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not a member of this server",
 			Param:   "serverId",
@@ -209,11 +219,11 @@ func (usecase *PostUsecase) UpdatePostCaption(ctx *fiber.Ctx, serverIdParam stri
 	// Check if user is the author of the post
 	postOwnerExists, err := usecase.PostRepository.CheckPostOwnership(ctxContext, postId, userId)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	if postOwnerExists != 1 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not the author of this post",
 			Param:   "postId",
@@ -224,10 +234,17 @@ func (usecase *PostUsecase) UpdatePostCaption(ctx *fiber.Ctx, serverIdParam stri
 
 	err = usecase.PostRepository.UpdatePostCaption(ctxContext, postId, payload.Caption, userId, now)
 	if err != nil {
-		return err
+		return response, err
 	}
 
-	return nil
+	// Fetch full post object after update
+	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
+	response, err = usecase.PostRepository.GetPost(ctxContext, postId, MINIO_FULL_URL)
+	if err != nil {
+		return response, err
+	}
+
+	return response, nil
 }
 
 func (usecase *PostUsecase) DeletePost(ctx *fiber.Ctx, serverIdParam string, postIdParam string, userId uuid.UUID) error {
@@ -478,10 +495,12 @@ func (usecase *PostUsecase) GetPost(ctx *fiber.Ctx, postIdParam string, userId u
 	return response, nil
 }
 
-func (usecase *PostUsecase) LikePost(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID) error {
+func (usecase *PostUsecase) LikePost(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID) (model.PostLikeResponse, error) {
+	response := model.PostLikeResponse{}
+
 	postId, err := uuid.Parse(postIdParam)
 	if err != nil {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Invalid post id",
 			Param:   "postId",
@@ -493,11 +512,11 @@ func (usecase *PostUsecase) LikePost(ctx *fiber.Ctx, postIdParam string, userId 
 	// Check if user is a member of the server where the post belongs (single query)
 	serverMemberExists, err := usecase.PostRepository.CheckPostServerMember(ctxContext, postId, userId)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	if serverMemberExists != 1 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not a member of this server",
 			Param:   "postId",
@@ -507,11 +526,11 @@ func (usecase *PostUsecase) LikePost(ctx *fiber.Ctx, postIdParam string, userId 
 	// Check if user already liked this post
 	likeExists, err := usecase.PostRepository.CheckPostLike(ctxContext, postId, userId)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	if likeExists == 1 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You already liked this post",
 			Param:   "postId",
@@ -521,6 +540,7 @@ func (usecase *PostUsecase) LikePost(ctx *fiber.Ctx, postIdParam string, userId 
 	now := time.Now().UTC()
 
 	postLike := model.ServerPostLikes{
+		Id:             uuid.New(),
 		PostId:         postId,
 		UserId:         userId,
 		CreateDatetime: now,
@@ -531,16 +551,26 @@ func (usecase *PostUsecase) LikePost(ctx *fiber.Ctx, postIdParam string, userId 
 
 	err = usecase.PostRepository.CreatePostLike(ctxContext, postLike)
 	if err != nil {
-		return err
+		return response, err
 	}
 
-	return nil
+	// Fetch updated post to get new like count
+	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
+	post, err := usecase.PostRepository.GetPost(ctxContext, postId, MINIO_FULL_URL)
+	if err != nil {
+		return response, err
+	}
+
+	response.LikeCount = post.LikeCount
+	return response, nil
 }
 
-func (usecase *PostUsecase) UnlikePost(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID) error {
+func (usecase *PostUsecase) UnlikePost(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID) (model.PostLikeResponse, error) {
+	response := model.PostLikeResponse{}
+
 	postId, err := uuid.Parse(postIdParam)
 	if err != nil {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Invalid post id",
 			Param:   "postId",
@@ -552,11 +582,11 @@ func (usecase *PostUsecase) UnlikePost(ctx *fiber.Ctx, postIdParam string, userI
 	// Check if user is a member of the server where the post belongs (single query)
 	serverMemberExists, err := usecase.PostRepository.CheckPostServerMember(ctxContext, postId, userId)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	if serverMemberExists != 1 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not a member of this server",
 			Param:   "postId",
@@ -566,11 +596,11 @@ func (usecase *PostUsecase) UnlikePost(ctx *fiber.Ctx, postIdParam string, userI
 	// Check if user already liked this post
 	likeExists, err := usecase.PostRepository.CheckPostLike(ctxContext, postId, userId)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	if likeExists != 1 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You haven't liked this post yet",
 			Param:   "postId",
@@ -579,16 +609,26 @@ func (usecase *PostUsecase) UnlikePost(ctx *fiber.Ctx, postIdParam string, userI
 
 	err = usecase.PostRepository.DeletePostLike(ctxContext, postId, userId)
 	if err != nil {
-		return err
+		return response, err
 	}
 
-	return nil
+	// Fetch updated post to get new like count
+	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
+	post, err := usecase.PostRepository.GetPost(ctxContext, postId, MINIO_FULL_URL)
+	if err != nil {
+		return response, err
+	}
+
+	response.LikeCount = post.LikeCount
+	return response, nil
 }
 
-func (usecase *PostUsecase) CreateComment(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID, payload model.ServerCommentCreateRequest) error {
+func (usecase *PostUsecase) CreateComment(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID, payload model.ServerCommentCreateRequest) (model.ServerCommentResponse, error) {
+	response := model.ServerCommentResponse{}
+
 	postId, err := uuid.Parse(postIdParam)
 	if err != nil {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Invalid post id",
 			Param:   "postId",
@@ -597,7 +637,7 @@ func (usecase *PostUsecase) CreateComment(ctx *fiber.Ctx, postIdParam string, us
 
 	// Validate content
 	if payload.Content == "" {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Content is required",
 			Param:   "content",
@@ -609,11 +649,11 @@ func (usecase *PostUsecase) CreateComment(ctx *fiber.Ctx, postIdParam string, us
 	// Check if user is a member of the server where the post belongs (single query)
 	serverMemberExists, err := usecase.PostRepository.CheckPostServerMember(ctxContext, postId, userId)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	if serverMemberExists != 1 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not a member of this server",
 			Param:   "postId",
@@ -624,11 +664,11 @@ func (usecase *PostUsecase) CreateComment(ctx *fiber.Ctx, postIdParam string, us
 	if payload.ParentId != nil {
 		parentExists, err := usecase.PostRepository.CheckCommentExists(ctxContext, *payload.ParentId, postId)
 		if err != nil {
-			return err
+			return response, err
 		}
 
 		if parentExists != 1 {
-			return &model.ValidationError{
+			return response, &model.ValidationError{
 				Code:    constant.ERR_VALIDATION_CODE,
 				Message: "Parent comment not found",
 				Param:   "parentId",
@@ -653,10 +693,20 @@ func (usecase *PostUsecase) CreateComment(ctx *fiber.Ctx, postIdParam string, us
 
 	err = usecase.PostRepository.CreateComment(ctxContext, comment)
 	if err != nil {
-		return err
+		return response, err
 	}
 
-	return nil
+	// Construct response from the created comment
+	response = model.ServerCommentResponse{
+		Id:             commentId,
+		AuthorId:       userId,
+		ParentId:       payload.ParentId,
+		Content:        payload.Content,
+		CreateDatetime: now,
+		UpdateDatetime: now,
+	}
+
+	return response, nil
 }
 
 func (usecase *PostUsecase) GetComments(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID) (model.ServerCommentListResponse, error) {

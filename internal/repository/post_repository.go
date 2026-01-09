@@ -33,10 +33,10 @@ func NewPostRepository(zap *zap.Logger, db *pgxpool.Pool, dbCache *redis.Client,
 }
 
 func (repository *PostRepository) CheckServerMember(ctx context.Context, serverId uuid.UUID, userId uuid.UUID) (int, error) {
-	query := "SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2 AND status = 'ACTIVE'"
+	query := "SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2 AND status = $3"
 
 	var exists int
-	err := repository.DB.QueryRow(ctx, query, serverId, userId).Scan(&exists)
+	err := repository.DB.QueryRow(ctx, query, serverId, userId, model.MemberStatusActive).Scan(&exists)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return exists, nil
@@ -264,6 +264,10 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId uuid.UUID,
 		&post.CreateDatetime, &post.UpdateDatetime, &post.CommentCount, &post.LikeCount,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return post, nil
+		}
+
 		return post, err
 	}
 
@@ -289,9 +293,9 @@ func (repository *PostRepository) CheckPostLike(ctx context.Context, postId uuid
 }
 
 func (repository *PostRepository) CreatePostLike(ctx context.Context, postLike model.ServerPostLikes) error {
-	query := "INSERT INTO server_post_likes (post_id, user_id, create_datetime, update_datetime, create_user_id, update_user_id) VALUES ($1, $2, $3, $4, $5, $6)"
+	query := "INSERT INTO server_post_likes (id, post_id, user_id, create_datetime, update_datetime, create_user_id, update_user_id) VALUES ($1, $2, $3, $4, $5, $6, $7)"
 
-	_, err := repository.DB.Exec(ctx, query, postLike.PostId, postLike.UserId, postLike.CreateDatetime, postLike.UpdateDatetime, postLike.CreateUserId, postLike.UpdateUserId)
+	_, err := repository.DB.Exec(ctx, query, postLike.Id, postLike.PostId, postLike.UserId, postLike.CreateDatetime, postLike.UpdateDatetime, postLike.CreateUserId, postLike.UpdateUserId)
 	if err != nil {
 		return err
 	}
@@ -319,11 +323,11 @@ func (repository *PostRepository) CheckPostServerMember(ctx context.Context, pos
 		SELECT 1
 		FROM server_posts sp
 		INNER JOIN server_members sm ON sp.server_id = sm.server_id
-		WHERE sp.id = $1 AND sm.user_id = $2 AND sm.status = 'ACTIVE'
+		WHERE sp.id = $1 AND sm.user_id = $2 AND sm.status = $3
 	`
 
 	var exists int
-	err := repository.DB.QueryRow(ctx, query, postId, userId).Scan(&exists)
+	err := repository.DB.QueryRow(ctx, query, postId, userId, model.MemberStatusActive).Scan(&exists)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return exists, nil

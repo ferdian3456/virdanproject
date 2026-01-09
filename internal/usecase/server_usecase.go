@@ -520,21 +520,23 @@ func (usecase *ServerUsecase) GetServerInfoForInvite(ctx *fiber.Ctx, inviteCode 
 // 	return nil
 // }
 
-func (usecase *ServerUsecase) CreateServer(ctx *fiber.Ctx, userId uuid.UUID, payload model.ServerCreateRequest) error {
+func (usecase *ServerUsecase) CreateServer(ctx *fiber.Ctx, userId uuid.UUID, payload model.ServerCreateRequest) (model.ServerCreateResponse, error) {
+	response := model.ServerCreateResponse{}
+
 	if payload.Name == "" {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Name is required to not be empty",
 			Param:   "name",
 		}
 	} else if len(payload.Name) < 5 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Name must be at least 4 characters",
 			Param:   "name",
 		}
 	} else if len(payload.Name) > 40 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Name must be at most 40 characters",
 			Param:   "name",
@@ -542,19 +544,19 @@ func (usecase *ServerUsecase) CreateServer(ctx *fiber.Ctx, userId uuid.UUID, pay
 	}
 
 	if payload.ShortName == "" {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Short name is required to not be empty",
 			Param:   "shortName",
 		}
 	} else if len(payload.ShortName) < 5 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Short name must be at least 5 characters",
 			Param:   "shortName",
 		}
 	} else if len(payload.ShortName) > 10 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Short name must be at most 10 characters",
 			Param:   "shortName",
@@ -566,11 +568,11 @@ func (usecase *ServerUsecase) CreateServer(ctx *fiber.Ctx, userId uuid.UUID, pay
 	if payload.CategoryId != nil {
 		exists, err := usecase.ServerRepository.CheckServerCategories(ctxContext, *payload.CategoryId)
 		if err != nil {
-			return err
+			return response, err
 		}
 
 		if exists != 1 {
-			return &model.ValidationError{
+			return response, &model.ValidationError{
 				Code:    constant.ERR_VALIDATION_CODE,
 				Message: "Category id is not found",
 				Param:   "categoryId",
@@ -587,7 +589,7 @@ func (usecase *ServerUsecase) CreateServer(ctx *fiber.Ctx, userId uuid.UUID, pay
 
 	settingsBytes, err := json.Marshal(settings)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	server := model.Server{
@@ -635,12 +637,24 @@ func (usecase *ServerUsecase) CreateServer(ctx *fiber.Ctx, userId uuid.UUID, pay
 		UpdateUserId:   userId,
 	}
 
+	response.Id = serverId
+	response.OwnerId = userId
+	response.Name = payload.Name
+	response.ShortName = payload.ShortName
+	response.Description = payload.Description
+	response.CategoryId = payload.CategoryId
+	response.Settings = settingsBytes
+	response.CreateDatetime = now
+	response.UpdateDatetime = now
+	response.CreateUserId = userId
+	response.UpdateUserId = userId
+
 	commited := false
 
 	// start transaction
 	tx, err := usecase.DB.Begin(ctxContext)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	defer func() {
@@ -651,27 +665,27 @@ func (usecase *ServerUsecase) CreateServer(ctx *fiber.Ctx, userId uuid.UUID, pay
 
 	err = usecase.ServerRepository.CreateServer(ctxContext, tx, server)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	err = usecase.ServerRepository.CreateServerRole(ctxContext, tx, serverRole)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	err = usecase.ServerRepository.CreateServerMember(ctxContext, tx, serverMember)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	err = tx.Commit(ctxContext)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	commited = true
 
-	return nil
+	return response, nil
 }
 
 func (usecase *ServerUsecase) GetDiscoveryServer(ctx *fiber.Ctx, userId uuid.UUID) (model.DiscoveryServerResponse, error) {
@@ -952,10 +966,12 @@ func (usecase *ServerUsecase) JoinServer(ctx *fiber.Ctx, userId uuid.UUID) error
 
 // }
 
-func (usecase *ServerUsecase) UpdateServerName(ctx *fiber.Ctx, userId uuid.UUID, serverIdParam string, payload model.ServerUpdateNameRequest) error {
+func (usecase *ServerUsecase) UpdateServerName(ctx *fiber.Ctx, userId uuid.UUID, serverIdParam string, payload model.ServerUpdateNameRequest) (model.ServerUpdateResponse, error) {
+	response := model.ServerUpdateResponse{}
+
 	serverId, err := uuid.Parse(serverIdParam)
 	if err != nil {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Invalid server id",
 			Param:   "serverId",
@@ -963,19 +979,19 @@ func (usecase *ServerUsecase) UpdateServerName(ctx *fiber.Ctx, userId uuid.UUID,
 	}
 
 	if payload.Name == "" {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Name is required to not be empty",
 			Param:   "name",
 		}
 	} else if len(payload.Name) < 5 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Name must be at least 4 characters",
 			Param:   "name",
 		}
 	} else if len(payload.Name) > 40 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Name must be at most 40 characters",
 			Param:   "name",
@@ -986,11 +1002,11 @@ func (usecase *ServerUsecase) UpdateServerName(ctx *fiber.Ctx, userId uuid.UUID,
 
 	exists, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	if exists != 1 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not the owner of this server",
 			Param:   "serverId",
@@ -1001,16 +1017,23 @@ func (usecase *ServerUsecase) UpdateServerName(ctx *fiber.Ctx, userId uuid.UUID,
 
 	err = usecase.ServerRepository.UpdateServerName(ctxContext, serverId, payload.Name, userId, now)
 	if err != nil {
-		return err
+		return response, err
 	}
 
-	return nil
+	response, err = usecase.ServerRepository.GetServerDetail(ctxContext, serverId)
+	if err != nil {
+		return response, err
+	}
+
+	return response, nil
 }
 
-func (usecase *ServerUsecase) UpdateServerShortName(ctx *fiber.Ctx, userId uuid.UUID, serverIdParam string, payload model.ServerUpdateShortNameRequest) error {
+func (usecase *ServerUsecase) UpdateServerShortName(ctx *fiber.Ctx, userId uuid.UUID, serverIdParam string, payload model.ServerUpdateShortNameRequest) (model.ServerUpdateResponse, error) {
+	response := model.ServerUpdateResponse{}
+
 	serverId, err := uuid.Parse(serverIdParam)
 	if err != nil {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Invalid server id",
 			Param:   "serverId",
@@ -1018,19 +1041,19 @@ func (usecase *ServerUsecase) UpdateServerShortName(ctx *fiber.Ctx, userId uuid.
 	}
 
 	if payload.ShortName == "" {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Short name is required to not be empty",
 			Param:   "shortName",
 		}
 	} else if len(payload.ShortName) < 5 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Short name must be at least 5 characters",
 			Param:   "shortName",
 		}
 	} else if len(payload.ShortName) > 10 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Short name must be at most 10 characters",
 			Param:   "shortName",
@@ -1041,11 +1064,11 @@ func (usecase *ServerUsecase) UpdateServerShortName(ctx *fiber.Ctx, userId uuid.
 
 	exists, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	if exists != 1 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not the owner of this server",
 			Param:   "serverId",
@@ -1056,16 +1079,23 @@ func (usecase *ServerUsecase) UpdateServerShortName(ctx *fiber.Ctx, userId uuid.
 
 	err = usecase.ServerRepository.UpdateServerShortName(ctxContext, serverId, payload.ShortName, userId, now)
 	if err != nil {
-		return err
+		return response, err
 	}
 
-	return nil
+	response, err = usecase.ServerRepository.GetServerDetail(ctxContext, serverId)
+	if err != nil {
+		return response, err
+	}
+
+	return response, nil
 }
 
-func (usecase *ServerUsecase) UpdateServerCategory(ctx *fiber.Ctx, userId uuid.UUID, serverIdParam string, payload model.ServerUpdateCategoryRequest) error {
+func (usecase *ServerUsecase) UpdateServerCategory(ctx *fiber.Ctx, userId uuid.UUID, serverIdParam string, payload model.ServerUpdateCategoryRequest) (model.ServerUpdateResponse, error) {
+	response := model.ServerUpdateResponse{}
+
 	serverId, err := uuid.Parse(serverIdParam)
 	if err != nil {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Invalid server id",
 			Param:   "serverId",
@@ -1077,11 +1107,11 @@ func (usecase *ServerUsecase) UpdateServerCategory(ctx *fiber.Ctx, userId uuid.U
 	if payload.CategoryId != nil {
 		exists, err := usecase.ServerRepository.CheckServerCategories(ctxContext, *payload.CategoryId)
 		if err != nil {
-			return err
+			return response, err
 		}
 
 		if exists != 1 {
-			return &model.ValidationError{
+			return response, &model.ValidationError{
 				Code:    constant.ERR_VALIDATION_CODE,
 				Message: "Category id is not found",
 				Param:   "categoryId",
@@ -1091,11 +1121,11 @@ func (usecase *ServerUsecase) UpdateServerCategory(ctx *fiber.Ctx, userId uuid.U
 
 	exists, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	if exists != 1 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not the owner of this server",
 			Param:   "serverId",
@@ -1106,16 +1136,23 @@ func (usecase *ServerUsecase) UpdateServerCategory(ctx *fiber.Ctx, userId uuid.U
 
 	err = usecase.ServerRepository.UpdateServerCategory(ctxContext, serverId, payload.CategoryId, userId, now)
 	if err != nil {
-		return err
+		return response, err
 	}
 
-	return nil
+	response, err = usecase.ServerRepository.GetServerDetail(ctxContext, serverId)
+	if err != nil {
+		return response, err
+	}
+
+	return response, nil
 }
 
-func (usecase *ServerUsecase) UpdateServerDescription(ctx *fiber.Ctx, userId uuid.UUID, serverIdParam string, payload model.ServerUpdateDescriptionRequest) error {
+func (usecase *ServerUsecase) UpdateServerDescription(ctx *fiber.Ctx, userId uuid.UUID, serverIdParam string, payload model.ServerUpdateDescriptionRequest) (model.ServerUpdateResponse, error) {
+	response := model.ServerUpdateResponse{}
+
 	serverId, err := uuid.Parse(serverIdParam)
 	if err != nil {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Invalid server id",
 			Param:   "serverId",
@@ -1126,11 +1163,11 @@ func (usecase *ServerUsecase) UpdateServerDescription(ctx *fiber.Ctx, userId uui
 
 	exists, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
 	if err != nil {
-		return err
+		return response, err
 	}
 
 	if exists != 1 {
-		return &model.ValidationError{
+		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not the owner of this server",
 			Param:   "serverId",
@@ -1141,10 +1178,15 @@ func (usecase *ServerUsecase) UpdateServerDescription(ctx *fiber.Ctx, userId uui
 
 	err = usecase.ServerRepository.UpdateServerDescription(ctxContext, serverId, payload.Description, userId, now)
 	if err != nil {
-		return err
+		return response, err
 	}
 
-	return nil
+	response, err = usecase.ServerRepository.GetServerDetail(ctxContext, serverId)
+	if err != nil {
+		return response, err
+	}
+
+	return response, nil
 }
 
 func (usecase *ServerUsecase) DeleteServer(ctx *fiber.Ctx, userId uuid.UUID, serverIdParam string) error {

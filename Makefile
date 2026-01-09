@@ -43,3 +43,30 @@ migrate-reset:
 .PHONY: tools
 tools:
 	@go run tools.go
+
+# Testing
+.PHONY: test
+test: test-unit test-integration
+
+.PHONY: test-unit
+test-unit:
+	@echo "Running unit tests..."
+	@go test -short -v ./...
+
+.PHONY: test-integration
+test-integration:
+	@echo "Running integration tests..."
+	@go test -v ./tests/integration/...
+
+.PHONY: test-integration-one
+test-integration-one:
+	@echo "Running specific integration test..."
+	@read -p "Enter test name (e.g., TestSignupStart): " testname; \
+	go test -v ./tests/integration/... -run $$testname
+
+.PHONY: test-coverage
+test-coverage:
+	@echo "Running tests with coverage..."
+	@go test -short -coverprofile=coverage.out ./...
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"

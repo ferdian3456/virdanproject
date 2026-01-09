@@ -31,6 +31,34 @@ type ServerCreateRequest struct {
 	Settings    ServerSettingsCreateRequest `json:"settings"`
 }
 
+type ServerCreateResponse struct {
+	Id             uuid.UUID              `json:"id"`
+	OwnerId        uuid.UUID              `json:"ownerId"`
+	Name           string                 `json:"name"`
+	ShortName      string                 `json:"shortName"`
+	CategoryId     *int                   `json:"categoryId"`
+	Description    *string                `json:"description"`
+	Settings       sonic.NoCopyRawMessage `json:"settings"`
+	CreateDatetime time.Time              `json:"createDatetime"`
+	UpdateDatetime time.Time              `json:"updateDatetime"`
+	CreateUserId   uuid.UUID              `json:"createUserId"`
+	UpdateUserId   uuid.UUID              `json:"updateUserId"`
+}
+
+type ServerUpdateResponse struct {
+	Id             uuid.UUID              `json:"id"`
+	OwnerId        uuid.UUID              `json:"ownerId"`
+	Name           string                 `json:"name"`
+	ShortName      string                 `json:"shortName"`
+	CategoryId     *int                   `json:"categoryId"`
+	Description    *string                `json:"description"`
+	Settings       sonic.NoCopyRawMessage `json:"settings"`
+	CreateDatetime time.Time              `json:"createDatetime"`
+	UpdateDatetime time.Time              `json:"updateDatetime"`
+	CreateUserId   uuid.UUID              `json:"createUserId"`
+	UpdateUserId   uuid.UUID              `json:"updateUserId"`
+}
+
 type ServerSettingsCreateRequest struct {
 	IsPrivate bool `json:"isPrivate"`
 }

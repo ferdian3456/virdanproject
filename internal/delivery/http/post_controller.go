@@ -42,7 +42,7 @@ func (controller *PostController) CreatePost(ctx *fiber.Ctx) error {
 
 	var validationErr *model.ValidationError
 
-	err = controller.PostUsecase.CreatePost(ctx, serverId, userId)
+	response, err := controller.PostUsecase.CreatePost(ctx, serverId, userId)
 	if err != nil {
 		if errors.As(err, &validationErr) {
 			return util.SendErrorResponseNotFound(ctx, err)
@@ -51,7 +51,7 @@ func (controller *PostController) CreatePost(ctx *fiber.Ctx) error {
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
 	}
 
-	return util.SendSuccessResponseNoData(ctx)
+	return util.SendSuccessResponseWithData(ctx, response)
 }
 
 func (controller *PostController) UpdatePost(ctx *fiber.Ctx) error {
@@ -71,7 +71,7 @@ func (controller *PostController) UpdatePost(ctx *fiber.Ctx) error {
 
 	var validationErr *model.ValidationError
 
-	err = controller.PostUsecase.UpdatePostCaption(ctx, serverIdParam, postIdParam, userId, payload)
+	response, err := controller.PostUsecase.UpdatePostCaption(ctx, serverIdParam, postIdParam, userId, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
 			return util.SendErrorResponseNotFound(ctx, err)
@@ -80,7 +80,7 @@ func (controller *PostController) UpdatePost(ctx *fiber.Ctx) error {
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
 	}
 
-	return util.SendSuccessResponseNoData(ctx)
+	return util.SendSuccessResponseWithData(ctx, response)
 }
 
 func (controller *PostController) DeletePost(ctx *fiber.Ctx) error {
@@ -148,7 +148,7 @@ func (controller *PostController) LikePost(ctx *fiber.Ctx) error {
 
 	var validationErr *model.ValidationError
 
-	err := controller.PostUsecase.LikePost(ctx, postIdParam, userId)
+	response, err := controller.PostUsecase.LikePost(ctx, postIdParam, userId)
 	if err != nil {
 		if errors.As(err, &validationErr) {
 			return util.SendErrorResponseNotFound(ctx, err)
@@ -157,7 +157,7 @@ func (controller *PostController) LikePost(ctx *fiber.Ctx) error {
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
 	}
 
-	return util.SendSuccessResponseNoData(ctx)
+	return util.SendSuccessResponseWithData(ctx, response)
 }
 
 func (controller *PostController) UnlikePost(ctx *fiber.Ctx) error {
@@ -167,7 +167,7 @@ func (controller *PostController) UnlikePost(ctx *fiber.Ctx) error {
 
 	var validationErr *model.ValidationError
 
-	err := controller.PostUsecase.UnlikePost(ctx, postIdParam, userId)
+	response, err := controller.PostUsecase.UnlikePost(ctx, postIdParam, userId)
 	if err != nil {
 		if errors.As(err, &validationErr) {
 			return util.SendErrorResponseNotFound(ctx, err)
@@ -176,7 +176,7 @@ func (controller *PostController) UnlikePost(ctx *fiber.Ctx) error {
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
 	}
 
-	return util.SendSuccessResponseNoData(ctx)
+	return util.SendSuccessResponseWithData(ctx, response)
 }
 
 func (controller *PostController) CreateComment(ctx *fiber.Ctx) error {
@@ -195,7 +195,7 @@ func (controller *PostController) CreateComment(ctx *fiber.Ctx) error {
 
 	var validationErr *model.ValidationError
 
-	err = controller.PostUsecase.CreateComment(ctx, postIdParam, userId, payload)
+	response, err := controller.PostUsecase.CreateComment(ctx, postIdParam, userId, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
 			return util.SendErrorResponseNotFound(ctx, err)
@@ -204,7 +204,7 @@ func (controller *PostController) CreateComment(ctx *fiber.Ctx) error {
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
 	}
 
-	return util.SendSuccessResponseNoData(ctx)
+	return util.SendSuccessResponseWithData(ctx, response)
 }
 
 func (controller *PostController) GetComments(ctx *fiber.Ctx) error {

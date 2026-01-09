@@ -144,7 +144,7 @@ func (controller *ServerController) CreateServer(ctx *fiber.Ctx) error {
 
 	var validationErr *model.ValidationError
 
-	err = controller.ServerUsecase.CreateServer(ctx, userId, payload)
+	response, err := controller.ServerUsecase.CreateServer(ctx, userId, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
 			return util.SendErrorResponseNotFound(ctx, err)
@@ -153,7 +153,7 @@ func (controller *ServerController) CreateServer(ctx *fiber.Ctx) error {
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
 	}
 
-	return util.SendSuccessResponseNoData(ctx)
+	return util.SendSuccessResponseWithData(ctx, response)
 }
 
 func (controller *ServerController) GetDiscoveryServer(ctx *fiber.Ctx) error {
@@ -239,7 +239,7 @@ func (controller *ServerController) UpdateServerName(ctx *fiber.Ctx) error {
 
 	var validationErr *model.ValidationError
 
-	err = controller.ServerUsecase.UpdateServerName(ctx, userId, serverIdParam, payload)
+	response, err := controller.ServerUsecase.UpdateServerName(ctx, userId, serverIdParam, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
 			return util.SendErrorResponseNotFound(ctx, err)
@@ -248,7 +248,7 @@ func (controller *ServerController) UpdateServerName(ctx *fiber.Ctx) error {
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
 	}
 
-	return util.SendSuccessResponseNoData(ctx)
+	return util.SendSuccessResponseWithData(ctx, response)
 }
 
 func (controller *ServerController) UpdateServerShortName(ctx *fiber.Ctx) error {
@@ -266,7 +266,7 @@ func (controller *ServerController) UpdateServerShortName(ctx *fiber.Ctx) error 
 
 	var validationErr *model.ValidationError
 
-	err = controller.ServerUsecase.UpdateServerShortName(ctx, userId, serverIdParam, payload)
+	response, err := controller.ServerUsecase.UpdateServerShortName(ctx, userId, serverIdParam, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
 			return util.SendErrorResponseNotFound(ctx, err)
@@ -275,7 +275,7 @@ func (controller *ServerController) UpdateServerShortName(ctx *fiber.Ctx) error 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
 	}
 
-	return util.SendSuccessResponseNoData(ctx)
+	return util.SendSuccessResponseWithData(ctx, response)
 }
 
 func (controller *ServerController) UpdateServerCategory(ctx *fiber.Ctx) error {
@@ -293,7 +293,7 @@ func (controller *ServerController) UpdateServerCategory(ctx *fiber.Ctx) error {
 
 	var validationErr *model.ValidationError
 
-	err = controller.ServerUsecase.UpdateServerCategory(ctx, userId, serverIdParam, payload)
+	response, err := controller.ServerUsecase.UpdateServerCategory(ctx, userId, serverIdParam, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
 			return util.SendErrorResponseNotFound(ctx, err)
@@ -302,7 +302,7 @@ func (controller *ServerController) UpdateServerCategory(ctx *fiber.Ctx) error {
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
 	}
 
-	return util.SendSuccessResponseNoData(ctx)
+	return util.SendSuccessResponseWithData(ctx, response)
 }
 
 func (controller *ServerController) UpdateServerDescription(ctx *fiber.Ctx) error {
@@ -320,7 +320,7 @@ func (controller *ServerController) UpdateServerDescription(ctx *fiber.Ctx) erro
 
 	var validationErr *model.ValidationError
 
-	err = controller.ServerUsecase.UpdateServerDescription(ctx, userId, serverIdParam, payload)
+	response, err := controller.ServerUsecase.UpdateServerDescription(ctx, userId, serverIdParam, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
 			return util.SendErrorResponseNotFound(ctx, err)
@@ -329,7 +329,7 @@ func (controller *ServerController) UpdateServerDescription(ctx *fiber.Ctx) erro
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
 	}
 
-	return util.SendSuccessResponseNoData(ctx)
+	return util.SendSuccessResponseWithData(ctx, response)
 }
 
 func (controller *ServerController) DeleteServer(ctx *fiber.Ctx) error {

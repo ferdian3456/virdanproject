@@ -45,12 +45,22 @@ func (c *RouteConfig) SetupRoute() {
 	//userGroup.Delete("/account", c.UserController.DeleteAccount)
 
 	serverGroup := api.Group("/servers", c.AuthMiddleware.ProtectedRoute())
+
+	// Post routes (must be FIRST to avoid conflicts with /:id routes)
+	serverGroup.Post("/:serverId/posts", c.PostController.CreatePost)
+	serverGroup.Put("/:serverId/posts/:postId", c.PostController.UpdatePost)
+	serverGroup.Delete("/:serverId/posts/:postId", c.PostController.DeletePost)
+	serverGroup.Get("/:serverId/posts", c.PostController.GetServerPosts)
+
+	// Invite and join routes
 	serverGroup.Post("/:serverId/invites", c.ServerController.CreateInviteLink)
 	serverGroup.Post("/join", c.ServerController.JoinServerFromInvite)
 	serverGroup.Post("/create", c.ServerController.CreateServer)
 	serverGroup.Get("/", c.ServerController.GetDiscoveryServer)
 	serverGroup.Post("/:serverId/join", c.ServerController.JoinServer)
 	serverGroup.Get("/me", c.ServerController.GetUserServer)
+
+	// Server management routes with /:id parameter
 	// serverGroup.Get("/:id", c.ServerController.GetServerById)
 	serverGroup.Put("/:id/name", c.ServerController.UpdateServerName)
 	serverGroup.Put("/:id/shortName", c.ServerController.UpdateServerShortName)
@@ -60,12 +70,6 @@ func (c *RouteConfig) SetupRoute() {
 	serverGroup.Put("/:id/description", c.ServerController.UpdateServerDescription)
 	serverGroup.Put("/:id/settings", c.ServerController.UpdateServerSettings)
 	serverGroup.Delete("/:id", c.ServerController.DeleteServer)
-
-	serverPostGroup := serverGroup.Group("/:serverId/posts")
-	serverPostGroup.Post("/", c.PostController.CreatePost)
-	serverPostGroup.Put("/:postId", c.PostController.UpdatePost)
-	serverPostGroup.Delete("/:postId", c.PostController.DeletePost)
-	serverPostGroup.Get("/", c.PostController.GetServerPosts)
 
 	postGroup := api.Group("/posts", c.AuthMiddleware.ProtectedRoute())
 	postGroup.Get("/:postId", c.PostController.GetPost)

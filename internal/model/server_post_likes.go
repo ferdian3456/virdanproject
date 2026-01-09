@@ -7,6 +7,7 @@ import (
 )
 
 type ServerPostLikes struct {
+	Id             uuid.UUID
 	PostId         uuid.UUID
 	UserId         uuid.UUID
 	CreateDatetime time.Time

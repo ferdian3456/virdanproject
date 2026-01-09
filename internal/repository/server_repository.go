@@ -253,7 +253,7 @@ func (repository *ServerRepository) GetUserServer(ctx context.Context, limit int
 		queryWithCursor := `
 		SELECT B.id, B.name, B.short_name, C.object_key, A.joined_datetime FROM server_members A
 		INNER JOIN servers B ON A.server_id = B.id
-		LEFT JOIN server_avatar_images C ON C.server_id = B.id
+		LEFT JOIN server_avatar_images C ON C.id = B.avatar_image_id
 		WHERE (A.joined_datetime < $1 OR (A.joined_datetime = $1 AND A.server_id < $2)) AND A.user_id = $3
 		ORDER BY A.joined_datetime DESC, A.server_id DESC
 		LIMIT $4
@@ -264,7 +264,7 @@ func (repository *ServerRepository) GetUserServer(ctx context.Context, limit int
 		query := `
 		SELECT B.id, B.name, B.short_name, C.object_key, A.joined_datetime FROM server_members A
 		INNER JOIN servers B ON A.server_id = B.id
-		LEFT JOIN server_avatar_images C ON C.server_id = B.id
+		LEFT JOIN server_avatar_images C ON C.id = B.avatar_image_id
 		WHERE A.user_id = $1
 		ORDER BY A.joined_datetime DESC, A.server_id DESC
 		LIMIT $2
@@ -502,4 +502,20 @@ func (repository *ServerRepository) UpdateServerSettings(ctx context.Context, se
 	}
 
 	return nil
+}
+
+func (repository *ServerRepository) GetServerDetail(ctx context.Context, serverId uuid.UUID) (model.ServerUpdateResponse, error) {
+	query := `SELECT id,owner_id, name, short_name, category_id, description, settings, create_datetime, update_datetime, create_user_id, update_user_id
+			  FROM servers WHERE id = $1`
+
+	var response model.ServerUpdateResponse
+	err := repository.DB.QueryRow(ctx, query, serverId).Scan(&response.Id, &response.OwnerId, &response.Name, &response.ShortName, &response.CategoryId, &response.Description, &response.Settings, &response.CreateDatetime, &response.UpdateDatetime, &response.CreateUserId, &response.UpdateUserId)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return response, nil
+		}
+		return response, err
+	}
+
+	return response, nil
 }
