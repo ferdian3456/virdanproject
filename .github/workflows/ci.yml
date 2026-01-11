@@ -2,13 +2,17 @@ name: Optimized Go CI Pipeline
 
 on:
   push:
-    branches: ["main"]
+    branches: ["**"]     # All branches
   pull_request:
-    branches: ["main"]
+    branches: ["main"]   # Only when PR to main
   workflow_dispatch:
 
 jobs:
   setup:
+    # Skip CI for merge commits from PR to avoid double run
+    if: |
+      !contains(github.event.head_commit.message, 'Merge pull request') ||
+      github.event_name == 'pull_request'
     name: Setup Go Environment
     runs-on: ubuntu-latest
     steps:

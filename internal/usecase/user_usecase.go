@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"bytes"
+	"context"
 	"crypto/subtle"
 	"fmt"
 	"html/template"
@@ -12,6 +13,7 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/ferdian3456/virdanproject/internal/constant"
 	"github.com/ferdian3456/virdanproject/internal/model"
+	"github.com/ferdian3456/virdanproject/internal/observability"
 	"github.com/ferdian3456/virdanproject/internal/repository"
 	"github.com/ferdian3456/virdanproject/internal/util"
 	"github.com/google/uuid"
@@ -321,8 +323,11 @@ func (usecase *UserUsecase) Login(ctx *fiber.Ctx, payload model.UserLoginRequest
 	return token, nil
 }
 
-func (usecase *UserUsecase) GetUserInfo(ctx *fiber.Ctx, userId uuid.UUID) (model.UserResponse, error) {
-	user, err := usecase.UserRepository.GetUserInfo(ctx.Context(), userId)
+func (usecase *UserUsecase) GetUserInfo(ctx context.Context, userId uuid.UUID) (model.UserResponse, error) {
+	log := observability.WithContext(ctx, usecase.Log)
+	log.Info("processing get user info in usecase layer")
+
+	user, err := usecase.UserRepository.GetUserInfo(ctx, userId)
 	if err != nil {
 		return user, err
 	}
@@ -332,9 +337,16 @@ func (usecase *UserUsecase) GetUserInfo(ctx *fiber.Ctx, userId uuid.UUID) (model
 	MINIO_HTTP := usecase.Config.String("MINIO_HTTP")
 
 	if user.AvatarImage != nil {
-		*user.AvatarImage = fmt.Sprintf("%s%s/%s/%s", MINIO_HTTP, MINIO_URL, MINIO_BUCKET_NAME, *user.AvatarImage)
+		*user.AvatarImage = fmt.Sprintf(
+			"%s%s/%s/%s",
+			MINIO_HTTP,
+			MINIO_URL,
+			MINIO_BUCKET_NAME,
+			*user.AvatarImage,
+		)
 	}
 
+	log.Info("processing get user info in usecase layer is success")
 	return user, nil
 }
 

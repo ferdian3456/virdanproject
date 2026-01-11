@@ -1,0 +1,91 @@
+receivers:
+  # OTLP receiver for traces from virdan-api
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # File log receiver - Read logs from container stdout
+  # Docker captures stdout to /var/lib/docker/containers/<id>/<id>-json.log
+  filelog/virdan-api:
+    include:
+      - /var/log/containers/virdan-api*.log
+    start_at: beginning
+    include_file_name: false
+    include_file_path: true
+    operators:
+      # Parse JSON logs from zap
+      - type: json_parser
+        parse_from: body
+      # Extract trace_id for correlation
+      - type: regex_parser
+        regex: '"trace_id":"?(?P<trace_id>[0-9a-f]+)"?'
+        field: body
+      # Extract span_id for correlation
+      - type: regex_parser
+        regex: '"span_id":"?(?P<span_id>[0-9a-f]+)"?'
+        field: body
+
+processors:
+  # Batch traces and logs before sending
+  batch:
+    timeout: 5s
+    send_batch_size: 8192
+    send_batch_max_size: 8192
+
+  # Add memory limits and processing time limits
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  # Add attributes to all telemetry data
+  resource/add_environment:
+    attributes:
+      - key: deployment.environment
+        value: local
+        action: upsert
+
+  # Parse resource attributes from file path
+  resource/docker:
+    attributes:
+      - key: service.name
+        value: "virdan-api"
+        action: upsert
+
+exporters:
+  # Export traces/logs to ClickStack (HyperDX) OTLP endpoint
+  otlphttp/clickstack:
+    endpoint: http://clickstack:4318
+    tls:
+      insecure: true
+    headers:
+      Authorization: d18020f6-2682-47e6-a05e-c321d0ac9130
+
+  # Debug exporter (for development)
+  debug:
+    verbosity: normal
+
+service:
+  pipelines:
+    # Traces pipeline (from app via OTLP)
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource/add_environment, batch]
+      exporters: [otlphttp/clickstack, debug]
+
+    # Logs pipeline (from container stdout via filelog)
+    logs:
+      receivers: [filelog/virdan-api]
+      processors: [memory_limiter, resource/docker, batch]
+      exporters: [otlphttp/clickstack, debug]
+
+  # Telemetry for the collector itself
+  telemetry:
+    metrics:
+      address: 0.0.0.0:9464
+    logs:
+      level: info
+

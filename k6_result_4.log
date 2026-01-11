@@ -1,0 +1,150 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+     execution: local
+        script: k6_10k_test.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 2000 max VUs, 1m0s max duration (incl. graceful stop):
+              * constant_request_rate: 10000.00 iterations/s for 30s (maxVUs: 1000-2000, exec: healthTest, gracefulStop: 30s)
+
+time="2026-01-11T01:26:03+07:00" level=warning msg="Error from API server" error="listen tcp 127.0.0.1:6565: bind: address already in use"
+
+running (0m00.7s), 1049/1060 VUs, 1036 complete and 0 interrupted iterations
+constant_request_rate   [   2% ] 1049/1060 VUs  00.7s/30s  10000.00 iters/s
+
+running (0m01.7s), 0518/1082 VUs, 5220 complete and 0 interrupted iterations
+constant_request_rate   [   6% ] 0518/1082 VUs  01.7s/30s  10000.00 iters/s
+
+running (0m02.7s), 0548/1114 VUs, 11188 complete and 0 interrupted iterations
+constant_request_rate   [   9% ] 0548/1114 VUs  02.7s/30s  10000.00 iters/s
+
+running (0m03.8s), 0738/1138 VUs, 16123 complete and 0 interrupted iterations
+constant_request_rate   [  13% ] 0738/1137 VUs  03.8s/30s  10000.00 iters/s
+
+running (0m04.7s), 0597/1148 VUs, 20542 complete and 0 interrupted iterations
+constant_request_rate   [  16% ] 0597/1148 VUs  04.7s/30s  10000.00 iters/s
+
+running (0m05.7s), 1096/1225 VUs, 25123 complete and 0 interrupted iterations
+constant_request_rate   [  19% ] 1096/1225 VUs  05.7s/30s  10000.00 iters/s
+
+running (0m06.7s), 1203/1259 VUs, 30333 complete and 0 interrupted iterations
+constant_request_rate   [  22% ] 1203/1259 VUs  06.7s/30s  10000.00 iters/s
+
+running (0m07.7s), 1097/1311 VUs, 34170 complete and 0 interrupted iterations
+constant_request_rate   [  26% ] 1097/1311 VUs  07.7s/30s  10000.00 iters/s
+
+running (0m08.7s), 0377/1330 VUs, 39734 complete and 0 interrupted iterations
+constant_request_rate   [  29% ] 0377/1330 VUs  08.7s/30s  10000.00 iters/s
+
+running (0m09.7s), 0951/1340 VUs, 44891 complete and 0 interrupted iterations
+constant_request_rate   [  32% ] 0951/1340 VUs  09.7s/30s  10000.00 iters/s
+
+running (0m10.7s), 1201/1346 VUs, 49666 complete and 0 interrupted iterations
+constant_request_rate   [  36% ] 1201/1346 VUs  10.7s/30s  10000.00 iters/s
+
+running (0m11.8s), 1006/1469 VUs, 53743 complete and 0 interrupted iterations
+constant_request_rate   [  39% ] 1006/1469 VUs  11.8s/30s  10000.00 iters/s
+
+running (0m12.7s), 1558/1640 VUs, 58377 complete and 0 interrupted iterations
+constant_request_rate   [  42% ] 1558/1640 VUs  12.7s/30s  10000.00 iters/s
+
+running (0m13.7s), 1688/1752 VUs, 62648 complete and 0 interrupted iterations
+constant_request_rate   [  46% ] 1688/1752 VUs  13.7s/30s  10000.00 iters/s
+
+running (0m14.7s), 0934/1760 VUs, 67518 complete and 0 interrupted iterations
+constant_request_rate   [  49% ] 0934/1760 VUs  14.7s/30s  10000.00 iters/s
+
+running (0m15.7s), 1771/1771 VUs, 68973 complete and 0 interrupted iterations
+constant_request_rate   [  52% ] 1771/1771 VUs  15.7s/30s  10000.00 iters/s
+
+running (0m16.7s), 1295/1793 VUs, 75105 complete and 0 interrupted iterations
+constant_request_rate   [  56% ] 1295/1793 VUs  16.7s/30s  10000.00 iters/s
+
+running (0m17.9s), 1443/1802 VUs, 79626 complete and 0 interrupted iterations
+constant_request_rate   [  60% ] 1443/1802 VUs  17.9s/30s  10000.00 iters/s
+
+running (0m18.7s), 1600/1809 VUs, 83354 complete and 0 interrupted iterations
+constant_request_rate   [  62% ] 1600/1808 VUs  18.7s/30s  10000.00 iters/s
+
+running (0m19.7s), 1387/1813 VUs, 88383 complete and 0 interrupted iterations
+constant_request_rate   [  66% ] 1387/1813 VUs  19.7s/30s  10000.00 iters/s
+
+running (0m20.7s), 1782/1824 VUs, 93291 complete and 0 interrupted iterations
+constant_request_rate   [  69% ] 1782/1824 VUs  20.7s/30s  10000.00 iters/s
+
+running (0m21.7s), 1777/1997 VUs, 97012 complete and 0 interrupted iterations
+constant_request_rate   [  72% ] 1777/1997 VUs  21.7s/30s  10000.00 iters/s
+time="2026-01-11T01:26:26+07:00" level=warning msg="Insufficient VUs, reached 2000 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=constant_request_rate
+
+running (0m22.7s), 1937/2000 VUs, 102279 complete and 0 interrupted iterations
+constant_request_rate   [  76% ] 1937/2000 VUs  22.7s/30s  10000.00 iters/s
+
+running (0m23.7s), 1549/2000 VUs, 108463 complete and 0 interrupted iterations
+constant_request_rate   [  79% ] 1549/2000 VUs  23.7s/30s  10000.00 iters/s
+
+running (0m24.7s), 1656/2000 VUs, 112329 complete and 0 interrupted iterations
+constant_request_rate   [  82% ] 1656/2000 VUs  24.7s/30s  10000.00 iters/s
+
+running (0m25.7s), 1044/2000 VUs, 117965 complete and 0 interrupted iterations
+constant_request_rate   [  86% ] 1044/2000 VUs  25.7s/30s  10000.00 iters/s
+
+running (0m26.8s), 1998/2000 VUs, 120303 complete and 0 interrupted iterations
+constant_request_rate   [  89% ] 1998/2000 VUs  26.8s/30s  10000.00 iters/s
+
+running (0m27.7s), 0901/2000 VUs, 125725 complete and 0 interrupted iterations
+constant_request_rate   [  92% ] 0901/2000 VUs  27.7s/30s  10000.00 iters/s
+
+running (0m28.7s), 1627/2000 VUs, 130684 complete and 0 interrupted iterations
+constant_request_rate   [  96% ] 1627/2000 VUs  28.7s/30s  10000.00 iters/s
+
+running (0m29.7s), 1901/2000 VUs, 134540 complete and 0 interrupted iterations
+constant_request_rate   [  99% ] 1901/2000 VUs  29.7s/30s  10000.00 iters/s
+
+
+  █ THRESHOLDS 
+
+    http_req_duration
+    ✗ 'p(95)<100' p(95)=744.3ms
+
+    http_req_failed
+    ✓ 'rate<0.05' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 276574 9168.126293/s
+    checks_succeeded...: 68.08% 188292 out of 276574
+    checks_failed......: 31.91% 88282 out of 276574
+
+    ✓ status is 200
+    ✗ response time < 100ms
+      ↳  36% — ✓ 50005 / ✗ 88282
+
+    HTTP
+    http_req_duration..............: avg=221.28ms min=123.83µs med=143.48ms max=2.35s p(90)=529.12ms p(95)=744.3ms 
+      { expected_response:true }...: avg=221.28ms min=123.83µs med=143.48ms max=2.35s p(90)=529.12ms p(95)=744.3ms 
+    http_req_failed................: 0.00%  0 out of 138287
+    http_reqs......................: 138287 4584.063147/s
+
+    EXECUTION
+    dropped_iterations.............: 161738 5361.438206/s
+    iteration_duration.............: avg=272.29ms min=222.2µs  med=191.41ms max=2.35s p(90)=613.19ms p(95)=880.65ms
+    iterations.....................: 138287 4584.063147/s
+    vus............................: 1822   min=455         max=1998
+    vus_max........................: 2000   min=1060        max=2000
+
+    NETWORK
+    data_received..................: 17 MB  564 kB/s
+    data_sent......................: 11 MB  367 kB/s
+
+
+
+
+running (0m30.2s), 0000/2000 VUs, 138287 complete and 0 interrupted iterations
+constant_request_rate ✓ [ 100% ] 0000/2000 VUs  30s  10000.00 iters/s
+time="2026-01-11T01:26:34+07:00" level=error msg="thresholds on metrics 'http_req_duration' have been crossed"

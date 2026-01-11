@@ -9,6 +9,7 @@ import (
 
 	"github.com/ferdian3456/virdanproject/internal/constant"
 	"github.com/ferdian3456/virdanproject/internal/model"
+	"github.com/ferdian3456/virdanproject/internal/observability"
 	"github.com/ferdian3456/virdanproject/internal/util"
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
@@ -97,6 +98,9 @@ func (repository *UserRepository) GetUserAuth(ctx context.Context, username stri
 }
 
 func (repository *UserRepository) GetUserInfo(ctx context.Context, id uuid.UUID) (model.UserResponse, error) {
+	log := observability.WithContext(ctx, repository.Log)
+	log.Info("processing get user info in usecase layer")
+
 	query := `SELECT A.id,A.username,A.fullname,A.email,B.object_key,A.create_datetime,A.update_datetime
 			FROM users A
 			LEFT JOIN user_avatar_images B ON A.id = B.user_id
@@ -107,14 +111,20 @@ func (repository *UserRepository) GetUserInfo(ctx context.Context, id uuid.UUID)
 	err := repository.DB.QueryRow(ctx, query, id).Scan(&user.Id, &user.Username, &user.Fullname, &user.Email, &user.AvatarImage, &user.CreateDatetime, &user.UpdateDatetime)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			log.Info("query to database to get user info is success but return empty data")
+
 			return user, &model.ValidationError{
 				Code:    constant.ERR_NOT_FOUND_ERROR,
 				Message: "User not found",
 				Param:   "userId",
 			}
 		}
+
+		log.Error("query to database to get user info is failed", zap.Error(err))
 		return user, err
 	}
+
+	log.Info("query to database to get user info is success")
 
 	return user, nil
 }

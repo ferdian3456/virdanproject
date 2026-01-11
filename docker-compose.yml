@@ -1,4 +1,106 @@
 services:
+  # Migration runner - runs automatically on startup
+  migrate:
+    image: migrate/migrate:latest
+    container_name: virdan-migrate
+    command: -database postgresql://ferdian:ferdian123@postgres:5432/virdanproject?sslmode=disable -path /migrations -verbose up
+    volumes:
+      - ./db/migrations:/migrations
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - default
+
+  virdan-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_VERSION: ${BUILD_VERSION:-dev}
+        BUILD_TIME: ${BUILD_TIME:-}
+        GIT_COMMIT: ${GIT_COMMIT:-}
+      cache_from:
+        - virdan-api:latest
+    image: virdan-api:latest
+    container_name: virdan-api
+    ports:
+      - "8081:8081"
+    environment:
+      # Database
+      POSTGRES_URL: postgresql://ferdian:ferdian123@postgres:5432/virdanproject?sslmode=disable
+
+      # Redis
+      REDIS_URL: redis:6379
+
+      # Server
+      GO_SERVER: :8081
+      LOG_LEVEL: debug
+      JWT_SECRET_KEY: fufufafa
+
+      # MinIO
+      MINIO_URL: minio:9000
+      MINIO_HTTP: http://
+      MINIO_USER: minioadmin
+      MINIO_PASSWORD: minioadmin
+      MINIO_BUCKET_NAME: virdan
+      MINIO_LOCATION: us-east-1
+
+      # Observability - Use OTEL Collector instead of direct to ClickStack
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_EXPORTER_OTLP_HEADERS: authorization=d18020f6-2682-47e6-a05e-c321d0ac9130
+      OTEL_SERVICE_NAME: virdan-api
+      ENVIRONMENT: local
+      OTEL_RESOURCE_ATTRIBUTES: service.version=0.1.0,deployment.environment=local
+
+      # SMTP (optional)
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SENDER_NAME: CosplayRent <cosplayrent12@gmail.com>
+      SENDER_EMAIL: cosplayrent12@gmail.com
+      SENDER_PASSWORD: umdt evoq ktmb xunn
+
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickstack:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    container_name: virdan-otel-collector
+    command: --config=/etc/otelcol/config.yaml
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+      # Mount Docker container logs for filelog receiver
+      # This allows collector to read stdout logs from virdan-api container
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log/containers:/var/log/containers:ro
+    ports:
+      - "4318:4318" # OTLP HTTP
+      - "4317:4317" # OTLP gRPC (optional)
+      - "9464:9464" # Prometheus metrics (optional)
+    depends_on:
+      clickstack:
+        condition: service_started
+    restart: unless-stopped
+
   postgres:
     image: postgres:15.4
     container_name: virdanproject-postgres
@@ -37,7 +139,7 @@ services:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"  # api to send data
+      - "9000:9000" # api to send data
       - "9001:9001"
     environment:
       MINIO_ROOT_USER: minioadmin
@@ -45,7 +147,29 @@ services:
     volumes:
       - minio_data:/data
 
+  clickstack:
+    image: docker.hyperdx.io/hyperdx/hyperdx-all-in-one:latest
+    container_name: virdan-clickstack
+    ports:
+      # HyperDX UI
+      - "8080:8080"
+
+    environment:
+      # Optional but recommended
+      HYPERDX_LOG_LEVEL: info
+
+      # Service name fallback (can be overridden by OTEL SDK)
+      OTEL_SERVICE_NAME: virdan-api
+      HYPERDX_DISABLE_AUTH: "true"
+
+    volumes:
+      # Persist ClickHouse + MongoDB data
+      - clickstack_data:/data
+
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
   minio_data:
+  clickstack_data:
