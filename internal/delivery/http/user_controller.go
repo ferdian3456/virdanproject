@@ -5,11 +5,13 @@ import (
 
 	"github.com/ferdian3456/virdanproject/internal/constant"
 	"github.com/ferdian3456/virdanproject/internal/model"
+	"github.com/ferdian3456/virdanproject/internal/observability"
 	"github.com/ferdian3456/virdanproject/internal/usecase"
 	"github.com/ferdian3456/virdanproject/internal/util"
 	"github.com/google/uuid"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/log"
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/zap"
 )
@@ -76,21 +78,21 @@ func (controller UserController) Login(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
-func (controller UserController) GetUserInfo(ctx *fiber.Ctx) error {
-	userId := ctx.Locals("userId").(uuid.UUID)
+func (controller UserController) GetUserInfo(c *fiber.Ctx) error {
+	ctx := c.UserContext()
 
-	var validationErr *model.ValidationError
+	log := observability.WithContext(ctx, controller.Log)
+	log.Info("get user info request received")
+
+	userId := c.Locals("userId").(uuid.UUID)
 
 	response, err := controller.UserUsecase.GetUserInfo(ctx, userId)
 	if err != nil {
-		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
-		}
-
-		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+		return util.SendErrorResponseInternalServer(c, controller.Log, err)
 	}
 
-	return util.SendSuccessResponseWithData(ctx, response)
+	log.Info("get user info request successful")
+	return util.SendSuccessResponseWithData(c, response)
 }
 
 func (controller UserController) Logout(ctx *fiber.Ctx) error {
@@ -163,6 +165,8 @@ func (controller UserController) VerifyOtp(ctx *fiber.Ctx) error {
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
 	}
+
+	log.Info("user created successfully")
 
 	return util.SendSuccessResponseNoData(ctx)
 }

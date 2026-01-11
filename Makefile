@@ -70,3 +70,113 @@ test-coverage:
 	@go test -short -coverprofile=coverage.out ./...
 	@go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
+
+# Docker management
+.PHONY: docker-build docker-build-fast docker-up docker-down docker-rebuild
+.PHONY: logs logs-api logs-collector logs-clickstack clean health
+
+# Build variables
+BUILD_VERSION ?= dev
+BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+
+# Docker build with proper arguments
+docker-build:
+	@echo "Building production Docker image..."
+	@echo "Version: $(BUILD_VERSION)"
+	@echo "Commit: $(GIT_COMMIT)"
+	@echo "Branch: $(GIT_BRANCH)"
+	@echo "Time: $(BUILD_TIME)"
+	DOCKER_BUILDKIT=1 \
+	BUILD_VERSION=$(BUILD_VERSION) \
+	BUILD_TIME="$(BUILD_TIME)" \
+	GIT_COMMIT=$(GIT_COMMIT) \
+	docker buildx build --build-arg BUILD_VERSION=$(BUILD_VERSION) \
+		--build-arg BUILD_TIME="$(BUILD_TIME)" \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		-f Dockerfile \
+		-t virdan-api:latest \
+		--load \
+		--no-cache \
+		.
+
+# Fast build using BuildKit cache
+docker-build-fast:
+	@echo "Building Docker image (fast mode with cache)..."
+	DOCKER_BUILDKIT=1 \
+	BUILD_VERSION=$(BUILD_VERSION) \
+	BUILD_TIME="$(BUILD_TIME)" \
+	GIT_COMMIT=$(GIT_COMMIT) \
+	docker buildx build --build-arg BUILD_VERSION=$(BUILD_VERSION) \
+		--build-arg BUILD_TIME="$(BUILD_TIME)" \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		-f Dockerfile \
+		-t virdan-api:latest \
+		--load \
+		.
+
+# Start all services
+docker-up:
+	@echo "Starting all services..."
+	docker compose up -d
+	@echo "Waiting for services to be ready..."
+	@sleep 5
+	@echo "Services status:"
+	docker compose ps
+
+# Stop all services
+docker-down:
+	@echo "Stopping all services..."
+	docker compose down
+
+# Restart services
+docker-restart:
+	@echo "Restarting all services..."
+	docker compose restart
+
+# Show logs
+logs:
+	docker compose logs -f --tail=100
+
+# Show logs for specific service
+logs-api:
+	docker compose logs -f --tail=100 virdan-api
+
+logs-collector:
+	docker compose logs -f --tail=100 otel-collector
+
+logs-clickstack:
+	docker compose logs -f --tail=100 clickstack
+
+# Clean everything
+clean:
+	@echo "Cleaning up..."
+	docker compose down -v --remove-orphans
+	docker system prune -f
+	docker volume prune -f
+
+# Full rebuild and restart
+rebuild: docker-down docker-build docker-up
+
+# Health check
+health:
+	@echo "Checking service health..."
+	@echo -n "virdan-api: "; docker compose exec -T virdan-api /app/main --healthcheck 2>/dev/null && echo "OK" || echo "FAIL"
+	@echo -n "postgres: "; docker compose exec -T postgres pg_isready -U ferdian -d virdanproject >/dev/null 2>&1 && echo "OK" || echo "FAIL"
+	@echo -n "redis: "; docker compose exec -T redis redis-cli ping >/dev/null 2>&1 && echo "OK" || echo "FAIL"
+	@echo -n "clickstack: "; docker compose exec -T clickstack wget -q -O- http://localhost:8080 >/dev/null 2>&1 && echo "OK" || echo "FAIL"
+
+# Show container stats
+stats:
+	docker stats --no-stream
+
+# Enter container shell
+shell-api:
+	docker compose exec virdan-api sh
+
+shell-db:
+	docker compose exec postgres psql -U ferdian -d virdanproject
+
+shell-redis:
+	docker compose exec redis redis-cli

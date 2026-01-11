@@ -1,0 +1,22 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+
+exporters:
+  clickhouse:
+    endpoint: tcp://clickhouse:9000
+    database: default
+    ttl: 72h
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 8192
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [clickhouse]

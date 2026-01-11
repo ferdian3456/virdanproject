@@ -1,0 +1,24 @@
+-- wrk script untuk test /api/users/me dengan authorization header
+
+request = function()
+  -- Access tokens dari 5 akun (akan dipilih random)
+  local tokens = {
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2Nzc0NTg4MS1kYjViLTQxZjMtODEwNy0wNmM1YTdhNTAxYzUiLCJpc3MiOiJnaXRodWIuY29tL2ZlcmRpYW4zNDU2L3ZpcmRhbnByb2plY3QiLCJzdWIiOiJ1c2VyOjY3NzQ1ODgxLWRiNWItNDFmMy04MTA3LTA2YzVhN2E1MDFjNSIsImV4cCI6MTc2ODA3MTg2NywibmJmIjoxNzY4MDcwOTY3LCJpYXQiOjE3NjgwNzA5Njd9.k9baGYe0F-w3pWKW8uDBJJAcnj-fcsHR-VGvZzCPfN0",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJlYWQ2NTY1ZS1mMDMzLTRkNTgtYTg0ZS1kOTgzYjA0N2ZjNGQiLCJpc3MiOiJnaXRodWIuY29tL2ZlcmRpYW4zNDU2L3ZpcmRhbnByb2plY3QiLCJzdWIiOiJ1c2VyOmVhZDY1NjVlLWYwMzMtNGQ1OC1hODRlLWQ5ODNiMDQ3ZmM0ZCIsImV4cCI6MTc2ODA3MTg2NywibmJmIjoxNzY4MDcwOTY3LCJpYXQiOjE3NjgwNzA5Njd9.xu29U8v3Q2UzW1no3I9BrdSL2aLIvaoitNPaBRE7Kkc",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiNWNmNzFmZC03ZTkwLTQwZWUtOTA0YS02NDAxOTk0YTYzNmUiLCJpc3MiOiJnaXRodWIuY29tL2ZlcmRpYW4zNDU2L3ZpcmRhbnByb2plY3QiLCJzdWIiOiJ1c2VyOmI1Y2Y3MWZkLTdlOTAtNDBlZS05MDRhLTY0MDE5OTRhNjM2ZSIsImV4cCI6MTc2ODA3MTg2OCwibmJmIjoxNzY4MDcwOTY4LCJpYXQiOjE3NjgwNzA5Njh9.s4sAqQvJH68G7DFHBShVQcJYB4jU5XvcWWoUPOqfrBY",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIzZTIzN2ZlZi0wZmMxLTQxZDctYTFkZC01ODA2NDVjYzYyYTAiLCJpc3MiOiJnaXRodWIuY29tL2ZlcmRpYW4zNDU2L3ZpcmRhbnByb2plY3QiLCJzdWIiOiJ1c2VyOjNlMjM3ZmVmLTBmYzEtNDFkNy1hMWRkLTU4MDY0NWNjNjJhMCIsImV4cCI6MTc2ODA3MTg2OCwibmJmIjoxNzY4MDcwOTY4LCJpYXQiOjE3NjgwNzA5Njh9.YR9iWAtB8P3CNbcAZURq8wMiclQhepuDtbYngIAiM0M",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJlMzMwNjIzNi01OWE4LTRjYzQtYWQ4Zi03ZWQ1YTdiMWJhMDkiLCJpc3MiOiJnaXRodWIuY29tL2ZlcmRpYW4zNDU2L3ZpcmRhbnByb2plY3QiLCJzdWIiOiJ1c2VyOmUzMzA2MjM2LTU5YTgtNGNjNC1hZDhmLTdlZDVhN2IxYmEwOSIsImV4cCI6MTc2ODA3MTg2OCwibmJmIjoxNzY4MDcwOTY4LCJpYXQiOjE3NjgwNzA5Njh9.YucFQEDDwmTW0yig3f6_FzOd0_m3Almtzf93gIqIne8",
+  }
+
+  -- Pick random token
+  local random_token = tokens[math.random(1, #tokens)]
+
+  -- Create request body (empty for GET)
+  local body = ''
+
+  -- Return request with custom header
+  return wrk.format('GET', '/api/users/me', {
+    ['Authorization'] = 'Bearer ' .. random_token,
+    ['Content-Type'] = 'application/json'
+  }, body)
+end

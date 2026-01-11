@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/redis/go-redis/v9"
-
 	"github.com/knadh/koanf/v2"
+	"github.com/redis/go-redis/extra/redisotel/v9"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
@@ -27,7 +27,12 @@ func NewRedisClient(config *koanf.Koanf, log *zap.Logger) *redis.Client {
 		MaxRetryBackoff: 512 * time.Millisecond, // Maximum backoff between retries
 	})
 
-	err := rdb.Ping(context.Background()).Err()
+	err := redisotel.InstrumentTracing(rdb)
+	if err != nil {
+		log.Fatal("failed to instrument redis with otel", zap.Error(err))
+	}
+
+	err = rdb.Ping(context.Background()).Err()
 	if err != nil {
 		log.Fatal("failed to connect redis", zap.Error(err))
 	}
