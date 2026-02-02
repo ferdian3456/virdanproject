@@ -3,7 +3,7 @@ services:
   migrate:
     image: migrate/migrate:latest
     container_name: virdan-migrate
-    command: -database postgresql://ferdian:ferdian123@postgres:5432/virdanproject?sslmode=disable -path /migrations -verbose up
+    command: -database postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable -path /migrations -verbose up
     volumes:
       - ./db/migrations:/migrations
     depends_on:
@@ -29,7 +29,7 @@ services:
       - "8081:8081"
     environment:
       # Database
-      POSTGRES_URL: postgresql://ferdian:ferdian123@postgres:5432/virdanproject?sslmode=disable
+      POSTGRES_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
 
       # Redis
       REDIS_URL: redis:6379
@@ -37,30 +37,30 @@ services:
       # Server
       GO_SERVER: :8081
       LOG_LEVEL: debug
-      JWT_SECRET_KEY: fufufafa
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
 
       # MinIO
       MINIO_URL: minio:9000
       MINIO_HTTP: http://
-      MINIO_USER: minioadmin
-      MINIO_PASSWORD: minioadmin
+      MINIO_USER: ${MINIO_ROOT_USER}
+      MINIO_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET_NAME: virdan
       MINIO_LOCATION: us-east-1
 
-      # Observability - Use OTEL Collector instead of direct to ClickStack
-      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4318
-      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
-      OTEL_EXPORTER_OTLP_HEADERS: authorization=d18020f6-2682-47e6-a05e-c321d0ac9130
+      # Observability - Use OTEL Collector with gRPC
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS}
       OTEL_SERVICE_NAME: virdan-api
       ENVIRONMENT: local
       OTEL_RESOURCE_ATTRIBUTES: service.version=0.1.0,deployment.environment=local
 
       # SMTP (optional)
-      SMTP_HOST: smtp.gmail.com
-      SMTP_PORT: 587
-      SENDER_NAME: CosplayRent <cosplayrent12@gmail.com>
-      SENDER_EMAIL: cosplayrent12@gmail.com
-      SENDER_PASSWORD: umdt evoq ktmb xunn
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SENDER_NAME: ${SENDER_NAME}
+      SENDER_EMAIL: ${SENDER_EMAIL}
+      SENDER_PASSWORD: ${SENDER_PASSWORD}
 
     depends_on:
       migrate:
@@ -69,8 +69,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      clickstack:
-        condition: service_started
       otel-collector:
         condition: service_started
 
@@ -81,6 +79,11 @@ services:
         max-file: "3"
 
     restart: unless-stopped
+    networks:
+      - default
+      - observability
+
+  # ========== Observability Stack ==========
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.111.0
@@ -89,25 +92,150 @@ services:
     volumes:
       - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
       # Mount Docker container logs for filelog receiver
-      # This allows collector to read stdout logs from virdan-api container
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/log/containers:/var/log/containers:ro
     ports:
       - "4318:4318" # OTLP HTTP
-      - "4317:4317" # OTLP gRPC (optional)
-      - "9464:9464" # Prometheus metrics (optional)
+      - "4317:4317" # OTLP gRPC
+      - "9464:9464" # Prometheus metrics
     depends_on:
-      clickstack:
-        condition: service_started
+      - victoria
+      - tempo
+      - loki
     restart: unless-stopped
+    networks:
+      - observability
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: virdan-cadvisor
+    ports:
+      - "8082:8080"  # cAdvisor UI
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    restart: unless-stopped
+    networks:
+      - default
+
+  # VictoriaMetrics - High-performance metrics database
+  victoria:
+    image: victoriametrics/victoria-metrics:latest
+    container_name: virdan-victoriametrics
+    ports:
+      - "8428:8428"  # HTTP API
+      - "8429:8429"  # Prometheus scraping target
+    command:
+      - "--storageDataPath=/victoria-metrics-data"
+      - "--retentionPeriod=7d"
+      - "--memory.allowedPercent=10"
+      - "--search.latencyOffset=30s"
+      - "--loggerLevel=INFO"
+    volumes:
+      - victoria_data:/victoria-metrics-data
+    restart: unless-stopped
+    networks:
+      - observability
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+
+  # Tempo - Distributed tracing backend
+  tempo:
+    image: grafana/tempo:latest
+    container_name: virdan-tempo
+    ports:
+      - "3200:3200"  # Tempo HTTP
+    command:
+      - "--config.file=/etc/tempo/tempo.yaml"
+    volumes:
+      - ./tempo-config.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo_data:/var/tempo
+    restart: unless-stopped
+    networks:
+      - observability
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+
+  # Loki - Log aggregation
+  loki:
+    image: grafana/loki:2.9.10
+    container_name: virdan-loki
+    ports:
+      - "3100:3100"  # Loki HTTP
+    command:
+      - "-config.file=/etc/loki/local-config.yaml"
+    volumes:
+      - ./loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    restart: unless-stopped
+    networks:
+      - observability
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+
+  # Grafana - Unified visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: virdan-grafana
+    ports:
+      - "3000:3000"  # Grafana UI
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SERVER_ROOT_URL: http://localhost:3000
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_UNIFIED_ALERTING_ENABLED: "true"
+      GF_ALERTING_ENABLED: "true"
+      GF_LOG_LEVEL: "info"
+      GF_EXPLORE_ENABLED: "true"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    restart: unless-stopped
+    networks:
+      - observability
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
 
   postgres:
     image: postgres:15.4
     container_name: virdanproject-postgres
     environment:
-      POSTGRES_USER: ferdian
-      POSTGRES_PASSWORD: ferdian123
-      POSTGRES_DB: virdanproject
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
       TZ: UTC
       PGTZ: UTC
     ports:
@@ -115,7 +243,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ferdian -d virdanproject"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -142,34 +270,20 @@ services:
       - "9000:9000" # api to send data
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
       - minio_data:/data
-
-  clickstack:
-    image: docker.hyperdx.io/hyperdx/hyperdx-all-in-one:latest
-    container_name: virdan-clickstack
-    ports:
-      # HyperDX UI
-      - "8080:8080"
-
-    environment:
-      # Optional but recommended
-      HYPERDX_LOG_LEVEL: info
-
-      # Service name fallback (can be overridden by OTEL SDK)
-      OTEL_SERVICE_NAME: virdan-api
-      HYPERDX_DISABLE_AUTH: "true"
-
-    volumes:
-      # Persist ClickHouse + MongoDB data
-      - clickstack_data:/data
-
-    restart: unless-stopped
 
 volumes:
   postgres_data:
   redis_data:
   minio_data:
-  clickstack_data:
+  victoria_data:
+  tempo_data:
+  loki_data:
+  grafana_data:
+
+networks:
+  observability:
+    driver: bridge

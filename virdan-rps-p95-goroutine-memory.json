@@ -1,0 +1,111 @@
+{
+  "version": "0.1.0",
+  "name": "Virdan API - RPS, P95, Go Metrics",
+  "tiles": [
+    {
+      "id": "chart-001",
+      "x": 0,
+      "y": 0,
+      "w": 12,
+      "h": 6,
+      "config": {
+        "name": "HTTP Request Rate (RPS)",
+        "source": "Metrics",
+        "displayType": "line",
+        "granularity": "auto",
+        "compareToPreviousPeriod": false,
+        "select": [
+          {
+            "aggFn": "rate",
+            "aggCondition": "",
+            "aggConditionLanguage": "sql",
+            "valueExpression": "Value",
+            "metricType": "histogram",
+            "metricName": "http.server.duration"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene"
+      }
+    },
+    {
+      "id": "chart-002",
+      "x": 12,
+      "y": 0,
+      "w": 12,
+      "h": 6,
+      "config": {
+        "name": "P95 Response Time",
+        "source": "Metrics",
+        "displayType": "line",
+        "granularity": "auto",
+        "compareToPreviousPeriod": false,
+        "select": [
+          {
+            "aggFn": "quantile",
+            "aggCondition": "",
+            "aggConditionLanguage": "sql",
+            "valueExpression": "Value",
+            "metricType": "histogram",
+            "metricName": "http.server.duration"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene"
+      }
+    },
+    {
+      "id": "chart-003",
+      "x": 0,
+      "y": 6,
+      "w": 12,
+      "h": 6,
+      "config": {
+        "name": "Go Memory Usage (Bytes)",
+        "source": "Metrics",
+        "displayType": "line",
+        "granularity": "auto",
+        "compareToPreviousPeriod": false,
+        "select": [
+          {
+            "aggFn": "sum",
+            "aggCondition": "",
+            "aggConditionLanguage": "sql",
+            "valueExpression": "Value",
+            "metricType": "sum",
+            "metricName": "go.memory.used"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene"
+      }
+    },
+    {
+      "id": "chart-004",
+      "x": 12,
+      "y": 6,
+      "w": 12,
+      "h": 6,
+      "config": {
+        "name": "Go Goroutines",
+        "source": "Metrics",
+        "displayType": "line",
+        "granularity": "auto",
+        "compareToPreviousPeriod": false,
+        "select": [
+          {
+            "aggFn": "avg",
+            "aggCondition": "",
+            "aggConditionLanguage": "sql",
+            "valueExpression": "Value",
+            "metricType": "sum",
+            "metricName": "go.goroutine.count"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene"
+      }
+    }
+  ],
+  "filters": []
+}

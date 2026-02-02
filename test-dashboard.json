@@ -1,0 +1,30 @@
+{
+  "version": "1",
+  "name": "Test Dashboard",
+  "query": "service.name:virdan-api",
+  "tags": ["test"],
+  "tiles": [
+    {
+      "id": "test-001",
+      "name": "HTTP Requests",
+      "x": 0,
+      "y": 0,
+      "w": 12,
+      "h": 4,
+      "config": {
+        "series": [
+          {
+            "type": "time",
+            "dataSource": "metrics",
+            "aggFn": "sum_rate",
+            "field": "http_requests_total",
+            "where": "",
+            "groupBy": [],
+            "metricDataType": "Sum"
+          }
+        ]
+      }
+    }
+  ],
+  "charts": []
+}

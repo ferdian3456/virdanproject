@@ -1,0 +1,33 @@
+{
+  "version": "0.1.0",
+  "name": "Virdan API - RPS Only",
+  "tiles": [
+    {
+      "id": "chart-001",
+      "x": 0,
+      "y": 0,
+      "w": 24,
+      "h": 8,
+      "config": {
+        "name": "HTTP Request Rate (from Duration Histogram)",
+        "source": "Metrics",
+        "displayType": "line",
+        "granularity": "auto",
+        "compareToPreviousPeriod": false,
+        "select": [
+          {
+            "aggFn": "count",
+            "aggCondition": "",
+            "aggConditionLanguage": "sql",
+            "valueExpression": "Value",
+            "metricType": "histogram",
+            "metricName": "http.server.duration"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene"
+      }
+    }
+  ],
+  "filters": []
+}

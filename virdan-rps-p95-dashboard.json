@@ -1,0 +1,59 @@
+{
+  "version": "0.1.0",
+  "name": "Virdan API - RPS & P95 Latency",
+  "tiles": [
+    {
+      "id": "chart-001",
+      "x": 0,
+      "y": 0,
+      "w": 12,
+      "h": 6,
+      "config": {
+        "name": "HTTP Request Rate (RPS)",
+        "source": "Metrics",
+        "displayType": "line",
+        "granularity": "auto",
+        "compareToPreviousPeriod": false,
+        "select": [
+          {
+            "aggFn": "count",
+            "aggCondition": "",
+            "aggConditionLanguage": "sql",
+            "valueExpression": "Value",
+            "metricType": "histogram",
+            "metricName": "http.server.duration"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene"
+      }
+    },
+    {
+      "id": "chart-002",
+      "x": 12,
+      "y": 0,
+      "w": 12,
+      "h": 6,
+      "config": {
+        "name": "P95 Response Time",
+        "source": "Metrics",
+        "displayType": "line",
+        "granularity": "auto",
+        "compareToPreviousPeriod": false,
+        "select": [
+          {
+            "aggFn": "p95",
+            "aggCondition": "",
+            "aggConditionLanguage": "sql",
+            "valueExpression": "Value",
+            "metricType": "histogram",
+            "metricName": "http.server.duration"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene"
+      }
+    }
+  ],
+  "filters": []
+}

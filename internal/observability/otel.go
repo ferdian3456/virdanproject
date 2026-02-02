@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
@@ -35,21 +35,21 @@ func Init(ctx context.Context, cfg Config, log *zap.Logger) (func(context.Contex
 	// Parse headers from config
 	headers := parseHeaders(cfg.OtelHeaders)
 
-	// Create OTLP HTTP exporter (more stable than gRPC for ClickStack/HyperDX)
-	exporter, err := otlptracehttp.New(
+	// Create OTLP gRPC exporter
+	exporter, err := otlptracegrpc.New(
 		ctx,
-		otlptracehttp.WithEndpoint(cfg.OtelEndpoint),
-		otlptracehttp.WithInsecure(),
-		otlptracehttp.WithHeaders(headers),
-		otlptracehttp.WithRetry(
-			otlptracehttp.RetryConfig{
+		otlptracegrpc.WithEndpoint(cfg.OtelEndpoint),
+		otlptracegrpc.WithInsecure(),
+		otlptracegrpc.WithHeaders(headers),
+		otlptracegrpc.WithRetry(
+			otlptracegrpc.RetryConfig{
 				Enabled:         true,
 				InitialInterval: 5 * time.Second,
 				MaxInterval:     30 * time.Second,
 				MaxElapsedTime:  60 * time.Second,
 			},
 		),
-		otlptracehttp.WithTimeout(30*time.Second),
+		otlptracegrpc.WithTimeout(30*time.Second),
 	)
 	if err != nil {
 		log.Fatal("failed to create otlp trace exporter", zap.Error(err))
@@ -80,7 +80,7 @@ func Init(ctx context.Context, cfg Config, log *zap.Logger) (func(context.Contex
 
 	log.Info("otel trace exporter initialized",
 		zap.String("endpoint", cfg.OtelEndpoint),
-		zap.String("protocol", "http/protobuf"),
+		zap.String("protocol", "grpc"),
 		zap.String("service", cfg.ServiceName),
 		zap.Bool("auth_enabled", len(headers) > 0),
 	)

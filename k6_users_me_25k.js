@@ -11,27 +11,26 @@ const ACCESS_TOKENS = [
 
 export const options = {
   scenarios: {
-    // Load test sedang untuk /api/users/me (ada database query)
-    constant_request_rate: {
+    // Direct 25k RPS untuk /api/users/me
+    constant_25k: {
       executor: 'constant-arrival-rate',
-      rate: 1000,  // 1000 RPS target (mulai sedang dulu)
+      rate: 25000,
       timeUnit: '1s',
-      duration: '30s',
-      preAllocatedVUs: 100,
-      maxVUs: 500,
-      exec: 'usersMeTest',
+      duration: '5m',
+      preAllocatedVUs: 1500,
+      maxVUs: 3000,
     },
   },
   thresholds: {
-    http_req_duration: ['p(95)<200'],   // 95% harus < 200ms
-    http_req_failed: ['rate<0.01'],      // Max 1% error rate
+    http_req_duration: ['p(95)<800', 'p(99)<1500'],
+    http_req_failed: ['rate<0.02'],
   },
 };
 
 const BASE_URL = 'http://localhost:8081';
 
-export function usersMeTest() {
-  // Random pilih salah satu dari 5 token
+export default function () {
+  // Random pilih salah satu dari 4 token
   const randomToken = ACCESS_TOKENS[Math.floor(Math.random() * ACCESS_TOKENS.length)];
 
   // Test /api/users/me endpoint
@@ -47,7 +46,7 @@ export function usersMeTest() {
   check(response, {
     'status is 200': (r) => r.status === 200,
     'has user data': (r) => r.json('id') !== undefined,
-    'response time < 200ms': (r) => r.timings.duration < 200,
+    'response time < 2s': (r) => r.timings.duration < 2000,
   });
 
   // No sleep - maximum pressure

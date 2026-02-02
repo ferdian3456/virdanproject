@@ -7,6 +7,16 @@ receivers:
       http:
         endpoint: 0.0.0.0:4318
 
+  # Scrape cAdvisor for container metrics
+  prometheus/cadvisor:
+    config:
+      scrape_configs:
+        - job_name: 'cadvisor'
+          static_configs:
+            - targets: ['cadvisor:8080']
+          scrape_interval: 15s
+          metrics_path: /metrics
+
   # File log receiver - Read logs from container stdout
   # Docker captures stdout to /var/lib/docker/containers/<id>/<id>-json.log
   filelog/virdan-api:
@@ -56,13 +66,25 @@ processors:
         action: upsert
 
 exporters:
-  # Export traces/logs to ClickStack (HyperDX) OTLP endpoint
-  otlphttp/clickstack:
-    endpoint: http://clickstack:4318
+  # Export traces to Tempo
+  otlp/tempo:
+    endpoint: tempo:4317
     tls:
       insecure: true
-    headers:
-      Authorization: d18020f6-2682-47e6-a05e-c321d0ac9130
+    compression: gzip
+
+  # Export metrics to VictoriaMetrics (Prometheus format)
+  prometheusremotewrite/victoriametrics:
+    endpoint: http://victoria:8428/api/v1/write
+    tls:
+      insecure: true
+    timeout: 30s
+
+  # Export logs to Loki
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    tls:
+      insecure: true
 
   # Debug exporter (for development)
   debug:
@@ -70,17 +92,29 @@ exporters:
 
 service:
   pipelines:
-    # Traces pipeline (from app via OTLP)
+    # Traces pipeline (from app via OTLP -> Tempo)
     traces:
       receivers: [otlp]
       processors: [memory_limiter, resource/add_environment, batch]
-      exporters: [otlphttp/clickstack, debug]
+      exporters: [otlp/tempo, debug]
 
-    # Logs pipeline (from container stdout via filelog)
+    # Metrics pipeline (from app via OTLP -> VictoriaMetrics)
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource/add_environment, batch]
+      exporters: [prometheusremotewrite/victoriametrics, debug]
+
+    # Container metrics pipeline (from cAdvisor -> VictoriaMetrics)
+    metrics/container:
+      receivers: [prometheus/cadvisor]
+      processors: [memory_limiter, resource/add_environment, batch]
+      exporters: [prometheusremotewrite/victoriametrics]
+
+    # Logs pipeline (from container stdout via filelog -> Loki)
     logs:
       receivers: [filelog/virdan-api]
       processors: [memory_limiter, resource/docker, batch]
-      exporters: [otlphttp/clickstack, debug]
+      exporters: [loki, debug]
 
   # Telemetry for the collector itself
   telemetry:

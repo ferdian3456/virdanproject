@@ -1,0 +1,11 @@
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/blocks

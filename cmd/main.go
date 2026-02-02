@@ -18,6 +18,7 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/observability"
 	"github.com/gofiber/contrib/otelfiber"
 	"github.com/gofiber/fiber/v2/middleware/compress"
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	zapLog "go.uber.org/zap"
 )
 
@@ -87,6 +88,21 @@ func main() {
 		zap.Fatal("failed to initialize otel trace exporter", zapLog.Error(err))
 	}
 	defer shutdownTracer(ctx)
+
+	// Initialize metrics exporter
+	shutdownMetrics, err := observability.InitMetrics(ctx, obsCfg, zap)
+	if err != nil {
+		zap.Fatal("failed to initialize otel metrics exporter", zapLog.Error(err))
+	}
+	defer shutdownMetrics(ctx)
+
+	// Start Go runtime metrics instrumentation (GC, goroutines, memory)
+	err = runtime.Start(
+		runtime.WithMinimumReadMemStatsInterval(time.Second),
+	)
+	if err != nil {
+		zap.Fatal("failed to start runtime instrumentation", zapLog.Error(err))
+	}
 
 	fiber.Use(func(c *goFiber.Ctx) error {
 		ctx := c.UserContext()
