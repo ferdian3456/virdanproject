@@ -177,6 +177,8 @@ func TestLogoutUser(t *testing.T) {
 }
 
 // TestUpdateUsername tests the PUT /users/username endpoint
+// DISABLED: Update username API is disabled
+/*
 func TestUpdateUsername(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -293,6 +295,7 @@ func TestUpdateUsername(t *testing.T) {
 
 	t.Log("=== All Update Username Tests Passed ===")
 }
+*/
 
 // TestUpdateFullname tests the PUT /users/fullname endpoint
 func TestUpdateFullname(t *testing.T) {
