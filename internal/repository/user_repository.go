@@ -41,6 +41,7 @@ func (repository *UserRepository) Register(ctx context.Context, tx pgx.Tx, user 
 
 	_, err := tx.Exec(ctx, query, user.Id, user.Username, user.Fullname, user.Bio, user.AvatarImageId, user.Email, user.Password, user.Settings, user.CreateDatetime, user.UpdateDatetime, user.CreateUserId, user.UpdateUserId)
 	if err != nil {
+		repository.Log.Error("Failed to register user", zap.Error(err))
 		return err
 	}
 
@@ -53,6 +54,7 @@ func (repository *UserRepository) RegisterNoTx(ctx context.Context, user model.U
 
 	_, err := repository.DB.Exec(ctx, query, user.Id, user.Username, user.Fullname, user.Bio, user.AvatarImageId, user.Email, user.Password, user.Settings, user.CreateDatetime, user.UpdateDatetime, user.CreateUserId, user.UpdateUserId)
 	if err != nil {
+		repository.Log.Error("Failed to register user without transaction", zap.Error(err))
 		return err
 	}
 
@@ -69,6 +71,7 @@ func (repository *UserRepository) CheckUsernameOrEmailUnique(ctx context.Context
 		if errors.Is(err, pgx.ErrNoRows) {
 			return existUsername, existEmail, nil
 		}
+		repository.Log.Error("Failed to check username or email uniqueness", zap.Error(err))
 		return existUsername, existEmail, err
 	}
 
@@ -90,6 +93,7 @@ func (repository *UserRepository) GetUserAuth(ctx context.Context, username stri
 				Param:   "username",
 			}
 		}
+		repository.Log.Error("Failed to get user auth by username", zap.Error(err))
 		return id, passwordHash, err
 	}
 
@@ -113,6 +117,7 @@ func (repository *UserRepository) GetUserInfo(ctx context.Context, id uuid.UUID)
 				Param:   "userId",
 			}
 		}
+		repository.Log.Error("Failed to get user info by ID", zap.Error(err))
 		return user, err
 	}
 
@@ -130,11 +135,13 @@ func (repository *UserRepository) SetAuthTokenInCache(ctx context.Context, acces
 
 	err := repository.DBCache.Set(ctx, accessTokenKey, hashedAccessToken, 15*time.Minute).Err()
 	if err != nil {
+		repository.Log.Error("Failed to set access token in cache", zap.Error(err))
 		return err
 	}
 
 	err = repository.DBCache.Set(ctx, refreshTokenKey, hashedRefreshToken, 15*time.Minute).Err()
 	if err != nil {
+		repository.Log.Error("Failed to set refresh token in cache", zap.Error(err))
 		return err
 	}
 
@@ -151,6 +158,7 @@ func (repository *UserRepository) GetAccessTokenInCache(ctx context.Context, use
 			Param:   "accessToken",
 		}
 	} else if err != nil {
+		repository.Log.Error("Failed to get access token from cache", zap.Error(err))
 		return hashedToken, err
 	}
 
@@ -163,11 +171,13 @@ func (repository *UserRepository) RemoveAuthToken(ctx context.Context, userId uu
 
 	err := repository.DBCache.Del(ctx, accessTokenKey).Err()
 	if err != nil {
+		repository.Log.Error("Failed to remove access token from cache", zap.Error(err))
 		return err
 	}
 
 	err = repository.DBCache.Del(ctx, refreshTokenKey).Err()
 	if err != nil {
+		repository.Log.Error("Failed to remove refresh token from cache", zap.Error(err))
 		return err
 	}
 
@@ -181,6 +191,7 @@ func (repository *UserRepository) UploadUserAvatar(ctx context.Context, bucketNa
 			CacheControl: "public, max-age=31536000, immutable",
 		})
 	if err != nil {
+		repository.Log.Error("Failed to upload user avatar to object storage", zap.Error(err))
 		return err
 	}
 
@@ -196,6 +207,7 @@ func (repository *UserRepository) GetUserAvatar(ctx context.Context, tx pgx.Tx, 
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", nil
 		}
+		repository.Log.Error("Failed to get user avatar", zap.Error(err))
 		return objectKey, err
 	}
 
@@ -205,6 +217,7 @@ func (repository *UserRepository) GetUserAvatar(ctx context.Context, tx pgx.Tx, 
 func (repository *UserRepository) DeleteUserAvatar(ctx context.Context, bucketName string, fileName string) error {
 	err := repository.DBObject.RemoveObject(ctx, bucketName, fileName, minio.RemoveObjectOptions{})
 	if err != nil {
+		repository.Log.Error("Failed to delete user avatar from object storage", zap.Error(err))
 		return err
 	}
 
@@ -216,6 +229,7 @@ func (repository *UserRepository) DeleteAvatarImage(ctx context.Context, tx pgx.
 
 	_, err := tx.Exec(ctx, query, userId)
 	if err != nil {
+		repository.Log.Error("Failed to delete avatar image from database", zap.Error(err))
 		return err
 	}
 
@@ -227,6 +241,7 @@ func (repository *UserRepository) AddUserAvatar(ctx context.Context, tx pgx.Tx, 
 
 	_, err := tx.Exec(ctx, query, avatar.Id, avatar.UserId, avatar.Bucket, avatar.ObjectKey, avatar.MimeType, avatar.Size, avatar.CreateDatetime, avatar.UpdateDatetime, avatar.CreateUserId, avatar.UpdateUserId)
 	if err != nil {
+		repository.Log.Error("Failed to add user avatar to database", zap.Error(err))
 		return err
 	}
 
@@ -245,11 +260,13 @@ func (repository *UserRepository) SetSignupSession(ctx context.Context, sessionI
 	}).Err()
 
 	if err != nil {
+		repository.Log.Error("Failed to set signup session in cache", zap.Error(err))
 		return err
 	}
 
 	err = repository.DBCache.Expire(ctx, key, 30*time.Minute).Err()
 	if err != nil {
+		repository.Log.Error("Failed to set expiration for signup session", zap.Error(err))
 		return err
 	}
 
@@ -261,6 +278,7 @@ func (repository *UserRepository) SetSignupEmailSession(ctx context.Context, ses
 
 	err := repository.DBCache.Set(ctx, key, sessionId, 30*time.Minute).Err()
 	if err != nil {
+		repository.Log.Error("Failed to set signup email session in cache", zap.Error(err))
 		return err
 	}
 
@@ -272,6 +290,7 @@ func (repository *UserRepository) GetOTPSignupSessionData(ctx context.Context, s
 
 	vals, err := repository.DBCache.HMGet(ctx, key, "otp", "otp_expires_at").Result()
 	if err != nil {
+		repository.Log.Error("Failed to get OTP signup session data", zap.Error(err))
 		return vals, err
 	}
 
@@ -282,6 +301,7 @@ func (repository *UserRepository) GetSignupState(ctx context.Context, sessionId 
 
 	vals, err := repository.DBCache.HMGet(ctx, key, "step").Result()
 	if err != nil {
+		repository.Log.Error("Failed to get signup state from cache", zap.Error(err))
 		return vals, err
 	}
 
@@ -293,6 +313,7 @@ func (repository *UserRepository) DeleteOTPState(ctx context.Context, sessionId 
 
 	err := repository.DBCache.HDel(ctx, key, "otp", "otp_expires_at").Err()
 	if err != nil {
+		repository.Log.Error("Failed to delete OTP state from cache", zap.Error(err))
 		return err
 	}
 
@@ -308,6 +329,7 @@ func (repository *UserRepository) SetVerificationOTPState(ctx context.Context, s
 	}).Err()
 
 	if err != nil {
+		repository.Log.Error("Failed to set verification OTP state in cache", zap.Error(err))
 		return err
 	}
 
@@ -323,6 +345,7 @@ func (repository *UserRepository) CheckUsernameUnique(ctx context.Context, usern
 		if errors.Is(err, pgx.ErrNoRows) {
 			return exists, nil
 		}
+		repository.Log.Error("Failed to check username uniqueness", zap.Error(err))
 		return exists, err
 	}
 
@@ -338,6 +361,7 @@ func (repository *UserRepository) CheckEmailUnique(ctx context.Context, email st
 		if errors.Is(err, pgx.ErrNoRows) {
 			return exists, nil
 		}
+		repository.Log.Error("Failed to check email uniqueness", zap.Error(err))
 		return exists, err
 	}
 
@@ -352,6 +376,7 @@ func (repository *UserRepository) SetVerificationUsernameState(ctx context.Conte
 		"username": username,
 	}).Err()
 	if err != nil {
+		repository.Log.Error("Failed to set verification username state in cache", zap.Error(err))
 		return err
 	}
 
@@ -363,6 +388,7 @@ func (repository *UserRepository) GetAllSessionData(ctx context.Context, session
 
 	vals, err := repository.DBCache.HGetAll(ctx, key).Result()
 	if err != nil {
+		repository.Log.Error("Failed to get all signup session data", zap.Error(err))
 		return nil, err
 	}
 
@@ -375,6 +401,7 @@ func (repository *UserRepository) CheckSignupEmailSession(ctx context.Context, e
 	if err == redis.Nil {
 		return false, sessionId, nil
 	} else if err != nil {
+		repository.Log.Error("Failed to check signup email session", zap.Error(err))
 		return false, sessionId, err
 	}
 
@@ -386,6 +413,7 @@ func (repository *UserRepository) DeleteSignupSession(ctx context.Context, sessi
 
 	err := repository.DBCache.Del(ctx, key).Err()
 	if err != nil {
+		repository.Log.Error("Failed to delete signup session", zap.Error(err))
 		return err
 	}
 
@@ -397,6 +425,7 @@ func (repository *UserRepository) DeleteEmailSignupSession(ctx context.Context, 
 
 	err := repository.DBCache.Del(ctx, key).Err()
 	if err != nil {
+		repository.Log.Error("Failed to delete email signup session", zap.Error(err))
 		return err
 	}
 
@@ -408,6 +437,7 @@ func (repository *UserRepository) UpdateUsername(ctx context.Context, userId uui
 
 	_, err := repository.DB.Exec(ctx, query, username, updateDatetime, updateUserId, userId)
 	if err != nil {
+		repository.Log.Error("Failed to update username", zap.Error(err))
 		return err
 	}
 
@@ -419,6 +449,7 @@ func (repository *UserRepository) UpdateFullname(ctx context.Context, userId uui
 
 	_, err := repository.DB.Exec(ctx, query, fullname, updateDatetime, updateUserId, userId)
 	if err != nil {
+		repository.Log.Error("Failed to update fullname", zap.Error(err))
 		return err
 	}
 
@@ -430,6 +461,7 @@ func (repository *UserRepository) UpdateBio(ctx context.Context, userId uuid.UUI
 
 	_, err := repository.DB.Exec(ctx, query, bio, updateDatetime, updateUserId, userId)
 	if err != nil {
+		repository.Log.Error("Failed to update bio", zap.Error(err))
 		return err
 	}
 

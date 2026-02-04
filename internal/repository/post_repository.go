@@ -41,7 +41,7 @@ func (repository *PostRepository) CheckServerMember(ctx context.Context, serverI
 		if errors.Is(err, pgx.ErrNoRows) {
 			return exists, nil
 		}
-
+		repository.Log.Error("Failed to check server member", zap.Error(err))
 		return exists, err
 	}
 
@@ -55,6 +55,7 @@ func (repository *PostRepository) UploadPostObject(ctx context.Context, bucketNa
 			CacheControl: "public, max-age=31536000, immutable",
 		})
 	if err != nil {
+		repository.Log.Error("Failed to upload post object to storage", zap.Error(err))
 		return err
 	}
 
@@ -66,6 +67,7 @@ func (repository *PostRepository) CreateServerPostImage(ctx context.Context, tx 
 
 	_, err := tx.Exec(ctx, query, serverPostImage.Id, serverPostImage.Bucket, serverPostImage.ObjectKey, serverPostImage.MimeType, serverPostImage.Size, serverPostImage.CreateDatetime, serverPostImage.UpdateDatetime, serverPostImage.CreateUserId, serverPostImage.UpdateUserId)
 	if err != nil {
+		repository.Log.Error("Failed to create server post image", zap.Error(err))
 		return err
 	}
 
@@ -77,6 +79,7 @@ func (repository *PostRepository) CreateServerPost(ctx context.Context, tx pgx.T
 
 	_, err := tx.Exec(ctx, query, serverPost.Id, serverPost.ServerId, serverPost.AuthorId, serverPost.PostImageId, serverPost.Caption, serverPost.CreateDatetime, serverPost.UpdateDatetime, serverPost.CreateUserId, serverPost.UpdateUserId)
 	if err != nil {
+		repository.Log.Error("Failed to create server post", zap.Error(err))
 		return err
 	}
 
@@ -92,7 +95,7 @@ func (repository *PostRepository) CheckPostOwnership(ctx context.Context, postId
 		if errors.Is(err, pgx.ErrNoRows) {
 			return exists, nil
 		}
-
+		repository.Log.Error("Failed to check post ownership", zap.Error(err))
 		return exists, err
 	}
 
@@ -104,6 +107,7 @@ func (repository *PostRepository) UpdatePostCaption(ctx context.Context, postId 
 
 	_, err := repository.DB.Exec(ctx, query, caption, updateDatetime, updateUserId, postId)
 	if err != nil {
+		repository.Log.Error("Failed to update post caption", zap.Error(err))
 		return err
 	}
 
@@ -115,6 +119,7 @@ func (repository *PostRepository) DeletePost(ctx context.Context, postId uuid.UU
 
 	_, err := repository.DB.Exec(ctx, query, postId)
 	if err != nil {
+		repository.Log.Error("Failed to delete post", zap.Error(err))
 		return err
 	}
 
@@ -136,6 +141,7 @@ func (repository *PostRepository) GetPostImage(ctx context.Context, tx pgx.Tx, p
 		if errors.Is(err, pgx.ErrNoRows) {
 			return uuid.Nil, "", nil
 		}
+		repository.Log.Error("Failed to get post image", zap.Error(err))
 		return uuid.Nil, "", err
 	}
 
@@ -147,6 +153,7 @@ func (repository *PostRepository) DeletePostImage(ctx context.Context, tx pgx.Tx
 
 	_, err := tx.Exec(ctx, query, postImageId)
 	if err != nil {
+		repository.Log.Error("Failed to delete post image", zap.Error(err))
 		return err
 	}
 
@@ -156,6 +163,7 @@ func (repository *PostRepository) DeletePostImage(ctx context.Context, tx pgx.Tx
 func (repository *PostRepository) DeletePostObject(ctx context.Context, bucketName string, objectKey string) error {
 	err := repository.DBObject.RemoveObject(ctx, bucketName, objectKey, minio.RemoveObjectOptions{})
 	if err != nil {
+		repository.Log.Error("Failed to delete post object from storage", zap.Error(err))
 		return err
 	}
 
@@ -217,6 +225,7 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 	}
 
 	if err != nil {
+		repository.Log.Error("Failed to query server posts", zap.Error(err))
 		return nil, err
 	}
 	defer rows.Close()
@@ -227,6 +236,7 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 		var post model.ServerPostResponse
 		err := rows.Scan(&post.OwnerId, &post.PostId, &post.PostImageUrl, &post.Caption, &post.CreateDatetime, &post.UpdateDatetime, &post.CommentCount, &post.LikeCount)
 		if err != nil {
+			repository.Log.Error("Failed to scan server post row", zap.Error(err))
 			return nil, err
 		}
 
@@ -267,7 +277,7 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId uuid.UUID,
 		if errors.Is(err, pgx.ErrNoRows) {
 			return post, nil
 		}
-
+		repository.Log.Error("Failed to get post by ID", zap.Error(err))
 		return post, err
 	}
 
@@ -285,7 +295,7 @@ func (repository *PostRepository) CheckPostLike(ctx context.Context, postId uuid
 		if errors.Is(err, pgx.ErrNoRows) {
 			return exists, nil
 		}
-
+		repository.Log.Error("Failed to check post like", zap.Error(err))
 		return exists, err
 	}
 
@@ -297,6 +307,7 @@ func (repository *PostRepository) CreatePostLike(ctx context.Context, postLike m
 
 	_, err := repository.DB.Exec(ctx, query, postLike.Id, postLike.PostId, postLike.UserId, postLike.CreateDatetime, postLike.UpdateDatetime, postLike.CreateUserId, postLike.UpdateUserId)
 	if err != nil {
+		repository.Log.Error("Failed to create post like", zap.Error(err))
 		return err
 	}
 
@@ -312,6 +323,7 @@ func (repository *PostRepository) GetPostServerId(ctx context.Context, postId uu
 		if errors.Is(err, pgx.ErrNoRows) {
 			return uuid.Nil, nil
 		}
+		repository.Log.Error("Failed to get post server ID", zap.Error(err))
 		return uuid.Nil, err
 	}
 
@@ -332,7 +344,7 @@ func (repository *PostRepository) CheckPostServerMember(ctx context.Context, pos
 		if errors.Is(err, pgx.ErrNoRows) {
 			return exists, nil
 		}
-
+		repository.Log.Error("Failed to check post server member", zap.Error(err))
 		return exists, err
 	}
 
@@ -344,6 +356,7 @@ func (repository *PostRepository) DeletePostLike(ctx context.Context, postId uui
 
 	_, err := repository.DB.Exec(ctx, query, postId, userId)
 	if err != nil {
+		repository.Log.Error("Failed to delete post like", zap.Error(err))
 		return err
 	}
 
@@ -359,7 +372,7 @@ func (repository *PostRepository) CheckCommentExists(ctx context.Context, commen
 		if errors.Is(err, pgx.ErrNoRows) {
 			return exists, nil
 		}
-
+		repository.Log.Error("Failed to check comment exists", zap.Error(err))
 		return exists, err
 	}
 
@@ -371,6 +384,7 @@ func (repository *PostRepository) CreateComment(ctx context.Context, comment mod
 
 	_, err := repository.DB.Exec(ctx, query, comment.Id, comment.PostId, comment.AuthorId, comment.ParentId, comment.Content, comment.CreateDatetime, comment.UpdateDatetime, comment.CreateUserId, comment.UpdateUserId)
 	if err != nil {
+		repository.Log.Error("Failed to create comment", zap.Error(err))
 		return err
 	}
 
@@ -406,6 +420,7 @@ func (repository *PostRepository) GetComments(ctx context.Context, limit int, po
 	}
 
 	if err != nil {
+		repository.Log.Error("Failed to query comments", zap.Error(err))
 		return nil, err
 	}
 	defer rows.Close()
@@ -416,6 +431,7 @@ func (repository *PostRepository) GetComments(ctx context.Context, limit int, po
 		var comment model.ServerCommentResponse
 		err := rows.Scan(&comment.Id, &comment.AuthorId, &comment.ParentId, &comment.Content, &comment.CreateDatetime, &comment.UpdateDatetime)
 		if err != nil {
+			repository.Log.Error("Failed to scan comment row", zap.Error(err))
 			return nil, err
 		}
 
@@ -434,7 +450,7 @@ func (repository *PostRepository) CheckCommentOwnership(ctx context.Context, com
 		if errors.Is(err, pgx.ErrNoRows) {
 			return exists, nil
 		}
-
+		repository.Log.Error("Failed to check comment ownership", zap.Error(err))
 		return exists, err
 	}
 
@@ -446,6 +462,7 @@ func (repository *PostRepository) DeleteComment(ctx context.Context, commentId u
 
 	_, err := repository.DB.Exec(ctx, query, commentId)
 	if err != nil {
+		repository.Log.Error("Failed to delete comment", zap.Error(err))
 		return err
 	}
 

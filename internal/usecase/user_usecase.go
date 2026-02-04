@@ -310,11 +310,13 @@ func (usecase *UserUsecase) Login(ctx *fiber.Ctx, payload model.UserLoginRequest
 
 	token, err = util.GenerateTokenPair(userId, usecase.Config.String("JWT_SECRET_KEY"))
 	if err != nil {
+		usecase.Log.Error("Failed to generate token pair", zap.Error(err))
 		return token, err
 	}
 
 	err = usecase.UserRepository.SetAuthTokenInCache(ctxContext, token.AccessToken, token.RefreshToken, userId)
 	if err != nil {
+		usecase.Log.Error("Failed to set auth token in cache", zap.Error(err))
 		return token, err
 	}
 
@@ -407,6 +409,7 @@ func (usecase *UserUsecase) UpdateAvatar(ctx *fiber.Ctx, userId uuid.UUID) error
 	// start transaction
 	tx, err := usecase.DB.Begin(ctx.Context())
 	if err != nil {
+		usecase.Log.Error("Failed to begin transaction", zap.Error(err))
 		return err
 	}
 
@@ -443,6 +446,7 @@ func (usecase *UserUsecase) UpdateAvatar(ctx *fiber.Ctx, userId uuid.UUID) error
 
 	err = tx.Commit(ctxContext)
 	if err != nil {
+		usecase.Log.Error("Failed to commit transaction", zap.Error(err))
 		return err
 	}
 
@@ -508,6 +512,7 @@ func (usecase *UserUsecase) StartSignup(ctx *fiber.Ctx, payload model.UserSignup
 
 	otp, err := util.GenerateOTP()
 	if err != nil {
+		usecase.Log.Error("Failed to generate OTP", zap.Error(err))
 		return response, err
 	}
 
@@ -528,12 +533,14 @@ func (usecase *UserUsecase) StartSignup(ctx *fiber.Ctx, payload model.UserSignup
 
 	template, err := template.ParseFS(util.TemplateFS, "template/otp.html")
 	if err != nil {
+		usecase.Log.Error("Failed to parse OTP template", zap.Error(err))
 		return response, err
 	}
 
 	var tmpl bytes.Buffer
 	err = template.Execute(&tmpl, OtpTemplateData)
 	if err != nil {
+		usecase.Log.Error("Failed to execute OTP template", zap.Error(err))
 		return response, err
 	}
 
@@ -546,6 +553,7 @@ func (usecase *UserUsecase) StartSignup(ctx *fiber.Ctx, payload model.UserSignup
 	subject := "Register OTP Verification Code"
 	err = util.SendEmail(smtpHost, smtpPort, senderName, senderEmail, senderPassword, payload.Email, subject, tmpl.String())
 	if err != nil {
+		usecase.Log.Error("Failed to send OTP email", zap.Error(err))
 		return response, err
 	}
 
@@ -833,6 +841,7 @@ func (usecase *UserUsecase) VerifyPassword(ctx *fiber.Ctx, payload model.UserVer
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
 	if err != nil {
+		usecase.Log.Error("Failed to generate hashed password", zap.Error(err))
 		return token, err
 	}
 
@@ -860,11 +869,13 @@ func (usecase *UserUsecase) VerifyPassword(ctx *fiber.Ctx, payload model.UserVer
 
 	token, err = util.GenerateTokenPair(userId, usecase.Config.String("JWT_SECRET_KEY"))
 	if err != nil {
+		usecase.Log.Error("Failed to generate token pair", zap.Error(err))
 		return token, err
 	}
 
 	err = usecase.UserRepository.SetAuthTokenInCache(ctxContext, token.AccessToken, token.RefreshToken, userId)
 	if err != nil {
+		usecase.Log.Error("Failed to set auth token in cache", zap.Error(err))
 		return token, err
 	}
 

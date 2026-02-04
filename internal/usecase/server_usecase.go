@@ -82,6 +82,7 @@ func (usecase *ServerUsecase) CreateInviteLink(ctx *fiber.Ctx, userId uuid.UUID,
 	for i := 0; i < 10; i++ {
 		inviteCode, err = util.GenerateInviteCode()
 		if err != nil {
+			usecase.Log.Error("Failed to generate invite code", zap.Error(err))
 			return response, err
 		}
 
@@ -144,7 +145,6 @@ func (usecase *ServerUsecase) JoinServerFromInvite(ctx *fiber.Ctx, userId uuid.U
 	serverId, err := usecase.ServerRepository.CheckInviteCodesAndRetrieveServerId(ctxContext, payload.InviteCode)
 	if err != nil {
 		usecase.Log.Debug("got here??")
-
 		return err
 	}
 
@@ -208,6 +208,7 @@ func (usecase *ServerUsecase) JoinServerFromInvite(ctx *fiber.Ctx, userId uuid.U
 	// start transaction
 	tx, err := usecase.DB.Begin(ctxContext)
 	if err != nil {
+		usecase.Log.Error("Failed to begin transaction", zap.Error(err))
 		return err
 	}
 
@@ -229,6 +230,7 @@ func (usecase *ServerUsecase) JoinServerFromInvite(ctx *fiber.Ctx, userId uuid.U
 
 	err = tx.Commit(ctxContext)
 	if err != nil {
+		usecase.Log.Error("Failed to commit transaction", zap.Error(err))
 		return err
 	}
 
@@ -589,6 +591,7 @@ func (usecase *ServerUsecase) CreateServer(ctx *fiber.Ctx, userId uuid.UUID, pay
 
 	settingsBytes, err := json.Marshal(settings)
 	if err != nil {
+		usecase.Log.Error("Failed to marshal settings", zap.Error(err))
 		return response, err
 	}
 
@@ -909,6 +912,7 @@ func (usecase *ServerUsecase) JoinServer(ctx *fiber.Ctx, userId uuid.UUID) error
 	// start transaction
 	tx, err := usecase.DB.Begin(ctxContext)
 	if err != nil {
+		usecase.Log.Error("Failed to begin transaction", zap.Error(err))
 		return err
 	}
 
@@ -930,6 +934,7 @@ func (usecase *ServerUsecase) JoinServer(ctx *fiber.Ctx, userId uuid.UUID) error
 
 	err = tx.Commit(ctxContext)
 	if err != nil {
+		usecase.Log.Error("Failed to commit transaction", zap.Error(err))
 		return err
 	}
 
@@ -1204,6 +1209,7 @@ func (usecase *ServerUsecase) DeleteServer(ctx *fiber.Ctx, userId uuid.UUID, ser
 
 	exists, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
 	if err != nil {
+		usecase.Log.Error("Failed to check server ownership", zap.Error(err))
 		return err
 	}
 
@@ -1237,6 +1243,7 @@ func (usecase *ServerUsecase) UpdateServerAvatar(ctx *fiber.Ctx, userId uuid.UUI
 
 	exists, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
 	if err != nil {
+		usecase.Log.Error("Failed to check server ownership", zap.Error(err))
 		return err
 	}
 
@@ -1292,6 +1299,7 @@ func (usecase *ServerUsecase) UpdateServerAvatar(ctx *fiber.Ctx, userId uuid.UUI
 	// start transaction
 	tx, err := usecase.DB.Begin(ctxContext)
 	if err != nil {
+		usecase.Log.Error("Failed to begin transaction", zap.Error(err))
 		return err
 	}
 
@@ -1375,6 +1383,7 @@ func (usecase *ServerUsecase) UpdateServerAvatar(ctx *fiber.Ctx, userId uuid.UUI
 
 	err = tx.Commit(ctxContext)
 	if err != nil {
+		usecase.Log.Error("Failed to commit transaction", zap.Error(err))
 		return err
 	}
 
@@ -1397,6 +1406,7 @@ func (usecase *ServerUsecase) UpdateServerBanner(ctx *fiber.Ctx, userId uuid.UUI
 
 	exists, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
 	if err != nil {
+		usecase.Log.Error("Failed to check server ownership", zap.Error(err))
 		return err
 	}
 
@@ -1452,6 +1462,7 @@ func (usecase *ServerUsecase) UpdateServerBanner(ctx *fiber.Ctx, userId uuid.UUI
 	// start transaction
 	tx, err := usecase.DB.Begin(ctxContext)
 	if err != nil {
+		usecase.Log.Error("Failed to begin transaction", zap.Error(err))
 		return err
 	}
 
@@ -1535,6 +1546,7 @@ func (usecase *ServerUsecase) UpdateServerBanner(ctx *fiber.Ctx, userId uuid.UUI
 
 	err = tx.Commit(ctxContext)
 	if err != nil {
+		usecase.Log.Error("Failed to commit transaction", zap.Error(err))
 		return err
 	}
 
@@ -1557,6 +1569,7 @@ func (usecase *ServerUsecase) UpdateServerSettings(ctx *fiber.Ctx, userId uuid.U
 
 	exists, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
 	if err != nil {
+		usecase.Log.Error("Failed to check server ownership", zap.Error(err))
 		return err
 	}
 
@@ -1570,6 +1583,7 @@ func (usecase *ServerUsecase) UpdateServerSettings(ctx *fiber.Ctx, userId uuid.U
 
 	settingsBytes, err := json.Marshal(payload)
 	if err != nil {
+		usecase.Log.Error("Failed to marshal settings", zap.Error(err))
 		return err
 	}
 

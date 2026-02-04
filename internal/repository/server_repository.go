@@ -37,6 +37,7 @@ func (repository *ServerRepository) CreateServer(ctx context.Context, tx pgx.Tx,
 
 	_, err := tx.Exec(ctx, query, server.Id, server.OwnerId, server.Name, server.ShortName, server.CategoryId, server.AvatarImageId, server.BannerImageId, server.Description, server.Settings, server.CreateDatetime, server.UpdateDatetime, server.CreateUserId, server.UpdateUserId)
 	if err != nil {
+		repository.Log.Error("Failed to create server", zap.Error(err))
 		return err
 	}
 
@@ -48,6 +49,7 @@ func (repository *ServerRepository) CreateServerRole(ctx context.Context, tx pgx
 
 	_, err := tx.Exec(ctx, query, serverRole.Id, serverRole.ServerId, serverRole.Name, serverRole.Permissions, serverRole.CreateDatetime, serverRole.UpdateDatetime, serverRole.CreateUserId, serverRole.UpdateUserId)
 	if err != nil {
+		repository.Log.Error("Failed to create server role", zap.Error(err))
 		return err
 	}
 
@@ -59,6 +61,7 @@ func (repository *ServerRepository) CreateServerMember(ctx context.Context, tx p
 
 	_, err := tx.Exec(ctx, query, serverMember.Id, serverMember.ServerId, serverMember.UserId, serverMember.ServerRoleId, serverMember.Status, serverMember.JoinedDatetime, serverMember.LeftDatetime, serverMember.CreateDatetime, serverMember.UpdateDatetime, serverMember.CreateUserId, serverMember.UpdateUserId)
 	if err != nil {
+		repository.Log.Error("Failed to create server member", zap.Error(err))
 		return err
 	}
 
@@ -74,7 +77,7 @@ func (repository *ServerRepository) CheckInviteCodes(ctx context.Context, code s
 		if errors.Is(err, pgx.ErrNoRows) {
 			return exists, nil
 		}
-
+		repository.Log.Error("Failed to check invite codes", zap.Error(err))
 		return exists, err
 	}
 
@@ -90,7 +93,7 @@ func (repository *ServerRepository) CheckInviteCodesAndRetrieveServerId(ctx cont
 		if errors.Is(err, pgx.ErrNoRows) {
 			return serverId, nil
 		}
-
+		repository.Log.Error("Failed to check invite codes and retrieve server ID", zap.Error(err))
 		return serverId, err
 	}
 
@@ -102,6 +105,7 @@ func (repository *ServerRepository) CreateServerInvites(ctx context.Context, ser
 
 	_, err := repository.DB.Exec(ctx, query, serverInvites.Id, serverInvites.ServerId, serverInvites.Code, serverInvites.MaxUses, serverInvites.UsedCount, serverInvites.ExpiresDatetime, serverInvites.IsActive, serverInvites.CreateUserId, serverInvites.UpdateUserId, serverInvites.CreateDatetime, serverInvites.UpdateDatetime)
 	if err != nil {
+		repository.Log.Error("Failed to create server invites", zap.Error(err))
 		return err
 	}
 
@@ -125,7 +129,7 @@ func (repository *ServerRepository) GetServerInfoForInvite(ctx context.Context, 
 		if errors.Is(err, pgx.ErrNoRows) {
 			return server, nil
 		}
-
+		repository.Log.Error("Failed to get server info for invite", zap.Error(err))
 		return server, err
 	}
 
@@ -141,7 +145,7 @@ func (repository *ServerRepository) CheckServerCategories(ctx context.Context, c
 		if errors.Is(err, pgx.ErrNoRows) {
 			return exists, nil
 		}
-
+		repository.Log.Error("Failed to check server categories", zap.Error(err))
 		return exists, err
 	}
 
@@ -153,6 +157,7 @@ func (repository *ServerRepository) CreateServerAvatarImage(ctx context.Context,
 
 	_, err := tx.Exec(ctx, query, serverAvatarImage.Id, serverAvatarImage.Bucket, serverAvatarImage.ObjectKey, serverAvatarImage.MimeType, serverAvatarImage.Size, serverAvatarImage.CreateDatetime, serverAvatarImage.UpdateDatetime, serverAvatarImage.CreateUserId, serverAvatarImage.UpdateUserId)
 	if err != nil {
+		repository.Log.Error("Failed to create server avatar image", zap.Error(err))
 		return err
 	}
 
@@ -164,6 +169,7 @@ func (repository *ServerRepository) CreateServerBannerImage(ctx context.Context,
 
 	_, err := tx.Exec(ctx, query, serverBannerImage.Id, serverBannerImage.Bucket, serverBannerImage.ObjectKey, serverBannerImage.MimeType, serverBannerImage.Size, serverBannerImage.CreateDatetime, serverBannerImage.UpdateDatetime, serverBannerImage.CreateUserId, serverBannerImage.UpdateUserId)
 	if err != nil {
+		repository.Log.Error("Failed to create server banner image", zap.Error(err))
 		return err
 	}
 
@@ -177,6 +183,7 @@ func (repository *ServerRepository) UploadObject(ctx context.Context, bucketName
 			CacheControl: "public, max-age=31536000, immutable",
 		})
 	if err != nil {
+		repository.Log.Error("Failed to upload server object to storage", zap.Error(err))
 		return err
 	}
 
@@ -217,6 +224,7 @@ func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limi
 		rows, err = repository.DB.Query(ctx, query, categoryId, limit)
 	}
 	if err != nil {
+		repository.Log.Error("Failed to query server discovery", zap.Error(err))
 		return nil, err
 	}
 	defer rows.Close()
@@ -227,6 +235,7 @@ func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limi
 		var server model.ServerInfoResponse
 		err := rows.Scan(&server.Id, &server.Name, &server.ShortName, &server.CategoryName, &server.AvatarImageUrl, &server.BannerImageUrl, &server.Description, &server.CreateDatetime)
 		if err != nil {
+			repository.Log.Error("Failed to scan server discovery row", zap.Error(err))
 			return nil, err
 		}
 
@@ -272,6 +281,7 @@ func (repository *ServerRepository) GetUserServer(ctx context.Context, limit int
 		rows, err = repository.DB.Query(ctx, query, userId, limit)
 	}
 	if err != nil {
+		repository.Log.Error("Failed to query user servers", zap.Error(err))
 		return nil, err
 	}
 	defer rows.Close()
@@ -282,6 +292,7 @@ func (repository *ServerRepository) GetUserServer(ctx context.Context, limit int
 		var server model.ServerUserResponse
 		err := rows.Scan(&server.Id, &server.Name, &server.ShortName, &server.AvatarImageUrl, &server.JoinedDatetime)
 		if err != nil {
+			repository.Log.Error("Failed to scan user server row", zap.Error(err))
 			return nil, err
 		}
 
@@ -306,6 +317,7 @@ func (repository *ServerRepository) CheckServerEligible(ctx context.Context, ser
 		if errors.Is(err, pgx.ErrNoRows) {
 			return exists, nil
 		}
+		repository.Log.Error("Failed to check server eligible", zap.Error(err))
 		return exists, err
 	}
 
@@ -324,6 +336,7 @@ func (repository *ServerRepository) CheckServerMember(ctx context.Context, serve
 		if errors.Is(err, pgx.ErrNoRows) {
 			return exists, nil
 		}
+		repository.Log.Error("Failed to check server member", zap.Error(err))
 		return exists, err
 	}
 
@@ -339,7 +352,7 @@ func (repository *ServerRepository) CheckServerOwnership(ctx context.Context, se
 		if errors.Is(err, pgx.ErrNoRows) {
 			return exists, nil
 		}
-
+		repository.Log.Error("Failed to check server ownership", zap.Error(err))
 		return exists, err
 	}
 
@@ -351,6 +364,7 @@ func (repository *ServerRepository) UpdateServerName(ctx context.Context, server
 
 	_, err := repository.DB.Exec(ctx, query, name, updateDatetime, updateUserId, serverId)
 	if err != nil {
+		repository.Log.Error("Failed to update server name", zap.Error(err))
 		return err
 	}
 
@@ -362,6 +376,7 @@ func (repository *ServerRepository) UpdateServerShortName(ctx context.Context, s
 
 	_, err := repository.DB.Exec(ctx, query, shortName, updateDatetime, updateUserId, serverId)
 	if err != nil {
+		repository.Log.Error("Failed to update server short name", zap.Error(err))
 		return err
 	}
 
@@ -373,6 +388,7 @@ func (repository *ServerRepository) UpdateServerCategory(ctx context.Context, se
 
 	_, err := repository.DB.Exec(ctx, query, categoryId, updateDatetime, updateUserId, serverId)
 	if err != nil {
+		repository.Log.Error("Failed to update server category", zap.Error(err))
 		return err
 	}
 
@@ -384,6 +400,7 @@ func (repository *ServerRepository) UpdateServerDescription(ctx context.Context,
 
 	_, err := repository.DB.Exec(ctx, query, description, updateDatetime, updateUserId, serverId)
 	if err != nil {
+		repository.Log.Error("Failed to update server description", zap.Error(err))
 		return err
 	}
 
@@ -395,6 +412,7 @@ func (repository *ServerRepository) DeleteServer(ctx context.Context, serverId u
 
 	_, err := repository.DB.Exec(ctx, query, serverId)
 	if err != nil {
+		repository.Log.Error("Failed to delete server", zap.Error(err))
 		return err
 	}
 
@@ -406,6 +424,7 @@ func (repository *ServerRepository) DeleteServerAvatarImage(ctx context.Context,
 
 	_, err := tx.Exec(ctx, query, imageId)
 	if err != nil {
+		repository.Log.Error("Failed to delete server avatar image", zap.Error(err))
 		return err
 	}
 
@@ -417,6 +436,7 @@ func (repository *ServerRepository) UpdateServerAvatarImage(ctx context.Context,
 
 	_, err := tx.Exec(ctx, query, avatarImageId, updateDatetime, updateUserId, serverId)
 	if err != nil {
+		repository.Log.Error("Failed to update server avatar image", zap.Error(err))
 		return err
 	}
 
@@ -432,6 +452,7 @@ func (repository *ServerRepository) GetServerAvatar(ctx context.Context, tx pgx.
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", nil
 		}
+		repository.Log.Error("Failed to get server avatar", zap.Error(err))
 		return objectKey, err
 	}
 
@@ -441,6 +462,7 @@ func (repository *ServerRepository) GetServerAvatar(ctx context.Context, tx pgx.
 func (repository *ServerRepository) RemoveServerAvatarObject(ctx context.Context, bucketName string, fileName string) error {
 	err := repository.DBObject.RemoveObject(ctx, bucketName, fileName, minio.RemoveObjectOptions{})
 	if err != nil {
+		repository.Log.Error("Failed to remove server avatar object from storage", zap.Error(err))
 		return err
 	}
 
@@ -452,6 +474,7 @@ func (repository *ServerRepository) DeleteServerBannerImage(ctx context.Context,
 
 	_, err := tx.Exec(ctx, query, imageId)
 	if err != nil {
+		repository.Log.Error("Failed to delete server banner image", zap.Error(err))
 		return err
 	}
 
@@ -463,6 +486,7 @@ func (repository *ServerRepository) UpdateServerBannerImage(ctx context.Context,
 
 	_, err := tx.Exec(ctx, query, bannerImageId, updateDatetime, updateUserId, serverId)
 	if err != nil {
+		repository.Log.Error("Failed to update server banner image", zap.Error(err))
 		return err
 	}
 
@@ -478,6 +502,7 @@ func (repository *ServerRepository) GetServerBanner(ctx context.Context, tx pgx.
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", nil
 		}
+		repository.Log.Error("Failed to get server banner", zap.Error(err))
 		return objectKey, err
 	}
 
@@ -487,6 +512,7 @@ func (repository *ServerRepository) GetServerBanner(ctx context.Context, tx pgx.
 func (repository *ServerRepository) RemoveServerBannerObject(ctx context.Context, bucketName string, fileName string) error {
 	err := repository.DBObject.RemoveObject(ctx, bucketName, fileName, minio.RemoveObjectOptions{})
 	if err != nil {
+		repository.Log.Error("Failed to remove server banner object from storage", zap.Error(err))
 		return err
 	}
 
@@ -498,6 +524,7 @@ func (repository *ServerRepository) UpdateServerSettings(ctx context.Context, se
 
 	_, err := repository.DB.Exec(ctx, query, settings, updateDatetime, updateUserId, serverId)
 	if err != nil {
+		repository.Log.Error("Failed to update server settings", zap.Error(err))
 		return err
 	}
 
@@ -514,6 +541,7 @@ func (repository *ServerRepository) GetServerDetail(ctx context.Context, serverI
 		if errors.Is(err, pgx.ErrNoRows) {
 			return response, nil
 		}
+		repository.Log.Error("Failed to get server detail", zap.Error(err))
 		return response, err
 	}
 
@@ -561,6 +589,7 @@ func (repository *ServerRepository) GetServerById(ctx context.Context, serverId 
 		if errors.Is(err, pgx.ErrNoRows) {
 			return response, nil
 		}
+		repository.Log.Error("Failed to get server by ID", zap.Error(err))
 		return response, err
 	}
 
@@ -604,6 +633,7 @@ func (repository *ServerRepository) GetServerCategories(ctx context.Context, lim
 		rows, err = repository.DB.Query(ctx, query, limit)
 	}
 	if err != nil {
+		repository.Log.Error("Failed to query server categories", zap.Error(err))
 		return nil, err
 	}
 	defer rows.Close()
@@ -614,6 +644,7 @@ func (repository *ServerRepository) GetServerCategories(ctx context.Context, lim
 		var category model.ServerCategoryResponse
 		err := rows.Scan(&category.Id, &category.CategoryName)
 		if err != nil {
+			repository.Log.Error("Failed to scan server category row", zap.Error(err))
 			return nil, err
 		}
 
