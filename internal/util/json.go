@@ -57,7 +57,6 @@ func SendErrorResponseNotFound(ctx *fiber.Ctx, error error) error {
 }
 
 func SendErrorResponseInternalServer(ctx *fiber.Ctx, log *zap.Logger, error error) error {
-	log.Error("internal server error occured", zap.Error(error))
 	err := ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 		"error": fiber.Map{
 			"code":    constant.ERR_INTERNAL_SERVER_ERROR_CODE,

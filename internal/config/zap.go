@@ -30,7 +30,7 @@ func NewZap() *zap.Logger {
 	cfg := zap.NewProductionConfig()
 	cfg.Level = zap.NewAtomicLevelAt(level)
 	cfg.DisableStacktrace = true
-	cfg.DisableCaller = true
+	cfg.DisableCaller = false
 	cfg.EncoderConfig.StacktraceKey = ""
 	cfg.EncoderConfig.TimeKey = "timestamp"
 

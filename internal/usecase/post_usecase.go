@@ -125,6 +125,7 @@ func (usecase *PostUsecase) CreatePost(ctx *fiber.Ctx, serverId uuid.UUID, userI
 	// Start transaction
 	tx, err := usecase.DB.Begin(ctxContext)
 	if err != nil {
+		usecase.Log.Error("Failed to begin transaction", zap.Error(err))
 		return response, err
 	}
 
@@ -155,6 +156,7 @@ func (usecase *PostUsecase) CreatePost(ctx *fiber.Ctx, serverId uuid.UUID, userI
 	// Commit transaction
 	err = tx.Commit(ctxContext)
 	if err != nil {
+		usecase.Log.Error("Failed to commit transaction", zap.Error(err))
 		return response, err
 	}
 
@@ -271,6 +273,7 @@ func (usecase *PostUsecase) DeletePost(ctx *fiber.Ctx, serverIdParam string, pos
 	// Check if user is a member of the server
 	serverMemberExists, err := usecase.PostRepository.CheckServerMember(ctxContext, serverId, userId)
 	if err != nil {
+		usecase.Log.Error("Failed to check server member", zap.Error(err))
 		return err
 	}
 
@@ -339,6 +342,7 @@ func (usecase *PostUsecase) DeletePost(ctx *fiber.Ctx, serverIdParam string, pos
 	// Commit transaction first
 	err = tx.Commit(ctxContext)
 	if err != nil {
+		usecase.Log.Error("Failed to commit transaction", zap.Error(err))
 		return err
 	}
 
