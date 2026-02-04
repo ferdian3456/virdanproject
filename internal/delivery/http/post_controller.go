@@ -187,6 +187,7 @@ func (controller *PostController) CreateComment(ctx *fiber.Ctx) error {
 	var payload model.ServerCommentCreateRequest
 	err := util.ReadRequestBody(ctx, &payload)
 	if err != nil {
+		controller.Log.Debug("what happened?", zap.Error(err))
 		return util.SendErrorResponse(ctx, &model.ValidationError{
 			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
 			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,

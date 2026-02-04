@@ -97,14 +97,14 @@ func (repository *UserRepository) GetUserAuth(ctx context.Context, username stri
 }
 
 func (repository *UserRepository) GetUserInfo(ctx context.Context, id uuid.UUID) (model.UserResponse, error) {
-	query := `SELECT A.id,A.username,A.fullname,A.email,B.object_key,A.create_datetime,A.update_datetime
+	query := `SELECT A.id,A.username,A.fullname,A.email,B.object_key,A.bio,A.create_datetime,A.update_datetime
 			FROM users A
 			LEFT JOIN user_avatar_images B ON A.id = B.user_id
 			WHERE A.id=$1
 			LIMIT 1`
 
 	user := model.UserResponse{}
-	err := repository.DB.QueryRow(ctx, query, id).Scan(&user.Id, &user.Username, &user.Fullname, &user.Email, &user.AvatarImage, &user.CreateDatetime, &user.UpdateDatetime)
+	err := repository.DB.QueryRow(ctx, query, id).Scan(&user.Id, &user.Username, &user.Fullname, &user.Email, &user.AvatarImage, &user.Bio, &user.CreateDatetime, &user.UpdateDatetime)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return user, &model.ValidationError{

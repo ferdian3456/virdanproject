@@ -412,3 +412,33 @@ func (controller *ServerController) UpdateServerSettings(ctx *fiber.Ctx) error {
 
 	return util.SendSuccessResponseNoData(ctx)
 }
+
+func (controller *ServerController) GetCategoryServer(ctx *fiber.Ctx) error {
+	var validationErr *model.ValidationError
+
+	response, err := controller.ServerUsecase.GetCategoryServer(ctx)
+	if err != nil {
+		if errors.As(err, &validationErr) {
+			return util.SendErrorResponseNotFound(ctx, err)
+		}
+
+		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	}
+
+	return util.SendSuccessResponseWithData(ctx, response)
+}
+
+func (controller *ServerController) GetServerById(ctx *fiber.Ctx) error {
+	var validationErr *model.ValidationError
+
+	response, err := controller.ServerUsecase.GetServerById(ctx)
+	if err != nil {
+		if errors.As(err, &validationErr) {
+			return util.SendErrorResponseNotFound(ctx, err)
+		}
+
+		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	}
+
+	return util.SendSuccessResponseWithData(ctx, response)
+}

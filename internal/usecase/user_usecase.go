@@ -436,12 +436,12 @@ func (usecase *UserUsecase) UpdateAvatar(ctx *fiber.Ctx, userId uuid.UUID) error
 		return err
 	}
 
-	err = tx.Commit(ctxContext)
+	err = usecase.UserRepository.UploadUserAvatar(ctxContext, bucketName, avatarImage.ObjectKey, imageFile, imageSize)
 	if err != nil {
 		return err
 	}
 
-	err = usecase.UserRepository.UploadUserAvatar(ctxContext, bucketName, avatarImage.ObjectKey, imageFile, imageSize)
+	err = tx.Commit(ctxContext)
 	if err != nil {
 		return err
 	}

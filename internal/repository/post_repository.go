@@ -230,7 +230,7 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 			return nil, err
 		}
 
-		post.PostImageUrl = fmt.Sprintf("%s/%s.webp", minioFullUrl, post.PostImageUrl)
+		post.PostImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, post.PostImageUrl)
 
 		posts = append(posts, post)
 	}
@@ -271,7 +271,7 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId uuid.UUID,
 		return post, err
 	}
 
-	post.PostImageUrl = fmt.Sprintf("%s/%s.webp", minioFullUrl, post.PostImageUrl)
+	post.PostImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, post.PostImageUrl)
 
 	return post, nil
 }
