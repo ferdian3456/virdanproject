@@ -110,11 +110,11 @@ func (repository *ServerRepository) CreateServerInvites(ctx context.Context, ser
 
 func (repository *ServerRepository) GetServerInfoForInvite(ctx context.Context, inviteCode string) (model.ServerInfoForInviteResponse, error) {
 	query := `
-		SELECT C.username, A.name, A.description, D.object_key,E.object_key  FROM servers A
+		SELECT C.username, A.name, A.description, D.object_key, E.object_key FROM servers A
 		INNER JOIN server_invites B ON A.id = B.server_id
 		INNER JOIN users C ON C.id = A.owner_id
-		LEFT JOIN server_avatar_images D ON A.id = D.server_id
-		LEFT JOIN server_banner_images E ON A.id = E.server_id
+		LEFT JOIN server_avatar_images D ON A.avatar_image_id = D.id
+		LEFT JOIN server_banner_images E ON A.banner_image_id = E.id
 		WHERE B.code = $1
 	`
 
@@ -149,9 +149,9 @@ func (repository *ServerRepository) CheckServerCategories(ctx context.Context, c
 }
 
 func (repository *ServerRepository) CreateServerAvatarImage(ctx context.Context, tx pgx.Tx, serverAvatarImage model.ServerAvatarImage) error {
-	query := "INSERT INTO server_avatar_images (id, server_id, bucket, object_key, mime_type, size, create_datetime, update_datetime, create_user_id, update_user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
+	query := "INSERT INTO server_avatar_images (id, bucket, object_key, mime_type, size, create_datetime, update_datetime, create_user_id, update_user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"
 
-	_, err := tx.Exec(ctx, query, serverAvatarImage.Id, serverAvatarImage.ServerId, serverAvatarImage.Bucket, serverAvatarImage.ObjectKey, serverAvatarImage.MimeType, 0, serverAvatarImage.CreateDatetime, serverAvatarImage.UpdateDatetime, serverAvatarImage.CreateUserId, serverAvatarImage.UpdateUserId)
+	_, err := tx.Exec(ctx, query, serverAvatarImage.Id, serverAvatarImage.Bucket, serverAvatarImage.ObjectKey, serverAvatarImage.MimeType, serverAvatarImage.Size, serverAvatarImage.CreateDatetime, serverAvatarImage.UpdateDatetime, serverAvatarImage.CreateUserId, serverAvatarImage.UpdateUserId)
 	if err != nil {
 		return err
 	}
@@ -160,9 +160,9 @@ func (repository *ServerRepository) CreateServerAvatarImage(ctx context.Context,
 }
 
 func (repository *ServerRepository) CreateServerBannerImage(ctx context.Context, tx pgx.Tx, serverBannerImage model.ServerBannerImage) error {
-	query := "INSERT INTO server_banner_images (id, server_id, bucket, object_key, mime_type, size, create_datetime, update_datetime, create_user_id, update_user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
+	query := "INSERT INTO server_banner_images (id, bucket, object_key, mime_type, size, create_datetime, update_datetime, create_user_id, update_user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"
 
-	_, err := tx.Exec(ctx, query, serverBannerImage.Id, serverBannerImage.ServerId, serverBannerImage.Bucket, serverBannerImage.ObjectKey, serverBannerImage.MimeType, serverBannerImage.Size, serverBannerImage.CreateDatetime, serverBannerImage.UpdateDatetime, serverBannerImage.CreateUserId, serverBannerImage.UpdateUserId)
+	_, err := tx.Exec(ctx, query, serverBannerImage.Id, serverBannerImage.Bucket, serverBannerImage.ObjectKey, serverBannerImage.MimeType, serverBannerImage.Size, serverBannerImage.CreateDatetime, serverBannerImage.UpdateDatetime, serverBannerImage.CreateUserId, serverBannerImage.UpdateUserId)
 	if err != nil {
 		return err
 	}
@@ -231,10 +231,10 @@ func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limi
 		}
 
 		if server.AvatarImageUrl != nil {
-			*server.AvatarImageUrl = fmt.Sprintf("%s/%s.webp", minioFullUrl, *server.AvatarImageUrl)
+			*server.AvatarImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *server.AvatarImageUrl)
 		}
 		if server.BannerImageUrl != nil {
-			*server.BannerImageUrl = fmt.Sprintf("%s/%s.webp", minioFullUrl, *server.BannerImageUrl)
+			*server.BannerImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *server.BannerImageUrl)
 		}
 
 		servers = append(servers, server)
@@ -286,7 +286,7 @@ func (repository *ServerRepository) GetUserServer(ctx context.Context, limit int
 		}
 
 		if server.AvatarImageUrl != nil {
-			*server.AvatarImageUrl = fmt.Sprintf("%s%s.webp", minioFullUrl, *server.AvatarImageUrl)
+			*server.AvatarImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *server.AvatarImageUrl)
 		}
 
 		servers = append(servers, server)
@@ -314,7 +314,7 @@ func (repository *ServerRepository) CheckServerEligible(ctx context.Context, ser
 
 func (repository *ServerRepository) CheckServerMember(ctx context.Context, serverId uuid.UUID, userId uuid.UUID) (int, error) {
 	query := `
-	SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2 AND status = 'ACTIVE'
+	SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2 AND status = 1
 	`
 
 	var exists int
@@ -401,10 +401,10 @@ func (repository *ServerRepository) DeleteServer(ctx context.Context, serverId u
 	return nil
 }
 
-func (repository *ServerRepository) DeleteServerAvatarImage(ctx context.Context, tx pgx.Tx, serverId uuid.UUID) error {
-	query := "DELETE FROM server_avatar_images WHERE server_id = $1"
+func (repository *ServerRepository) DeleteServerAvatarImage(ctx context.Context, tx pgx.Tx, imageId uuid.UUID) error {
+	query := "DELETE FROM server_avatar_images WHERE id = $1"
 
-	_, err := tx.Exec(ctx, query, serverId)
+	_, err := tx.Exec(ctx, query, imageId)
 	if err != nil {
 		return err
 	}
@@ -423,11 +423,11 @@ func (repository *ServerRepository) UpdateServerAvatarImage(ctx context.Context,
 	return nil
 }
 
-func (repository *ServerRepository) GetServerAvatar(ctx context.Context, tx pgx.Tx, serverId uuid.UUID) (string, error) {
-	query := "SELECT object_key FROM server_avatar_images WHERE server_id=$1 LIMIT 1"
+func (repository *ServerRepository) GetServerAvatar(ctx context.Context, tx pgx.Tx, imageId uuid.UUID) (string, error) {
+	query := "SELECT object_key FROM server_avatar_images WHERE id = $1 LIMIT 1"
 
 	var objectKey string
-	err := tx.QueryRow(ctx, query, serverId).Scan(&objectKey)
+	err := tx.QueryRow(ctx, query, imageId).Scan(&objectKey)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", nil
@@ -447,10 +447,10 @@ func (repository *ServerRepository) RemoveServerAvatarObject(ctx context.Context
 	return nil
 }
 
-func (repository *ServerRepository) DeleteServerBannerImage(ctx context.Context, tx pgx.Tx, serverId uuid.UUID) error {
-	query := "DELETE FROM server_banner_images WHERE server_id = $1"
+func (repository *ServerRepository) DeleteServerBannerImage(ctx context.Context, tx pgx.Tx, imageId uuid.UUID) error {
+	query := "DELETE FROM server_banner_images WHERE id = $1"
 
-	_, err := tx.Exec(ctx, query, serverId)
+	_, err := tx.Exec(ctx, query, imageId)
 	if err != nil {
 		return err
 	}
@@ -469,11 +469,11 @@ func (repository *ServerRepository) UpdateServerBannerImage(ctx context.Context,
 	return nil
 }
 
-func (repository *ServerRepository) GetServerBanner(ctx context.Context, tx pgx.Tx, serverId uuid.UUID) (string, error) {
-	query := "SELECT object_key FROM server_banner_images WHERE server_id=$1 LIMIT 1"
+func (repository *ServerRepository) GetServerBanner(ctx context.Context, tx pgx.Tx, imageId uuid.UUID) (string, error) {
+	query := "SELECT object_key FROM server_banner_images WHERE id = $1 LIMIT 1"
 
 	var objectKey string
-	err := tx.QueryRow(ctx, query, serverId).Scan(&objectKey)
+	err := tx.QueryRow(ctx, query, imageId).Scan(&objectKey)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", nil
@@ -505,11 +505,11 @@ func (repository *ServerRepository) UpdateServerSettings(ctx context.Context, se
 }
 
 func (repository *ServerRepository) GetServerDetail(ctx context.Context, serverId uuid.UUID) (model.ServerUpdateResponse, error) {
-	query := `SELECT id,owner_id, name, short_name, category_id, description, settings, create_datetime, update_datetime, create_user_id, update_user_id
+	query := `SELECT id,owner_id, name, short_name, category_id, avatar_image_id, banner_image_id, description, settings, create_datetime, update_datetime, create_user_id, update_user_id
 			  FROM servers WHERE id = $1`
 
 	var response model.ServerUpdateResponse
-	err := repository.DB.QueryRow(ctx, query, serverId).Scan(&response.Id, &response.OwnerId, &response.Name, &response.ShortName, &response.CategoryId, &response.Description, &response.Settings, &response.CreateDatetime, &response.UpdateDatetime, &response.CreateUserId, &response.UpdateUserId)
+	err := repository.DB.QueryRow(ctx, query, serverId).Scan(&response.Id, &response.OwnerId, &response.Name, &response.ShortName, &response.CategoryId, &response.AvatarImageId, &response.BannerImageId, &response.Description, &response.Settings, &response.CreateDatetime, &response.UpdateDatetime, &response.CreateUserId, &response.UpdateUserId)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return response, nil
@@ -518,4 +518,107 @@ func (repository *ServerRepository) GetServerDetail(ctx context.Context, serverI
 	}
 
 	return response, nil
+}
+
+func (repository *ServerRepository) GetServerById(ctx context.Context, serverId uuid.UUID, userId uuid.UUID, minioFullUrl string) (model.ServerDetailResponse, error) {
+	query := `
+		SELECT A.id, A.name, A.short_name, B.name, C.object_key, D.object_key,
+		       A.description, A.create_datetime, E.username, (A.settings->>'isPrivate')::boolean as is_private
+		FROM servers A
+		LEFT JOIN server_categories B ON A.category_id = B.id
+		LEFT JOIN server_avatar_images C ON A.avatar_image_id = C.id
+		LEFT JOIN server_banner_images D ON A.banner_image_id = D.id
+		LEFT JOIN users E ON A.create_user_id = E.id
+		WHERE A.id = $1
+		AND (
+			(A.settings->>'isPrivate')::boolean = false  -- Public server, anyone can access
+			OR
+			EXISTS (
+				SELECT 1 FROM server_members F
+				WHERE F.server_id = A.id
+				AND F.user_id = $2
+				AND F.status = 1
+			)  -- Private server, only active members can access
+		)
+	`
+
+	var response model.ServerDetailResponse
+	var avatarImageKey, bannerImageKey *string
+	var isPrivate bool
+	err := repository.DB.QueryRow(ctx, query, serverId, userId).Scan(
+		&response.Id,
+		&response.Name,
+		&response.ShortName,
+		&response.CategoryName,
+		&avatarImageKey,
+		&bannerImageKey,
+		&response.Description,
+		&response.CreateDatetime,
+		&response.CreatedBy,
+		&isPrivate,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return response, nil
+		}
+		return response, err
+	}
+
+	// Set isPrivate flag in response for usecase to check
+	response.IsPrivate = &isPrivate
+
+	// Build full URLs for avatar and banner images
+	if avatarImageKey != nil {
+		fullUrl := fmt.Sprintf("%s/%s", minioFullUrl, *avatarImageKey)
+		response.AvatarImageUrl = &fullUrl
+	}
+	if bannerImageKey != nil {
+		fullUrl := fmt.Sprintf("%s/%s", minioFullUrl, *bannerImageKey)
+		response.BannerImageUrl = &fullUrl
+	}
+
+	return response, nil
+}
+
+func (repository *ServerRepository) GetServerCategories(ctx context.Context, limit int, cursor *model.ServerCategoryCursor) ([]model.ServerCategoryResponse, error) {
+	var rows pgx.Rows
+	var err error
+
+	// Check if cursor is provided (not first page)
+	if cursor.Id != 0 {
+		// Query with cursor for pagination
+		queryWithCursor := `
+			SELECT id, name FROM server_categories
+			WHERE id < $1
+			ORDER BY id DESC
+			LIMIT $2
+		`
+		rows, err = repository.DB.Query(ctx, queryWithCursor, cursor.Id, limit)
+	} else {
+		// Query without cursor for first page
+		query := `
+			SELECT id, name FROM server_categories
+			ORDER BY id DESC
+			LIMIT $1
+		`
+		rows, err = repository.DB.Query(ctx, query, limit)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	categories := []model.ServerCategoryResponse{}
+
+	for rows.Next() {
+		var category model.ServerCategoryResponse
+		err := rows.Scan(&category.Id, &category.CategoryName)
+		if err != nil {
+			return nil, err
+		}
+
+		categories = append(categories, category)
+	}
+
+	return categories, nil
 }

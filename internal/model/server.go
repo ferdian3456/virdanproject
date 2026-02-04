@@ -51,6 +51,8 @@ type ServerUpdateResponse struct {
 	Name           string                 `json:"name"`
 	ShortName      string                 `json:"shortName"`
 	CategoryId     *int                   `json:"categoryId"`
+	AvatarImageId  *uuid.UUID             `json:"avatarImageId"`
+	BannerImageId  *uuid.UUID             `json:"bannerImageId"`
 	Description    *string                `json:"description"`
 	Settings       sonic.NoCopyRawMessage `json:"settings"`
 	CreateDatetime time.Time              `json:"createDatetime"`
@@ -127,4 +129,31 @@ type ServerUpdateCategoryRequest struct {
 
 type ServerUpdateDescriptionRequest struct {
 	Description *string `json:"description"`
+}
+
+type ServerCategoryListResponse struct {
+	Data []ServerCategoryResponse `json:"data"`
+	Page Page                     `json:"page"`
+}
+
+type ServerCategoryResponse struct {
+	Id           int    `json:"id"`
+	CategoryName string `json:"categoryName"`
+}
+
+type ServerCategoryCursor struct {
+	Id int `json:"id"`
+}
+
+type ServerDetailResponse struct {
+	Id             uuid.UUID  `json:"id"`
+	Name           string     `json:"name"`
+	ShortName      string     `json:"shortName"`
+	CategoryName   string     `json:"categoryName"`
+	AvatarImageUrl *string    `json:"avatarImageUrl"`
+	BannerImageUrl *string    `json:"bannerImageUrl"`
+	Description    *string    `json:"description"`
+	CreateDatetime time.Time  `json:"createDatetime"`
+	CreatedBy      string     `json:"createdBy"`
+	IsPrivate      *bool      `json:"-"` // Internal use only, not exposed to API response
 }

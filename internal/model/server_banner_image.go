@@ -8,7 +8,6 @@ import (
 
 type ServerBannerImage struct {
 	Id             uuid.UUID
-	ServerId       uuid.UUID
 	Bucket         string
 	ObjectKey      string
 	MimeType       string

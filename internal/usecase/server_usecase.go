@@ -693,6 +693,7 @@ func (usecase *ServerUsecase) GetDiscoveryServer(ctx *fiber.Ctx, userId uuid.UUI
 
 	limit := ctx.QueryInt("limit", constant.DEFAULT_LIMIT)
 	categoryId := ctx.QueryInt("categoryId", 0)
+	usecase.Log.Debug("debug category id", zap.Int("category id:", categoryId))
 	cursor := ctx.Query("cursor", "")
 
 	if limit < 0 {
@@ -1276,10 +1277,10 @@ func (usecase *ServerUsecase) UpdateServerAvatar(ctx *fiber.Ctx, userId uuid.UUI
 
 	if avatarImageId != nil {
 		serverAvatarImage.Id = *avatarImageId
-		serverAvatarImage.ServerId = serverId
 		serverAvatarImage.Bucket = bucketName
 		serverAvatarImage.ObjectKey = fmt.Sprintf("server/avatar/%s.webp", *avatarImageId)
 		serverAvatarImage.MimeType = "webp"
+		serverAvatarImage.Size = imageSize
 		serverAvatarImage.CreateDatetime = now
 		serverAvatarImage.UpdateDatetime = now
 		serverAvatarImage.CreateUserId = userId
@@ -1300,34 +1301,75 @@ func (usecase *ServerUsecase) UpdateServerAvatar(ctx *fiber.Ctx, userId uuid.UUI
 		}
 	}()
 
-	fileName, err := usecase.ServerRepository.GetServerAvatar(ctxContext, tx, serverId)
+	// Get old avatar image ID to delete later
+	serverDetail, err := usecase.ServerRepository.GetServerDetail(ctxContext, serverId)
 	if err != nil {
 		return err
 	}
 
-	err = usecase.ServerRepository.UpdateServerAvatarImage(ctxContext, tx, serverId, avatarImageId, userId, now)
-	if err != nil {
-		return err
+	var oldAvatarImageId *uuid.UUID
+	if serverDetail.AvatarImageId != nil {
+		oldAvatarImageId = serverDetail.AvatarImageId
 	}
 
 	if avatarImageId != nil {
+		// Create new avatar image FIRST before updating server
 		err = usecase.ServerRepository.CreateServerAvatarImage(ctxContext, tx, serverAvatarImage)
 		if err != nil {
 			return err
 		}
-		err = usecase.ServerRepository.UploadObject(ctxContext, bucketName, serverAvatarImage.ObjectKey, imageFile, imageSize)
-		if err != nil {
-			return err
-		}
-	} else {
-		err = usecase.ServerRepository.DeleteServerAvatarImage(ctxContext, tx, serverId)
+
+		// Now update server to reference the new image
+		err = usecase.ServerRepository.UpdateServerAvatarImage(ctxContext, tx, serverId, avatarImageId, userId, now)
 		if err != nil {
 			return err
 		}
 
-		err = usecase.ServerRepository.RemoveServerAvatarObject(ctxContext, bucketName, fileName)
+		err = usecase.ServerRepository.UploadObject(ctxContext, bucketName, serverAvatarImage.ObjectKey, imageFile, imageSize)
 		if err != nil {
 			return err
+		}
+
+		// Delete old avatar image if exists
+		if oldAvatarImageId != nil {
+			fileName, err := usecase.ServerRepository.GetServerAvatar(ctxContext, tx, *oldAvatarImageId)
+			if err != nil {
+				return err
+			}
+			err = usecase.ServerRepository.DeleteServerAvatarImage(ctxContext, tx, *oldAvatarImageId)
+			if err != nil {
+				return err
+			}
+			if fileName != "" {
+				err = usecase.ServerRepository.RemoveServerAvatarObject(ctxContext, bucketName, fileName)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	} else {
+		// Update server to remove avatar image reference
+		err = usecase.ServerRepository.UpdateServerAvatarImage(ctxContext, tx, serverId, avatarImageId, userId, now)
+		if err != nil {
+			return err
+		}
+
+		// Delete old avatar image if exists
+		if oldAvatarImageId != nil {
+			fileName, err := usecase.ServerRepository.GetServerAvatar(ctxContext, tx, *oldAvatarImageId)
+			if err != nil {
+				return err
+			}
+			err = usecase.ServerRepository.DeleteServerAvatarImage(ctxContext, tx, *oldAvatarImageId)
+			if err != nil {
+				return err
+			}
+			if fileName != "" {
+				err = usecase.ServerRepository.RemoveServerAvatarObject(ctxContext, bucketName, fileName)
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 
@@ -1395,10 +1437,10 @@ func (usecase *ServerUsecase) UpdateServerBanner(ctx *fiber.Ctx, userId uuid.UUI
 
 	if bannerImageId != nil {
 		serverBannerImage.Id = *bannerImageId
-		serverBannerImage.ServerId = serverId
 		serverBannerImage.Bucket = bucketName
 		serverBannerImage.ObjectKey = fmt.Sprintf("server/banner/%s.webp", *bannerImageId)
 		serverBannerImage.MimeType = "webp"
+		serverBannerImage.Size = imageSize
 		serverBannerImage.CreateDatetime = now
 		serverBannerImage.UpdateDatetime = now
 		serverBannerImage.CreateUserId = userId
@@ -1419,34 +1461,75 @@ func (usecase *ServerUsecase) UpdateServerBanner(ctx *fiber.Ctx, userId uuid.UUI
 		}
 	}()
 
-	fileName, err := usecase.ServerRepository.GetServerBanner(ctxContext, tx, serverId)
+	// Get old banner image ID to delete later
+	serverDetail, err := usecase.ServerRepository.GetServerDetail(ctxContext, serverId)
 	if err != nil {
 		return err
 	}
 
-	err = usecase.ServerRepository.UpdateServerBannerImage(ctxContext, tx, serverId, bannerImageId, userId, now)
-	if err != nil {
-		return err
+	var oldBannerImageId *uuid.UUID
+	if serverDetail.BannerImageId != nil {
+		oldBannerImageId = serverDetail.BannerImageId
 	}
 
 	if bannerImageId != nil {
+		// Create new banner image FIRST before updating server
 		err = usecase.ServerRepository.CreateServerBannerImage(ctxContext, tx, serverBannerImage)
 		if err != nil {
 			return err
 		}
-		err = usecase.ServerRepository.UploadObject(ctxContext, bucketName, serverBannerImage.ObjectKey, imageFile, imageSize)
-		if err != nil {
-			return err
-		}
-	} else {
-		err = usecase.ServerRepository.DeleteServerBannerImage(ctxContext, tx, serverId)
+
+		// Now update server to reference the new image
+		err = usecase.ServerRepository.UpdateServerBannerImage(ctxContext, tx, serverId, bannerImageId, userId, now)
 		if err != nil {
 			return err
 		}
 
-		err = usecase.ServerRepository.RemoveServerBannerObject(ctxContext, bucketName, fileName)
+		err = usecase.ServerRepository.UploadObject(ctxContext, bucketName, serverBannerImage.ObjectKey, imageFile, imageSize)
 		if err != nil {
 			return err
+		}
+
+		// Delete old banner image if exists
+		if oldBannerImageId != nil {
+			fileName, err := usecase.ServerRepository.GetServerBanner(ctxContext, tx, *oldBannerImageId)
+			if err != nil {
+				return err
+			}
+			err = usecase.ServerRepository.DeleteServerBannerImage(ctxContext, tx, *oldBannerImageId)
+			if err != nil {
+				return err
+			}
+			if fileName != "" {
+				err = usecase.ServerRepository.RemoveServerBannerObject(ctxContext, bucketName, fileName)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	} else {
+		// Update server to remove banner image reference
+		err = usecase.ServerRepository.UpdateServerBannerImage(ctxContext, tx, serverId, bannerImageId, userId, now)
+		if err != nil {
+			return err
+		}
+
+		// Delete old banner image if exists
+		if oldBannerImageId != nil {
+			fileName, err := usecase.ServerRepository.GetServerBanner(ctxContext, tx, *oldBannerImageId)
+			if err != nil {
+				return err
+			}
+			err = usecase.ServerRepository.DeleteServerBannerImage(ctxContext, tx, *oldBannerImageId)
+			if err != nil {
+				return err
+			}
+			if fileName != "" {
+				err = usecase.ServerRepository.RemoveServerBannerObject(ctxContext, bucketName, fileName)
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 
@@ -1498,4 +1581,113 @@ func (usecase *ServerUsecase) UpdateServerSettings(ctx *fiber.Ctx, userId uuid.U
 	}
 
 	return nil
+}
+
+func (usecase *ServerUsecase) GetServerById(ctx *fiber.Ctx) (model.ServerDetailResponse, error) {
+	response := model.ServerDetailResponse{}
+
+	serverIdParam := ctx.Params("id")
+
+	serverId, err := uuid.Parse(serverIdParam)
+	if err != nil {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Invalid server id",
+			Param:   "id",
+		}
+	}
+
+	// Get userId from context (requires authentication)
+	userId := ctx.Locals("userId").(uuid.UUID)
+
+	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
+
+	// Single query that checks both server existence AND membership (for private servers)
+	serverDetail, err := usecase.ServerRepository.GetServerById(ctx.Context(), serverId, userId, MINIO_FULL_URL)
+	if err != nil {
+		return response, err
+	}
+
+	if serverDetail.Id == uuid.Nil {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Server not found or you don't have permission to access it",
+			Param:   "id",
+		}
+	}
+
+	// Clear isPrivate flag from response (it's internal only)
+	serverDetail.IsPrivate = nil
+
+	return serverDetail, nil
+}
+
+func (usecase *ServerUsecase) GetCategoryServer(ctx *fiber.Ctx) (model.ServerCategoryListResponse, error) {
+	response := model.ServerCategoryListResponse{}
+
+	limit := ctx.QueryInt("limit", constant.DEFAULT_LIMIT)
+	cursor := ctx.Query("cursor", "")
+
+	if limit < 0 {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Limit must be greater or equal than 0",
+			Param:   "limit",
+		}
+	} else if limit > constant.MAX_LIMIT {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: fmt.Sprintf("Limit is exceeded max limit: %d", constant.MAX_LIMIT),
+			Param:   "limit",
+		}
+	}
+
+	var serverCategoryCursor model.ServerCategoryCursor
+	if cursor != "" {
+		b, err := base64.RawURLEncoding.DecodeString(cursor)
+		if err != nil {
+			return response, err
+		}
+
+		err = sonic.Unmarshal(b, &serverCategoryCursor)
+		if err != nil {
+			return response, err
+		}
+	}
+
+	// Fetch limit + 1 untuk cek apakah ada data lagi
+	categories, err := usecase.ServerRepository.GetServerCategories(ctx.Context(), limit+1, &serverCategoryCursor)
+	if err != nil {
+		return response, err
+	}
+
+	// Initialize with empty array
+	response.Data = []model.ServerCategoryResponse{}
+
+	if len(categories) > limit {
+		// Ada data lagi, return limit items dan buat cursor
+		response.Data = categories[:limit]
+
+		last := categories[limit-1]
+
+		// Create cursor properly using ServerCategoryCursor
+		categoryCursor := model.ServerCategoryCursor{
+			Id: last.Id,
+		}
+
+		b, err := sonic.Marshal(categoryCursor)
+		if err != nil {
+			return response, err
+		}
+
+		response.Page.NextCursor = base64.RawURLEncoding.EncodeToString(b)
+	} else {
+		// Tidak ada data lagi, return semua data tanpa cursor
+		if len(categories) > 0 {
+			response.Data = categories
+		}
+		// Jika kosong, Data sudah []empty array dari inisialisasi
+	}
+
+	return response, nil
 }

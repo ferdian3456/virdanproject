@@ -71,6 +71,7 @@ type UserResponse struct {
 	Fullname       string    `json:"fullname"`
 	Email          string    `json:"email"`
 	AvatarImage    *string   `json:"avatarImage"`
+	Bio            *string   `json:"bio"`
 	CreateDatetime time.Time `json:"createDatetime"`
 	UpdateDatetime time.Time `json:"updateDatetime"`
 }

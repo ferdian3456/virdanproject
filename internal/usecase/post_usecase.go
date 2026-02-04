@@ -420,11 +420,6 @@ func (usecase *PostUsecase) GetServerPosts(ctx *fiber.Ctx, serverIdParam string,
 		return response, err
 	}
 
-	// Add URL prefix to post images
-	for i := range serverPosts {
-		serverPosts[i].PostImageUrl = fmt.Sprintf("%s/%s.webp", MINIO_FULL_URL, serverPosts[i].PostImageUrl)
-	}
-
 	// Initialize with empty array
 	response.Data = []model.ServerPostResponse{}
 
@@ -635,13 +630,39 @@ func (usecase *PostUsecase) CreateComment(ctx *fiber.Ctx, postIdParam string, us
 		}
 	}
 
-	// Validate content
+	// Validate content length
 	if payload.Content == "" {
 		return response, &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Content is required",
 			Param:   "content",
 		}
+	} else if len(payload.Content) < 1 {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Content must be at least 1 character",
+			Param:   "content",
+		}
+	} else if len(payload.Content) > 1000 {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Content must be at most 1000 characters",
+			Param:   "content",
+		}
+	}
+
+	// Parse parentId if provided and validate it's a valid UUID
+	var parentCommentId *uuid.UUID
+	if payload.ParentId != nil {
+		parsedParentId, err := uuid.Parse(*payload.ParentId)
+		if err != nil {
+			return response, &model.ValidationError{
+				Code:    constant.ERR_VALIDATION_CODE,
+				Message: "Invalid parent comment id",
+				Param:   "parentId",
+			}
+		}
+		parentCommentId = &parsedParentId
 	}
 
 	ctxContext := ctx.Context()
@@ -661,8 +682,8 @@ func (usecase *PostUsecase) CreateComment(ctx *fiber.Ctx, postIdParam string, us
 	}
 
 	// If parentId is provided, check if parent comment exists and belongs to the same post
-	if payload.ParentId != nil {
-		parentExists, err := usecase.PostRepository.CheckCommentExists(ctxContext, *payload.ParentId, postId)
+	if parentCommentId != nil {
+		parentExists, err := usecase.PostRepository.CheckCommentExists(ctxContext, *parentCommentId, postId)
 		if err != nil {
 			return response, err
 		}
@@ -683,7 +704,7 @@ func (usecase *PostUsecase) CreateComment(ctx *fiber.Ctx, postIdParam string, us
 		Id:             commentId,
 		PostId:         postId,
 		AuthorId:       userId,
-		ParentId:       payload.ParentId,
+		ParentId:       parentCommentId,
 		Content:        payload.Content,
 		CreateDatetime: now,
 		UpdateDatetime: now,
@@ -700,7 +721,7 @@ func (usecase *PostUsecase) CreateComment(ctx *fiber.Ctx, postIdParam string, us
 	response = model.ServerCommentResponse{
 		Id:             commentId,
 		AuthorId:       userId,
-		ParentId:       payload.ParentId,
+		ParentId:       parentCommentId,
 		Content:        payload.Content,
 		CreateDatetime: now,
 		UpdateDatetime: now,

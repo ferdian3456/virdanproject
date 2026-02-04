@@ -37,10 +37,10 @@ func (c *RouteConfig) SetupRoute() {
 	userGroup := api.Group("/users", c.AuthMiddleware.ProtectedRoute())
 	userGroup.Get("/me", c.UserController.GetUserInfo)
 	userGroup.Post("/logout", c.UserController.Logout)
-	userGroup.Put("/username", c.UserController.UpdateUsername)
+	// userGroup.Put("/username", c.UserController.UpdateUsername)
 	userGroup.Put("/fullname", c.UserController.UpdateFullname)
 	userGroup.Put("/bio", c.UserController.UpdateBio)
-	//userGroup.Put("/avatar", c.UserController.UpdateAvatar)
+	userGroup.Put("/avatar", c.UserController.UpdateAvatar)
 	//userGroup.Patch("/password", c.UserController.ChangePassword)
 	//userGroup.Delete("/account", c.UserController.DeleteAccount)
 
@@ -52,6 +52,9 @@ func (c *RouteConfig) SetupRoute() {
 	serverGroup.Delete("/:serverId/posts/:postId", c.PostController.DeletePost)
 	serverGroup.Get("/:serverId/posts", c.PostController.GetServerPosts)
 
+	// Server Categories
+	serverGroup.Get("/categories", c.ServerController.GetCategoryServer)
+
 	// Invite and join routes
 	serverGroup.Post("/:serverId/invites", c.ServerController.CreateInviteLink)
 	serverGroup.Post("/join", c.ServerController.JoinServerFromInvite)
@@ -61,7 +64,7 @@ func (c *RouteConfig) SetupRoute() {
 	serverGroup.Get("/me", c.ServerController.GetUserServer)
 
 	// Server management routes with /:id parameter
-	// serverGroup.Get("/:id", c.ServerController.GetServerById)
+	serverGroup.Get("/:id", c.ServerController.GetServerById)
 	serverGroup.Put("/:id/name", c.ServerController.UpdateServerName)
 	serverGroup.Put("/:id/shortName", c.ServerController.UpdateServerShortName)
 	serverGroup.Put("/:id/category", c.ServerController.UpdateServerCategory)

@@ -19,8 +19,8 @@ type ServerPostComments struct {
 }
 
 type ServerCommentCreateRequest struct {
-	Content  string    `json:"content"`
-	ParentId *uuid.UUID `json:"parentId"`
+	Content  string  `json:"content"`
+	ParentId *string `json:"parentId"`
 }
 
 type ServerCommentCursor struct {
@@ -30,7 +30,7 @@ type ServerCommentCursor struct {
 
 type ServerCommentListResponse struct {
 	Data []ServerCommentResponse `json:"data"`
-	Page Page                      `json:"page"`
+	Page Page                    `json:"page"`
 }
 
 type ServerCommentResponse struct {
