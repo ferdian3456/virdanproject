@@ -2,37 +2,77 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/ferdian3456/virdanproject/internal/config"
-	middleware "github.com/ferdian3456/virdanproject/internal/exception"
-	"github.com/gofiber/fiber/v2/middleware/compress"
+	"github.com/ferdian3456/virdanproject/internal/delivery/http/middleware"
+	"github.com/ferdian3456/virdanproject/internal/exception"
+	gofiber "github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/compress"
+	"github.com/gofiber/fiber/v3/middleware/requestid"
 	zapLog "go.uber.org/zap"
 )
 
+var (
+	Version   = "dev"
+	Commit    = "none"
+	BuildTime = "unknown"
+)
+
 func main() {
+	healthcheck := flag.Bool("healthcheck", false, "run healthcheck")
+	versionFlag := flag.Bool("version", false, "print version")
+	flag.Parse()
+
+	if *healthcheck {
+		os.Exit(0) // Minimal healthcheck for now
+	}
+
+	if *versionFlag {
+		fmt.Printf("Version: %s\nCommit: %s\nBuildTime: %s\n", Version, Commit, BuildTime)
+		os.Exit(0)
+	}
+
 	time.Local = time.UTC
-	// Flush zap buffered log first then cancel the context for graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+
+	// Init context — for bootstrapping resources (DB, Redis, MinIO, OTel)
+	initCtx, initCancel := context.WithTimeout(context.Background(), 30*time.Second)
 
 	fiber := config.NewFiber()
-	zap := config.NewZap()
-	koanf := config.NewKoanf(zap)
-	rds := config.NewRedisClient(koanf, zap)
-	postgresql := config.NewPostgresqlPool(koanf, zap)
-	minio := config.NewMinIO(koanf, zap)
+	bootstrapZap := config.NewBootstrapZap()
+	koanf := config.NewKoanf(bootstrapZap)
+	zap := config.NewZap(initCtx, koanf, bootstrapZap)
+	_ = bootstrapZap.Sync()
+
+	// OTel providers — returned for graceful shutdown
+	meterProvider := config.NewMetrics(initCtx, koanf, zap)
+	tracerProvider := config.NewTracer(initCtx, koanf, zap)
+
+	rds := config.NewRedisClient(initCtx, koanf, zap)
+	postgresql := config.NewPostgresqlPool(initCtx, koanf, zap)
+	minio := config.NewMinIO(initCtx, koanf, zap)
+
+	initCancel() // init done, release init context
 
 	// Custom recovery middleware to handle panics with JSON response
-	fiber.Use(middleware.Recovery(zap))
+	fiber.Use(exception.Recovery(zap))
 
-	// 5. Compression middleware (should be before logging)
+	// Compression middleware (should be before logging)
 	fiber.Use(compress.New(compress.Config{
 		Level: compress.LevelBestSpeed,
 	}))
+
+	// RequestID middleware
+	fiber.Use(requestid.New())
+
+	fiber.Use(middleware.TracingMiddleware(koanf))
+
+	fiber.Use(middleware.LoggingMiddleware(koanf, meterProvider, zap))
 
 	config.Server(&config.ServerConfig{
 		Router:  fiber,
@@ -45,11 +85,14 @@ func main() {
 
 	GO_SERVER_PORT := koanf.String("GO_SERVER")
 
-	zap.Info("Server is running on: " + GO_SERVER_PORT)
+	zap.Info("server is running on: " + GO_SERVER_PORT)
 
 	var err error
 	go func() {
-		err = fiber.Listen(GO_SERVER_PORT)
+		err = fiber.Listen(GO_SERVER_PORT, gofiber.ListenConfig{
+			DisableStartupMessage: true,
+			EnablePrefork:         false,
+		})
 		if err != nil {
 			zap.Fatal("error starting server", zapLog.Error(err))
 		}
@@ -61,7 +104,19 @@ func main() {
 	<-stop
 	zap.Info("got one of stop signals")
 
-	err = fiber.ShutdownWithContext(ctx)
+	// Shutdown context — for graceful shutdown only
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	// Shutdown OTel providers first — flush all telemetry data before app exits
+	if err := tracerProvider.Shutdown(shutdownCtx); err != nil {
+		zap.Error("failed to shutdown tracer provider", zapLog.Error(err))
+	}
+	if err := meterProvider.Shutdown(shutdownCtx); err != nil {
+		zap.Error("failed to shutdown meter provider", zapLog.Error(err))
+	}
+
+	err = fiber.ShutdownWithContext(shutdownCtx)
 	if err != nil {
 		zap.Warn("timeout, forced kill!", zapLog.Error(err))
 		_ = zap.Sync()

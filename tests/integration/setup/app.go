@@ -15,7 +15,7 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/zap"
@@ -115,9 +115,9 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 	}()
 
 	// 7. Setup repositories
-	serverRepository := repository.NewServerRepository(zapLogger, dbPool, redisClient, minioClient)
-	userRepository := repository.NewUserRepository(zapLogger, dbPool, redisClient, minioClient)
-	postRepository := repository.NewPostRepository(zapLogger, dbPool, redisClient, minioClient)
+	serverRepository := repository.NewServerRepository(zapLogger, testConfig, dbPool, redisClient, minioClient)
+	userRepository := repository.NewUserRepository(zapLogger, testConfig, dbPool, redisClient, minioClient)
+	postRepository := repository.NewPostRepository(zapLogger, testConfig, dbPool, redisClient, minioClient)
 
 	// 8. Setup usecases
 	serverUsecase := usecase.NewServerUsecase(serverRepository, dbPool, zapLogger, testConfig)
@@ -134,10 +134,9 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 
 	// 11. Setup Fiber app
 	fiberApp := fiber.New(fiber.Config{
-		AppName:               "Virdan Test",
-		DisableStartupMessage: true,
-		DisableKeepalive:      true, // Important for tests
-		ErrorHandler: func(c *fiber.Ctx, err error) error {
+		AppName:          "Virdan Test",
+		DisableKeepalive: true, // Important for tests
+		ErrorHandler: func(c fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {
 				code = e.Code

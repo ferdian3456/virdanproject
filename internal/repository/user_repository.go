@@ -15,20 +15,27 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/knadh/koanf/v2"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/otel"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.uber.org/zap"
 )
 
 type UserRepository struct {
 	Log      *zap.Logger
+	Config   *koanf.Koanf
 	DB       *pgxpool.Pool
 	DBCache  *redis.Client
 	DBObject *minio.Client
 }
 
-func NewUserRepository(zap *zap.Logger, db *pgxpool.Pool, dbCache *redis.Client, minio *minio.Client) *UserRepository {
+func NewUserRepository(zap *zap.Logger, koanf *koanf.Koanf, db *pgxpool.Pool, dbCache *redis.Client, minio *minio.Client) *UserRepository {
 	return &UserRepository{
 		Log:      zap,
+		Config:   koanf,
 		DB:       db,
 		DBCache:  dbCache,
 		DBObject: minio,
@@ -37,11 +44,24 @@ func NewUserRepository(zap *zap.Logger, db *pgxpool.Pool, dbCache *redis.Client,
 
 // Postgresql
 func (repository *UserRepository) Register(ctx context.Context, tx pgx.Tx, user model.User) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.Register")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "INSERT"),
+		attribute.String("user.username", user.Username),
+	)
+
 	query := "INSERT INTO users (id,username,fullname,bio,avatar_image_id, email,password, settings, create_datetime, update_datetime, create_user_id, update_user_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)"
 
 	_, err := tx.Exec(ctx, query, user.Id, user.Username, user.Fullname, user.Bio, user.AvatarImageId, user.Email, user.Password, user.Settings, user.CreateDatetime, user.UpdateDatetime, user.CreateUserId, user.UpdateUserId)
 	if err != nil {
-		repository.Log.Error("Failed to register user", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to register user", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -50,11 +70,24 @@ func (repository *UserRepository) Register(ctx context.Context, tx pgx.Tx, user 
 
 // Postgresql
 func (repository *UserRepository) RegisterNoTx(ctx context.Context, user model.User) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.RegisterNoTx")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "INSERT"),
+		attribute.String("user.username", user.Username),
+	)
+
 	query := "INSERT INTO users (id,username,fullname,bio,avatar_image_id, email, password, settings, create_datetime, update_datetime, create_user_id, update_user_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)"
 
 	_, err := repository.DB.Exec(ctx, query, user.Id, user.Username, user.Fullname, user.Bio, user.AvatarImageId, user.Email, user.Password, user.Settings, user.CreateDatetime, user.UpdateDatetime, user.CreateUserId, user.UpdateUserId)
 	if err != nil {
-		repository.Log.Error("Failed to register user without transaction", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to register user without transaction", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -62,6 +95,18 @@ func (repository *UserRepository) RegisterNoTx(ctx context.Context, user model.U
 }
 
 func (repository *UserRepository) CheckUsernameOrEmailUnique(ctx context.Context, username string, email string) (string, string, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.CheckUsernameOrEmailUnique")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("user.username", username),
+		attribute.String("user.email", email),
+	)
+
 	query := "SELECT username,email FROM users WHERE username=$1 OR email=$2 LIMIT 1"
 
 	var existUsername string
@@ -71,7 +116,9 @@ func (repository *UserRepository) CheckUsernameOrEmailUnique(ctx context.Context
 		if errors.Is(err, pgx.ErrNoRows) {
 			return existUsername, existEmail, nil
 		}
-		repository.Log.Error("Failed to check username or email uniqueness", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to check username or email uniqueness", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return existUsername, existEmail, err
 	}
 
@@ -79,7 +126,22 @@ func (repository *UserRepository) CheckUsernameOrEmailUnique(ctx context.Context
 }
 
 func (repository *UserRepository) GetUserAuth(ctx context.Context, username string) (uuid.UUID, string, error) {
+	// 1. Start Tracing Span
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.GetUserAuth")
+	defer span.End()
+
 	query := "SELECT id,password FROM users WHERE username=$1 LIMIT 1"
+
+	// 2. Add DB Attributes
+	dbSystem := repository.Config.String("DB_SYSTEM")
+
+	span.SetAttributes(
+		attribute.String("db.system", dbSystem),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("db.user.username", username),
+	)
 
 	var id uuid.UUID
 	var passwordHash string
@@ -93,7 +155,10 @@ func (repository *UserRepository) GetUserAuth(ctx context.Context, username stri
 				Param:   "username",
 			}
 		}
-		repository.Log.Error("Failed to get user auth by username", zap.Error(err))
+		// 3. Log with Trace Correlation and Record Error
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get user auth by username", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return id, passwordHash, err
 	}
 
@@ -101,6 +166,17 @@ func (repository *UserRepository) GetUserAuth(ctx context.Context, username stri
 }
 
 func (repository *UserRepository) GetUserInfo(ctx context.Context, id uuid.UUID) (model.UserResponse, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.GetUserInfo")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("user.id", id.String()),
+	)
+
 	query := `SELECT A.id,A.username,A.fullname,A.email,B.object_key,A.bio,A.create_datetime,A.update_datetime
 			FROM users A
 			LEFT JOIN user_avatar_images B ON A.id = B.user_id
@@ -117,7 +193,9 @@ func (repository *UserRepository) GetUserInfo(ctx context.Context, id uuid.UUID)
 				Param:   "userId",
 			}
 		}
-		repository.Log.Error("Failed to get user info by ID", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get user info by ID", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return user, err
 	}
 
@@ -126,6 +204,17 @@ func (repository *UserRepository) GetUserInfo(ctx context.Context, id uuid.UUID)
 
 // Redis - Cache
 func (repository *UserRepository) SetAuthTokenInCache(ctx context.Context, accessToken string, refreeshToken string, userId uuid.UUID) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.SetAuthTokenInCache")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "SET"),
+		attribute.String("user.id", userId.String()),
+	)
+
 	accessTokenKey := fmt.Sprintf("auth:acccessToken:%s", userId)
 	refreshTokenKey := fmt.Sprintf("auth:refreshToken:%s", userId)
 
@@ -135,13 +224,17 @@ func (repository *UserRepository) SetAuthTokenInCache(ctx context.Context, acces
 
 	err := repository.DBCache.Set(ctx, accessTokenKey, hashedAccessToken, 15*time.Minute).Err()
 	if err != nil {
-		repository.Log.Error("Failed to set access token in cache", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to set access token in cache", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	err = repository.DBCache.Set(ctx, refreshTokenKey, hashedRefreshToken, 15*time.Minute).Err()
 	if err != nil {
-		repository.Log.Error("Failed to set refresh token in cache", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to set refresh token in cache", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -149,6 +242,17 @@ func (repository *UserRepository) SetAuthTokenInCache(ctx context.Context, acces
 }
 
 func (repository *UserRepository) GetAccessTokenInCache(ctx context.Context, userId uuid.UUID) (string, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.GetAccessTokenInCache")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "GET"),
+		attribute.String("user.id", userId.String()),
+	)
+
 	accessTokenKey := fmt.Sprintf("auth:acccessToken:%s", userId)
 	hashedToken, err := repository.DBCache.Get(ctx, accessTokenKey).Result()
 	if err == redis.Nil {
@@ -158,7 +262,9 @@ func (repository *UserRepository) GetAccessTokenInCache(ctx context.Context, use
 			Param:   "accessToken",
 		}
 	} else if err != nil {
-		repository.Log.Error("Failed to get access token from cache", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get access token from cache", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return hashedToken, err
 	}
 
@@ -166,18 +272,33 @@ func (repository *UserRepository) GetAccessTokenInCache(ctx context.Context, use
 }
 
 func (repository *UserRepository) RemoveAuthToken(ctx context.Context, userId uuid.UUID) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.RemoveAuthToken")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "DEL"),
+		attribute.String("user.id", userId.String()),
+	)
+
 	accessTokenKey := fmt.Sprintf("auth:acccessToken:%s", userId)
 	refreshTokenKey := fmt.Sprintf("auth:refreshToken:%s", userId)
 
 	err := repository.DBCache.Del(ctx, accessTokenKey).Err()
 	if err != nil {
-		repository.Log.Error("Failed to remove access token from cache", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to remove access token from cache", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	err = repository.DBCache.Del(ctx, refreshTokenKey).Err()
 	if err != nil {
-		repository.Log.Error("Failed to remove refresh token from cache", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to remove refresh token from cache", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -185,13 +306,27 @@ func (repository *UserRepository) RemoveAuthToken(ctx context.Context, userId uu
 }
 
 func (repository *UserRepository) UploadUserAvatar(ctx context.Context, bucketName string, imageName string, imageFile *bytes.Reader, imageSize int64) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.UploadUserAvatar")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "minio"),
+		attribute.String("db.operation", "PUT"),
+		attribute.String("db.minio.bucket", bucketName),
+		attribute.String("db.minio.object", imageName),
+	)
+
 	_, err := repository.DBObject.PutObject(ctx, bucketName, imageName, imageFile, imageSize,
 		minio.PutObjectOptions{
 			ContentType:  "image/webp",
 			CacheControl: "public, max-age=31536000, immutable",
 		})
 	if err != nil {
-		repository.Log.Error("Failed to upload user avatar to object storage", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to upload user avatar to object storage", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -199,6 +334,17 @@ func (repository *UserRepository) UploadUserAvatar(ctx context.Context, bucketNa
 }
 
 func (repository *UserRepository) GetUserAvatar(ctx context.Context, tx pgx.Tx, userId uuid.UUID) (string, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.GetUserAvatar")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("user.id", userId.String()),
+	)
+
 	query := "SELECT object_key FROM user_avatar_images WHERE user_id=$1 LIMIT 1"
 
 	var objectKey string
@@ -207,7 +353,9 @@ func (repository *UserRepository) GetUserAvatar(ctx context.Context, tx pgx.Tx, 
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", nil
 		}
-		repository.Log.Error("Failed to get user avatar", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get user avatar", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return objectKey, err
 	}
 
@@ -215,9 +363,23 @@ func (repository *UserRepository) GetUserAvatar(ctx context.Context, tx pgx.Tx, 
 }
 
 func (repository *UserRepository) DeleteUserAvatar(ctx context.Context, bucketName string, fileName string) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.DeleteUserAvatar")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "minio"),
+		attribute.String("db.operation", "DELETE"),
+		attribute.String("db.minio.bucket", bucketName),
+		attribute.String("db.minio.object", fileName),
+	)
+
 	err := repository.DBObject.RemoveObject(ctx, bucketName, fileName, minio.RemoveObjectOptions{})
 	if err != nil {
-		repository.Log.Error("Failed to delete user avatar from object storage", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete user avatar from object storage", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -225,11 +387,24 @@ func (repository *UserRepository) DeleteUserAvatar(ctx context.Context, bucketNa
 }
 
 func (repository *UserRepository) DeleteAvatarImage(ctx context.Context, tx pgx.Tx, userId uuid.UUID) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.DeleteAvatarImage")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "DELETE"),
+		attribute.String("user.id", userId.String()),
+	)
+
 	query := "DELETE FROM user_avatar_images WHERE user_id=$1"
 
 	_, err := tx.Exec(ctx, query, userId)
 	if err != nil {
-		repository.Log.Error("Failed to delete avatar image from database", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete avatar image from database", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -237,11 +412,26 @@ func (repository *UserRepository) DeleteAvatarImage(ctx context.Context, tx pgx.
 }
 
 func (repository *UserRepository) AddUserAvatar(ctx context.Context, tx pgx.Tx, avatar model.UserAvatarImage) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.AddUserAvatar")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "INSERT"),
+		attribute.String("user.id", avatar.UserId.String()),
+		attribute.String("db.minio.bucket", avatar.Bucket),
+		attribute.String("db.minio.object", avatar.ObjectKey),
+	)
+
 	query := "INSERT INTO user_avatar_images (id, user_id, bucket, object_key, mime_type, size, create_datetime, update_datetime, create_user_id, update_user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
 
 	_, err := tx.Exec(ctx, query, avatar.Id, avatar.UserId, avatar.Bucket, avatar.ObjectKey, avatar.MimeType, avatar.Size, avatar.CreateDatetime, avatar.UpdateDatetime, avatar.CreateUserId, avatar.UpdateUserId)
 	if err != nil {
-		repository.Log.Error("Failed to add user avatar to database", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to add user avatar to database", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -249,6 +439,17 @@ func (repository *UserRepository) AddUserAvatar(ctx context.Context, tx pgx.Tx, 
 }
 
 func (repository *UserRepository) SetSignupSession(ctx context.Context, sessionId uuid.UUID, email string, otp string, otpExpiresAt int64) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.SetSignupSession")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "HSET"),
+		attribute.String("signup.session_id", sessionId.String()),
+	)
+
 	key := fmt.Sprintf("signup:%s", sessionId)
 
 	err := repository.DBCache.HSet(ctx, key, map[string]interface{}{
@@ -260,13 +461,17 @@ func (repository *UserRepository) SetSignupSession(ctx context.Context, sessionI
 	}).Err()
 
 	if err != nil {
-		repository.Log.Error("Failed to set signup session in cache", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to set signup session in cache", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	err = repository.DBCache.Expire(ctx, key, 30*time.Minute).Err()
 	if err != nil {
-		repository.Log.Error("Failed to set expiration for signup session", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to set expiration for signup session", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -274,11 +479,24 @@ func (repository *UserRepository) SetSignupSession(ctx context.Context, sessionI
 }
 
 func (repository *UserRepository) SetSignupEmailSession(ctx context.Context, sessionId string, email string) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.SetSignupEmailSession")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "SET"),
+		attribute.String("user.email", email),
+	)
+
 	key := fmt.Sprintf("signup_email:%s", email)
 
 	err := repository.DBCache.Set(ctx, key, sessionId, 30*time.Minute).Err()
 	if err != nil {
-		repository.Log.Error("Failed to set signup email session in cache", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to set signup email session in cache", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -286,22 +504,48 @@ func (repository *UserRepository) SetSignupEmailSession(ctx context.Context, ses
 }
 
 func (repository *UserRepository) GetOTPSignupSessionData(ctx context.Context, sessionId uuid.UUID) ([]interface{}, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.GetOTPSignupSessionData")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "HMGET"),
+		attribute.String("signup.session_id", sessionId.String()),
+	)
+
 	key := fmt.Sprintf("signup:%s", sessionId)
 
 	vals, err := repository.DBCache.HMGet(ctx, key, "otp", "otp_expires_at").Result()
 	if err != nil {
-		repository.Log.Error("Failed to get OTP signup session data", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get OTP signup session data", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return vals, err
 	}
 
 	return vals, nil
 }
 func (repository *UserRepository) GetSignupState(ctx context.Context, sessionId uuid.UUID) ([]interface{}, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.GetSignupState")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "HMGET"),
+		attribute.String("signup.session_id", sessionId.String()),
+	)
+
 	key := fmt.Sprintf("signup:%s", sessionId)
 
 	vals, err := repository.DBCache.HMGet(ctx, key, "step").Result()
 	if err != nil {
-		repository.Log.Error("Failed to get signup state from cache", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get signup state from cache", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return vals, err
 	}
 
@@ -309,11 +553,24 @@ func (repository *UserRepository) GetSignupState(ctx context.Context, sessionId 
 }
 
 func (repository *UserRepository) DeleteOTPState(ctx context.Context, sessionId uuid.UUID) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.DeleteOTPState")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "HDEL"),
+		attribute.String("signup.session_id", sessionId.String()),
+	)
+
 	key := fmt.Sprintf("signup:%s", sessionId)
 
 	err := repository.DBCache.HDel(ctx, key, "otp", "otp_expires_at").Err()
 	if err != nil {
-		repository.Log.Error("Failed to delete OTP state from cache", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete OTP state from cache", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -321,6 +578,17 @@ func (repository *UserRepository) DeleteOTPState(ctx context.Context, sessionId 
 }
 
 func (repository *UserRepository) SetVerificationOTPState(ctx context.Context, sessionId uuid.UUID, verifiedAt int64) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.SetVerificationOTPState")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "HSET"),
+		attribute.String("signup.session_id", sessionId.String()),
+	)
+
 	key := fmt.Sprintf("signup:%s", sessionId)
 
 	err := repository.DBCache.HSet(ctx, key, map[string]interface{}{
@@ -329,7 +597,9 @@ func (repository *UserRepository) SetVerificationOTPState(ctx context.Context, s
 	}).Err()
 
 	if err != nil {
-		repository.Log.Error("Failed to set verification OTP state in cache", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to set verification OTP state in cache", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -337,6 +607,17 @@ func (repository *UserRepository) SetVerificationOTPState(ctx context.Context, s
 }
 
 func (repository *UserRepository) CheckUsernameUnique(ctx context.Context, username string) (int, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.CheckUsernameUnique")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("user.username", username),
+	)
+
 	query := "SELECT 1 FROM users WHERE username=$1 LIMIT 1"
 
 	var exists int
@@ -345,7 +626,9 @@ func (repository *UserRepository) CheckUsernameUnique(ctx context.Context, usern
 		if errors.Is(err, pgx.ErrNoRows) {
 			return exists, nil
 		}
-		repository.Log.Error("Failed to check username uniqueness", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to check username uniqueness", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return exists, err
 	}
 
@@ -353,6 +636,17 @@ func (repository *UserRepository) CheckUsernameUnique(ctx context.Context, usern
 }
 
 func (repository *UserRepository) CheckEmailUnique(ctx context.Context, email string) (int, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.CheckEmailUnique")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("user.email", email),
+	)
+
 	query := "SELECT 1 FROM users WHERE email=$1 LIMIT 1"
 
 	var exists int
@@ -361,7 +655,9 @@ func (repository *UserRepository) CheckEmailUnique(ctx context.Context, email st
 		if errors.Is(err, pgx.ErrNoRows) {
 			return exists, nil
 		}
-		repository.Log.Error("Failed to check email uniqueness", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to check email uniqueness", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return exists, err
 	}
 
@@ -369,6 +665,18 @@ func (repository *UserRepository) CheckEmailUnique(ctx context.Context, email st
 }
 
 func (repository *UserRepository) SetVerificationUsernameState(ctx context.Context, sessionId uuid.UUID, username string) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.SetVerificationUsernameState")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "HSET"),
+		attribute.String("signup.session_id", sessionId.String()),
+		attribute.String("user.username", username),
+	)
+
 	key := fmt.Sprintf("signup:%s", sessionId)
 
 	err := repository.DBCache.HSet(ctx, key, map[string]interface{}{
@@ -376,7 +684,9 @@ func (repository *UserRepository) SetVerificationUsernameState(ctx context.Conte
 		"username": username,
 	}).Err()
 	if err != nil {
-		repository.Log.Error("Failed to set verification username state in cache", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to set verification username state in cache", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -384,11 +694,24 @@ func (repository *UserRepository) SetVerificationUsernameState(ctx context.Conte
 }
 
 func (repository *UserRepository) GetAllSessionData(ctx context.Context, sessionId uuid.UUID) (map[string]string, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.GetAllSessionData")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "HGETALL"),
+		attribute.String("signup.session_id", sessionId.String()),
+	)
+
 	key := fmt.Sprintf("signup:%s", sessionId)
 
 	vals, err := repository.DBCache.HGetAll(ctx, key).Result()
 	if err != nil {
-		repository.Log.Error("Failed to get all signup session data", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get all signup session data", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
 
@@ -396,12 +719,25 @@ func (repository *UserRepository) GetAllSessionData(ctx context.Context, session
 }
 
 func (repository *UserRepository) CheckSignupEmailSession(ctx context.Context, email string) (bool, string, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.CheckSignupEmailSession")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "GET"),
+		attribute.String("user.email", email),
+	)
+
 	key := fmt.Sprintf("signup_email:%s", email)
 	sessionId, err := repository.DBCache.Get(ctx, key).Result()
 	if err == redis.Nil {
 		return false, sessionId, nil
 	} else if err != nil {
-		repository.Log.Error("Failed to check signup email session", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to check signup email session", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return false, sessionId, err
 	}
 
@@ -409,11 +745,24 @@ func (repository *UserRepository) CheckSignupEmailSession(ctx context.Context, e
 }
 
 func (repository *UserRepository) DeleteSignupSession(ctx context.Context, sessionId string) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.DeleteSignupSession")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "DEL"),
+		attribute.String("signup.session_id", sessionId),
+	)
+
 	key := fmt.Sprintf("signup:%s", sessionId)
 
 	err := repository.DBCache.Del(ctx, key).Err()
 	if err != nil {
-		repository.Log.Error("Failed to delete signup session", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete signup session", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -421,11 +770,23 @@ func (repository *UserRepository) DeleteSignupSession(ctx context.Context, sessi
 }
 
 func (repository *UserRepository) DeleteEmailSignupSession(ctx context.Context, sesisonId string) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.DeleteEmailSignupSession")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "DEL"),
+	)
+
 	key := fmt.Sprintf("signup_email:%s", sesisonId)
 
 	err := repository.DBCache.Del(ctx, key).Err()
 	if err != nil {
-		repository.Log.Error("Failed to delete email signup session", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete email signup session", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -433,11 +794,25 @@ func (repository *UserRepository) DeleteEmailSignupSession(ctx context.Context, 
 }
 
 func (repository *UserRepository) UpdateUsername(ctx context.Context, userId uuid.UUID, username string, updateUserId uuid.UUID, updateDatetime time.Time) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.UpdateUsername")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("user.id", userId.String()),
+		attribute.String("user.username", username),
+	)
+
 	query := "UPDATE users SET username = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4"
 
 	_, err := repository.DB.Exec(ctx, query, username, updateDatetime, updateUserId, userId)
 	if err != nil {
-		repository.Log.Error("Failed to update username", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to update username", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -445,11 +820,25 @@ func (repository *UserRepository) UpdateUsername(ctx context.Context, userId uui
 }
 
 func (repository *UserRepository) UpdateFullname(ctx context.Context, userId uuid.UUID, fullname string, updateUserId uuid.UUID, updateDatetime time.Time) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.UpdateFullname")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("user.id", userId.String()),
+		attribute.String("user.fullname", fullname),
+	)
+
 	query := "UPDATE users SET fullname = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4"
 
 	_, err := repository.DB.Exec(ctx, query, fullname, updateDatetime, updateUserId, userId)
 	if err != nil {
-		repository.Log.Error("Failed to update fullname", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to update fullname", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -457,11 +846,24 @@ func (repository *UserRepository) UpdateFullname(ctx context.Context, userId uui
 }
 
 func (repository *UserRepository) UpdateBio(ctx context.Context, userId uuid.UUID, bio *string, updateUserId uuid.UUID, updateDatetime time.Time) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.UpdateBio")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("user.id", userId.String()),
+	)
+
 	query := "UPDATE users SET bio = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4"
 
 	_, err := repository.DB.Exec(ctx, query, bio, updateDatetime, updateUserId, userId)
 	if err != nil {
-		repository.Log.Error("Failed to update bio", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to update bio", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 

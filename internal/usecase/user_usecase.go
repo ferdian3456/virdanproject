@@ -16,11 +16,15 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/util"
 	"github.com/google/uuid"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 type UserUsecase struct {
@@ -41,7 +45,7 @@ func NewUserUsecase(userRepository *repository.UserRepository, serverRepository 
 	}
 }
 
-// func (usecase *UserUsecase) Register(ctx *fiber.Ctx, payload model.UserCreateRequest) (model.TokenResponse, error) {
+// func (usecase *UserUsecase) Register(ctx fiber.Ctx, payload model.UserCreateRequest) (model.TokenResponse, error) {
 // 	ctxContext := ctx.Context()
 // 	token := model.TokenResponse{}
 
@@ -248,54 +252,72 @@ func NewUserUsecase(userRepository *repository.UserRepository, serverRepository 
 // 	return token, nil
 // }
 
-func (usecase *UserUsecase) Login(ctx *fiber.Ctx, payload model.UserLoginRequest) (model.TokenResponse, error) {
+func (usecase *UserUsecase) Login(ctx fiber.Ctx, payload model.UserLoginRequest) (model.TokenResponse, error) {
 	ctxContext := ctx.Context()
 	token := model.TokenResponse{}
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tracer := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tracer.Start(ctxContext, "usecase.Login")
+	defer span.End()
 
 	if payload.Username == "" {
-		return token, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Username is required to not be empty",
 			Param:   "username",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "Login")
+		return token, err
 	} else if len(payload.Username) < 4 {
-		return token, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Username must be at least 4 characters",
 			Param:   "username",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "Login")
+		return token, err
 	} else if len(payload.Username) > 22 {
-		return token, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "username must be at most 22 characters",
 			Param:   "username",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "Login")
+		return token, err
 	}
 
 	if payload.Password == "" {
-		return token, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Password is required to not be empty",
 			Param:   "password",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "Login")
+		return token, err
 	} else if len(payload.Password) < 5 {
-		return token, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Password must be at least 5 characters",
 			Param:   "password",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "Login")
+		return token, err
 	} else if len(payload.Password) > 20 {
-		return token, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Password must be at most 20 characters",
 			Param:   "password",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "Login")
+		return token, err
 	}
 
 	payload.Username = strings.ToLower(payload.Username)
 
 	userId, password, err := usecase.UserRepository.GetUserAuth(ctxContext, payload.Username)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return token, err
 	}
 
@@ -310,22 +332,36 @@ func (usecase *UserUsecase) Login(ctx *fiber.Ctx, payload model.UserLoginRequest
 
 	token, err = util.GenerateTokenPair(userId, usecase.Config.String("JWT_SECRET_KEY"))
 	if err != nil {
-		usecase.Log.Error("Failed to generate token pair", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate token pair", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return token, err
 	}
 
 	err = usecase.UserRepository.SetAuthTokenInCache(ctxContext, token.AccessToken, token.RefreshToken, userId)
 	if err != nil {
-		usecase.Log.Error("Failed to set auth token in cache", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to set auth token in cache", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return token, err
 	}
 
 	return token, nil
 }
 
-func (usecase *UserUsecase) GetUserInfo(ctx *fiber.Ctx, userId uuid.UUID) (model.UserResponse, error) {
-	user, err := usecase.UserRepository.GetUserInfo(ctx.Context(), userId)
+func (usecase *UserUsecase) GetUserInfo(ctx fiber.Ctx, userId uuid.UUID) (model.UserResponse, error) {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tracer := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tracer.Start(ctxContext, "usecase.GetUserInfo")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("user.id", userId.String()))
+
+	user, err := usecase.UserRepository.GetUserInfo(ctxContext, userId)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return user, err
 	}
 
@@ -340,9 +376,19 @@ func (usecase *UserUsecase) GetUserInfo(ctx *fiber.Ctx, userId uuid.UUID) (model
 	return user, nil
 }
 
-func (usecase *UserUsecase) GetAccessToken(ctx *fiber.Ctx, userId uuid.UUID, accessToken string) error {
-	hashedTokenFromCache, err := usecase.UserRepository.GetAccessTokenInCache(ctx.Context(), userId)
+func (usecase *UserUsecase) GetAccessToken(ctx fiber.Ctx, userId uuid.UUID, accessToken string) error {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tracer := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tracer.Start(ctxContext, "usecase.GetAccessToken")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("user.id", userId.String()))
+
+	hashedTokenFromCache, err := usecase.UserRepository.GetAccessTokenInCache(ctxContext, userId)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -350,47 +396,68 @@ func (usecase *UserUsecase) GetAccessToken(ctx *fiber.Ctx, userId uuid.UUID, acc
 	hashedTokenFromClient := util.HashToken(accessToken)
 
 	if hashedTokenFromClient != hashedTokenFromCache {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_NOT_FOUND_ERROR,
 			Message: "Authorization token is expired",
 			Param:   "accessToken",
 		}
-	}
-
-	return nil
-}
-
-func (usecase *UserUsecase) Logout(ctx *fiber.Ctx, userId uuid.UUID) error {
-	err := usecase.UserRepository.RemoveAuthToken(ctx.Context(), userId)
-	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Message)
 		return err
 	}
 
 	return nil
 }
 
-func (usecase *UserUsecase) UpdateAvatar(ctx *fiber.Ctx, userId uuid.UUID) error {
+func (usecase *UserUsecase) Logout(ctx fiber.Ctx, userId uuid.UUID) error {
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tracer := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tracer.Start(ctxContext, "usecase.Logout")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("user.id", userId.String()))
+
+	err := usecase.UserRepository.RemoveAuthToken(ctxContext, userId)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	return nil
+}
+
+func (usecase *UserUsecase) UpdateAvatar(ctx fiber.Ctx, userId uuid.UUID) error {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tracer := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tracer.Start(ctxContext, "usecase.UpdateAvatar")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("user.id", userId.String()))
 
 	fieldName := "avatar"
 	fileHeader, err := ctx.FormFile(fieldName)
 	if err != nil {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Avatar is required to not be empty",
 			Param:   fieldName,
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateAvatar")
+		return err
 	}
 
 	imageFile, imageSize, err := util.ValidateImage(fileHeader, fieldName)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	avatarImageId := uuid.New()
-
 	now := time.Now().UTC()
-
 	bucketName := usecase.Config.String("MINIO_BUCKET_NAME")
 
 	avatarImage := model.UserAvatarImage{
@@ -407,9 +474,11 @@ func (usecase *UserUsecase) UpdateAvatar(ctx *fiber.Ctx, userId uuid.UUID) error
 	}
 
 	// start transaction
-	tx, err := usecase.DB.Begin(ctx.Context())
+	tx, err := usecase.DB.Begin(ctxContext)
 	if err != nil {
-		usecase.Log.Error("Failed to begin transaction", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to begin transaction", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -419,108 +488,140 @@ func (usecase *UserUsecase) UpdateAvatar(ctx *fiber.Ctx, userId uuid.UUID) error
 
 	fileName, err := usecase.UserRepository.GetUserAvatar(ctxContext, tx, userId)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	if fileName != "" {
 		err = usecase.UserRepository.DeleteAvatarImage(ctxContext, tx, userId)
 		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
 			return err
 		}
 
 		err = usecase.UserRepository.DeleteUserAvatar(ctxContext, bucketName, fileName)
 		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
 			return err
 		}
 	}
 
 	err = usecase.UserRepository.AddUserAvatar(ctxContext, tx, avatarImage)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	err = usecase.UserRepository.UploadUserAvatar(ctxContext, bucketName, avatarImage.ObjectKey, imageFile, imageSize)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	err = tx.Commit(ctxContext)
 	if err != nil {
-		usecase.Log.Error("Failed to commit transaction", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	return nil
 }
 
-func (usecase *UserUsecase) StartSignup(ctx *fiber.Ctx, payload model.UserSignupStartRequest) (model.UserSignupStartResponse, error) {
+func (usecase *UserUsecase) StartSignup(ctx fiber.Ctx, payload model.UserSignupStartRequest) (model.UserSignupStartResponse, error) {
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tracer := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tracer.Start(ctxContext, "usecase.StartSignup")
+	defer span.End()
 
 	response := model.UserSignupStartResponse{}
 
 	if payload.Email == "" {
-		return response, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Email is required to not be empty",
 			Param:   "email",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "StartSignup")
+		return response, err
 	} else if len(payload.Email) < 16 {
-		return response, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "email must be at least 16 characters",
 			Param:   "email",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "StartSignup")
+		return response, err
 	} else if len(payload.Email) > 80 {
-		return response, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Email must be at most 80 characters",
 			Param:   "email",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "StartSignup")
+		return response, err
 	}
 
 	payload.Email = strings.ToLower(payload.Email)
+	span.SetAttributes(attribute.String("user.email", payload.Email))
 
 	exists1, err := usecase.UserRepository.CheckEmailUnique(ctxContext, payload.Email)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
 	if exists1 == 1 {
-		return response, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Email is already exists",
 			Param:   "email",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "StartSignup")
+		return response, err
 	}
 
 	exists, emailSessionId, err := usecase.UserRepository.CheckSignupEmailSession(ctxContext, payload.Email)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
 	if exists {
-		usecase.Log.Debug("email session is exists, preparing to delete email and signup session", zap.String("email", payload.Email))
-		err = usecase.UserRepository.DeleteEmailSignupSession(ctx.Context(), emailSessionId)
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Debug("email session exists, deleting previous session", zap.String("email", payload.Email))
+		err = usecase.UserRepository.DeleteEmailSignupSession(ctxContext, emailSessionId)
 		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
 			return response, err
 		}
-		err = usecase.UserRepository.DeleteSignupSession(ctx.Context(), emailSessionId)
+		err = usecase.UserRepository.DeleteSignupSession(ctxContext, emailSessionId)
 		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
 			return response, err
 		}
 	}
 
 	otp, err := util.GenerateOTP()
 	if err != nil {
-		usecase.Log.Error("Failed to generate OTP", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate OTP", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
 	otpHash := util.HashSHA256(otp)
-
 	sessionId := uuid.New()
-
-	// save session
 	otpExpiresAt := time.Now().UTC().Add(5 * time.Minute).Unix()
 
 	response.SessionId = sessionId
@@ -533,14 +634,18 @@ func (usecase *UserUsecase) StartSignup(ctx *fiber.Ctx, payload model.UserSignup
 
 	template, err := template.ParseFS(util.TemplateFS, "template/otp.html")
 	if err != nil {
-		usecase.Log.Error("Failed to parse OTP template", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to parse OTP template", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
 	var tmpl bytes.Buffer
 	err = template.Execute(&tmpl, OtpTemplateData)
 	if err != nil {
-		usecase.Log.Error("Failed to execute OTP template", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to execute OTP template", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
@@ -553,51 +658,71 @@ func (usecase *UserUsecase) StartSignup(ctx *fiber.Ctx, payload model.UserSignup
 	subject := "Register OTP Verification Code"
 	err = util.SendEmail(smtpHost, smtpPort, senderName, senderEmail, senderPassword, payload.Email, subject, tmpl.String())
 	if err != nil {
-		usecase.Log.Error("Failed to send OTP email", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to send OTP email", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
-	err = usecase.UserRepository.SetSignupSession(ctx.Context(), sessionId, payload.Email, otpHash, otpExpiresAt)
+	err = usecase.UserRepository.SetSignupSession(ctxContext, sessionId, payload.Email, otpHash, otpExpiresAt)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
-	err = usecase.UserRepository.SetSignupEmailSession(ctx.Context(), sessionId.String(), payload.Email)
+	err = usecase.UserRepository.SetSignupEmailSession(ctxContext, sessionId.String(), payload.Email)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
 	return response, nil
 }
 
-func (usecase *UserUsecase) VerifyOtp(ctx *fiber.Ctx, payload model.UserVerifyOTPRequest) error {
+func (usecase *UserUsecase) VerifyOtp(ctx fiber.Ctx, payload model.UserVerifyOTPRequest) error {
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tracer := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tracer.Start(ctxContext, "usecase.VerifyOtp")
+	defer span.End()
 
 	sessionId, err := uuid.Parse(payload.SessionId)
 	if err != nil {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Invalid session id",
 			Param:   "sessionId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyOtp")
+		return err
 	}
 
+	span.SetAttributes(attribute.String("signup.session_id", sessionId.String()))
+
 	if payload.OTP == "" {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "OTP is required to not be empty",
 			Param:   "otp",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyOtp")
+		return err
 	} else if len(payload.OTP) < 6 {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "OTP must be at least 6 characters",
 			Param:   "otp",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyOtp")
+		return err
 	}
 
-	data, err := usecase.UserRepository.GetOTPSignupSessionData(ctx.Context(), sessionId)
+	data, err := usecase.UserRepository.GetOTPSignupSessionData(ctxContext, sessionId)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -605,243 +730,324 @@ func (usecase *UserUsecase) VerifyOtp(ctx *fiber.Ctx, payload model.UserVerifyOT
 	expiresRaw := data[1]
 
 	if otpRaw == nil || expiresRaw == nil {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "OTP does not exists or expired",
 			Param:   "otp",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyOtp")
+		return err
 	}
 
 	otpHash, ok := otpRaw.(string)
 	if !ok {
-		return err
+		return fmt.Errorf("invalid OTP hash format")
 	}
 
 	otpExpiresAtStr, ok := expiresRaw.(string)
 	if !ok {
-		return err
+		return fmt.Errorf("invalid OTP expiration format")
 	}
 
 	otpExpiresAt, err := strconv.ParseInt(otpExpiresAtStr, 10, 64)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	if subtle.ConstantTimeCompare([]byte(otpHash), []byte(util.HashSHA256(payload.OTP))) != 1 {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Otp does not match",
 			Param:   "otp",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyOtp")
+		return err
 	}
 
 	if time.Now().Unix() > otpExpiresAt {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Otp is expired",
 			Param:   "otp",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyOtp")
+		return err
 	}
 
 	err = usecase.UserRepository.DeleteOTPState(ctxContext, sessionId)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	verifiedAt := time.Now().UTC().Unix()
 	err = usecase.UserRepository.SetVerificationOTPState(ctxContext, sessionId, verifiedAt)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	return nil
 }
 
-func (usecase *UserUsecase) VerifyUsername(ctx *fiber.Ctx, payload model.UserVerifyUsernameRequest) error {
+func (usecase *UserUsecase) VerifyUsername(ctx fiber.Ctx, payload model.UserVerifyUsernameRequest) error {
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tracer := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tracer.Start(ctxContext, "usecase.VerifyUsername")
+	defer span.End()
 
 	sessionId, err := uuid.Parse(payload.SessionId)
 	if err != nil {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Invalid session id",
 			Param:   "sessionId",
 		}
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Message)
+		return err
 	}
 
+	span.SetAttributes(
+		attribute.String("signup.session_id", sessionId.String()),
+		attribute.String("user.username", payload.Username),
+	)
+
 	if payload.Username == "" {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Username is required to not be empty",
 			Param:   "username",
 		}
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Message)
+		return err
 	} else if len(payload.Username) < 4 {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Username must be at least 4 characters",
 			Param:   "username",
 		}
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Message)
+		return err
 	} else if len(payload.Username) > 22 {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "username must be at most 22 characters",
 			Param:   "username",
 		}
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Message)
+		return err
 	}
 
-	data, err := usecase.UserRepository.GetSignupState(ctx.Context(), sessionId)
+	data, err := usecase.UserRepository.GetSignupState(ctxContext, sessionId)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	if data[0] == nil {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Signup session is expired or not exists",
 			Param:   "sessionId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyUsername")
+		return err
 	}
 
 	stepRaw, ok := data[0].(string)
 	if !ok {
-		return err
+		return fmt.Errorf("invalid signup step format")
 	}
 
 	if stepRaw == model.SignupStepStart {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Invalid signup step for this session",
 			Param:   "sessionId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyUsername")
+		return err
 	}
 
 	exists, err := usecase.UserRepository.CheckUsernameUnique(ctxContext, payload.Username)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	if exists == 1 {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Username is already taken",
 			Param:   "username",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyUsername")
+		return err
 	}
 
 	err = usecase.UserRepository.SetVerificationUsernameState(ctxContext, sessionId, payload.Username)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	return nil
 }
 
-func (usecase *UserUsecase) VerifyPassword(ctx *fiber.Ctx, payload model.UserVerifyPasswordRequest) (model.TokenResponse, error) {
+func (usecase *UserUsecase) VerifyPassword(ctx fiber.Ctx, payload model.UserVerifyPasswordRequest) (model.TokenResponse, error) {
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tracer := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tracer.Start(ctxContext, "usecase.VerifyPassword")
+	defer span.End()
+
 	token := model.TokenResponse{}
 
 	sessionId, err := uuid.Parse(payload.SessionId)
 	if err != nil {
-		return token, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Invalid session id",
 			Param:   "sessionId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyPassword")
+		return token, err
 	}
 
+	span.SetAttributes(attribute.String("signup.session_id", sessionId.String()))
+
 	if payload.Password == "" {
-		return token, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Password is required to not be empty",
 			Param:   "password",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyPassword")
+		return token, err
 	} else if len(payload.Password) < 5 {
-		return token, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Password must be at least 5 characters",
 			Param:   "password",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyPassword")
+		return token, err
 	} else if len(payload.Password) > 20 {
-		return token, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Password must be at most 20 characters",
 			Param:   "password",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyPassword")
+		return token, err
 	}
 
-	data, err := usecase.UserRepository.GetAllSessionData(ctx.Context(), sessionId)
+	data, err := usecase.UserRepository.GetAllSessionData(ctxContext, sessionId)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return token, err
 	}
 
 	if len(data) == 0 {
-		return token, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Signup session is expired or not exists",
 			Param:   "sessionId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyPassword")
+		return token, err
 	}
 
 	stepRaw, ok := data["step"]
 	if !ok {
-		return token, err
+		return token, fmt.Errorf("step not found in session data")
 	}
 
 	if stepRaw != model.SignupStepUsernameSet {
-		return token, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Invalid signup step for this session",
 			Param:   "sessionId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyPassword")
+		return token, err
 	}
 
 	username, email, err := usecase.UserRepository.CheckUsernameOrEmailUnique(ctxContext, data["username"], data["email"])
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return token, err
 	}
 
 	if username == data["username"] {
-		return token, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Username is already exist",
 			Param:   "sessionId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyPassword")
+		return token, err
 	}
 
 	if email == data["email"] {
-		usecase.Log.Debug("email is exists in verify password step, preparing to delete email and signup session",
-			zap.String("email", data["email"]))
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Debug("email exists in verify password step, deleting session", zap.String("email", data["email"]))
 
 		err = usecase.UserRepository.DeleteSignupSession(ctxContext, payload.SessionId)
 		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
 			return token, err
 		}
 
 		err = usecase.UserRepository.DeleteEmailSignupSession(ctxContext, data["email"])
 		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
 			return token, err
 		}
 
-		return token, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Email is already exist",
 			Param:   "sessionId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyPassword")
+		return token, err
 	}
 
 	err = usecase.UserRepository.DeleteSignupSession(ctxContext, payload.SessionId)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return token, err
 	}
 
 	err = usecase.UserRepository.DeleteEmailSignupSession(ctxContext, data["email"])
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return token, err
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
 	if err != nil {
-		usecase.Log.Error("Failed to generate hashed password", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate hashed password", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return token, err
 	}
 
@@ -862,53 +1068,73 @@ func (usecase *UserUsecase) VerifyPassword(ctx *fiber.Ctx, payload model.UserVer
 		UpdateUserId:   userId,
 	}
 
-	err = usecase.UserRepository.RegisterNoTx(ctx.Context(), user)
+	err = usecase.UserRepository.RegisterNoTx(ctxContext, user)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return token, err
 	}
 
 	token, err = util.GenerateTokenPair(userId, usecase.Config.String("JWT_SECRET_KEY"))
 	if err != nil {
-		usecase.Log.Error("Failed to generate token pair", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate token pair", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return token, err
 	}
 
 	err = usecase.UserRepository.SetAuthTokenInCache(ctxContext, token.AccessToken, token.RefreshToken, userId)
 	if err != nil {
-		usecase.Log.Error("Failed to set auth token in cache", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to set auth token in cache", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return token, err
 	}
 
 	return token, nil
 }
 
-func (usecase *UserUsecase) GetSignupStatus(ctx *fiber.Ctx, sessionId string) (model.UserSignupStatus, error) {
+func (usecase *UserUsecase) GetSignupStatus(ctx fiber.Ctx, sessionId string) (model.UserSignupStatus, error) {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tracer := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tracer.Start(ctxContext, "usecase.GetSignupStatus")
+	defer span.End()
+
 	response := model.UserSignupStatus{}
 	sessionUUID, err := uuid.Parse(sessionId)
 	if err != nil {
-		return response, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Invalid session id",
 			Param:   "sessionId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "GetSignupStatus")
+		return response, err
 	}
 
-	data, err := usecase.UserRepository.GetSignupState(ctx.Context(), sessionUUID)
+	span.SetAttributes(attribute.String("signup.session_id", sessionUUID.String()))
+
+	data, err := usecase.UserRepository.GetSignupState(ctxContext, sessionUUID)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
 	if data[0] == nil {
-		return response, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Signup session is expired or not exists",
 			Param:   "sessionId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "GetSignupStatus")
+		return response, err
 	}
 
 	stepRaw, ok := data[0].(string)
 	if !ok {
-		return response, err
+		return response, fmt.Errorf("invalid signup step format")
 	}
 
 	response.SessionId = sessionUUID
@@ -917,90 +1143,137 @@ func (usecase *UserUsecase) GetSignupStatus(ctx *fiber.Ctx, sessionId string) (m
 	return response, nil
 }
 
-func (usecase *UserUsecase) UpdateUsername(ctx *fiber.Ctx, userId uuid.UUID, payload model.UsernameUpdateRequest) error {
+func (usecase *UserUsecase) UpdateUsername(ctx fiber.Ctx, userId uuid.UUID, payload model.UsernameUpdateRequest) error {
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tracer := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tracer.Start(ctxContext, "usecase.UpdateUsername")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId.String()),
+		attribute.String("user.username", payload.Username),
+	)
 
 	// Validate username
 	if payload.Username == "" {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Username is required to not be empty",
 			Param:   "username",
 		}
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Message)
+		return err
 	} else if len(payload.Username) < 4 {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Username must be at least 4 characters",
 			Param:   "username",
 		}
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Message)
+		return err
 	} else if len(payload.Username) > 22 {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "username must be at most 22 characters",
 			Param:   "username",
 		}
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Message)
+		return err
 	}
 
 	// Check if username is already taken
 	exists, err := usecase.UserRepository.CheckUsernameUnique(ctxContext, payload.Username)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	if exists == 1 {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Username is already taken",
 			Param:   "username",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateUsername")
+		return err
 	}
 
 	now := time.Now().UTC()
 
 	err = usecase.UserRepository.UpdateUsername(ctxContext, userId, payload.Username, userId, now)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	return nil
 }
 
-func (usecase *UserUsecase) UpdateFullname(ctx *fiber.Ctx, userId uuid.UUID, payload model.FullnameUpdateRequest) error {
+func (usecase *UserUsecase) UpdateFullname(ctx fiber.Ctx, userId uuid.UUID, payload model.FullnameUpdateRequest) error {
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tracer := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tracer.Start(ctxContext, "usecase.UpdateFullname")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId.String()),
+		attribute.String("user.fullname", payload.Fullname),
+	)
 
 	// Validate fullname
 	if payload.Fullname == "" {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Fullname is required to not be empty",
 			Param:   "fullname",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateFullname")
+		return err
 	} else if len(payload.Fullname) < 4 {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Fullname must be at least 4 characters",
 			Param:   "fullname",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateFullname")
+		return err
 	} else if len(payload.Fullname) > 40 {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Fullname must be at most 40 characters",
 			Param:   "fullname",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateFullname")
+		return err
 	}
 
 	now := time.Now().UTC()
 
 	err := usecase.UserRepository.UpdateFullname(ctxContext, userId, payload.Fullname, userId, now)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	return nil
 }
 
-func (usecase *UserUsecase) UpdateBio(ctx *fiber.Ctx, userId uuid.UUID, payload model.BioUpdateRequest) error {
+func (usecase *UserUsecase) UpdateBio(ctx fiber.Ctx, userId uuid.UUID, payload model.BioUpdateRequest) error {
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tracer := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tracer.Start(ctxContext, "usecase.UpdateBio")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("user.id", userId.String()))
 
 	// No validation needed for bio
 	// Convert empty string to nil for NULL in database
@@ -1013,6 +1286,8 @@ func (usecase *UserUsecase) UpdateBio(ctx *fiber.Ctx, userId uuid.UUID, payload 
 
 	err := usecase.UserRepository.UpdateBio(ctxContext, userId, bioPtr, userId, now)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 

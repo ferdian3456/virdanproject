@@ -11,10 +11,13 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/model"
 	"github.com/ferdian3456/virdanproject/internal/repository"
 	"github.com/ferdian3456/virdanproject/internal/util"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/knadh/koanf/v2"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.uber.org/zap"
 )
 
@@ -34,9 +37,18 @@ func NewPostUsecase(postRepository *repository.PostRepository, db *pgxpool.Pool,
 	}
 }
 
-func (usecase *PostUsecase) CreatePost(ctx *fiber.Ctx, serverId uuid.UUID, userId uuid.UUID) (model.ServerPostResponse, error) {
+func (usecase *PostUsecase) CreatePost(ctx fiber.Ctx, serverId uuid.UUID, userId uuid.UUID) (model.ServerPostResponse, error) {
 	response := model.ServerPostResponse{}
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tr.Start(ctxContext, "usecase.CreatePost")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId.String()),
+		attribute.String("server.id", serverId.String()),
+	)
 
 	// Check if user is a member of the server
 	exists, err := usecase.PostRepository.CheckServerMember(ctxContext, serverId, userId)
@@ -45,11 +57,13 @@ func (usecase *PostUsecase) CreatePost(ctx *fiber.Ctx, serverId uuid.UUID, userI
 	}
 
 	if exists != 1 {
-		return response, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not a member of this server",
 			Param:   "serverId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "CreatePost")
+		return response, err
 	}
 
 	// Validate and get image file
@@ -66,17 +80,22 @@ func (usecase *PostUsecase) CreatePost(ctx *fiber.Ctx, serverId uuid.UUID, userI
 	if fileHeader.Size != 0 {
 		imageFile, imageSize, err = util.ValidateImage(fileHeader, fieldName)
 		if err != nil {
+			if validationErr, ok := err.(*model.ValidationError); ok {
+				util.RecordValidationError(ctxContext, usecase.Log, span, validationErr, "CreatePost")
+			}
 			return response, err
 		}
 
 		id := uuid.New()
 		postImageId = &id
 	} else {
-		return response, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Image is required",
 			Param:   "image",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "CreatePost")
+		return response, err
 	}
 
 	// Validate caption
@@ -156,7 +175,9 @@ func (usecase *PostUsecase) CreatePost(ctx *fiber.Ctx, serverId uuid.UUID, userI
 	// Commit transaction
 	err = tx.Commit(ctxContext)
 	if err != nil {
-		usecase.Log.Error("Failed to commit transaction", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
@@ -172,7 +193,7 @@ func (usecase *PostUsecase) CreatePost(ctx *fiber.Ctx, serverId uuid.UUID, userI
 	return response, nil
 }
 
-func (usecase *PostUsecase) UpdatePostCaption(ctx *fiber.Ctx, serverIdParam string, postIdParam string, userId uuid.UUID, payload model.ServerPostUpdateCaptionRequest) (model.ServerPostResponse, error) {
+func (usecase *PostUsecase) UpdatePostCaption(ctx fiber.Ctx, serverIdParam string, postIdParam string, userId uuid.UUID, payload model.ServerPostUpdateCaptionRequest) (model.ServerPostResponse, error) {
 	response := model.ServerPostResponse{}
 
 	serverId, err := uuid.Parse(serverIdParam)
@@ -203,6 +224,16 @@ func (usecase *PostUsecase) UpdatePostCaption(ctx *fiber.Ctx, serverIdParam stri
 	}
 
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tr.Start(ctxContext, "usecase.UpdatePostCaption")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId.String()),
+		attribute.String("server.id", serverIdParam),
+		attribute.String("post.id", postIdParam),
+	)
 
 	// Check if user is a member of the server
 	serverMemberExists, err := usecase.PostRepository.CheckServerMember(ctxContext, serverId, userId)
@@ -211,11 +242,13 @@ func (usecase *PostUsecase) UpdatePostCaption(ctx *fiber.Ctx, serverIdParam stri
 	}
 
 	if serverMemberExists != 1 {
-		return response, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not a member of this server",
 			Param:   "serverId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdatePostCaption")
+		return response, err
 	}
 
 	// Check if user is the author of the post
@@ -225,11 +258,13 @@ func (usecase *PostUsecase) UpdatePostCaption(ctx *fiber.Ctx, serverIdParam stri
 	}
 
 	if postOwnerExists != 1 {
-		return response, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not the author of this post",
 			Param:   "postId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdatePostCaption")
+		return response, err
 	}
 
 	now := time.Now().UTC()
@@ -249,7 +284,7 @@ func (usecase *PostUsecase) UpdatePostCaption(ctx *fiber.Ctx, serverIdParam stri
 	return response, nil
 }
 
-func (usecase *PostUsecase) DeletePost(ctx *fiber.Ctx, serverIdParam string, postIdParam string, userId uuid.UUID) error {
+func (usecase *PostUsecase) DeletePost(ctx fiber.Ctx, serverIdParam string, postIdParam string, userId uuid.UUID) error {
 	serverId, err := uuid.Parse(serverIdParam)
 	if err != nil {
 		return &model.ValidationError{
@@ -269,6 +304,16 @@ func (usecase *PostUsecase) DeletePost(ctx *fiber.Ctx, serverIdParam string, pos
 	}
 
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tr.Start(ctxContext, "usecase.DeletePost")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId.String()),
+		attribute.String("server.id", serverIdParam),
+		attribute.String("post.id", postIdParam),
+	)
 
 	// Check if user is a member of the server
 	serverMemberExists, err := usecase.PostRepository.CheckServerMember(ctxContext, serverId, userId)
@@ -278,11 +323,13 @@ func (usecase *PostUsecase) DeletePost(ctx *fiber.Ctx, serverIdParam string, pos
 	}
 
 	if serverMemberExists != 1 {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not a member of this server",
 			Param:   "serverId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "DeletePost")
+		return err
 	}
 
 	// Check if user is the author of the post
@@ -292,11 +339,13 @@ func (usecase *PostUsecase) DeletePost(ctx *fiber.Ctx, serverIdParam string, pos
 	}
 
 	if postOwnerExists != 1 {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not the author of this post",
 			Param:   "postId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "DeletePost")
+		return err
 	}
 
 	commited := false
@@ -320,11 +369,13 @@ func (usecase *PostUsecase) DeletePost(ctx *fiber.Ctx, serverIdParam string, pos
 	}
 
 	if postImageId == uuid.Nil {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Post not found",
 			Param:   "postId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "DeletePost")
+		return err
 	}
 
 	// Delete post (CASCADE will delete comments and likes)
@@ -342,7 +393,9 @@ func (usecase *PostUsecase) DeletePost(ctx *fiber.Ctx, serverIdParam string, pos
 	// Commit transaction first
 	err = tx.Commit(ctxContext)
 	if err != nil {
-		usecase.Log.Error("Failed to commit transaction", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -358,10 +411,10 @@ func (usecase *PostUsecase) DeletePost(ctx *fiber.Ctx, serverIdParam string, pos
 	return nil
 }
 
-func (usecase *PostUsecase) GetServerPosts(ctx *fiber.Ctx, serverIdParam string, userId uuid.UUID) (model.ServerPostListResponse, error) {
+func (usecase *PostUsecase) GetServerPosts(ctx fiber.Ctx, serverIdParam string, userId uuid.UUID) (model.ServerPostListResponse, error) {
 	response := model.ServerPostListResponse{}
 
-	limit := ctx.QueryInt("limit", constant.DEFAULT_LIMIT)
+	limit := fiber.Query[int](ctx, "limit", constant.DEFAULT_LIMIT)
 	cursor := ctx.Query("cursor", "")
 
 	serverId, err := uuid.Parse(serverIdParam)
@@ -388,6 +441,17 @@ func (usecase *PostUsecase) GetServerPosts(ctx *fiber.Ctx, serverIdParam string,
 	}
 
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tr.Start(ctxContext, "usecase.GetServerPosts")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId.String()),
+		attribute.String("server.id", serverIdParam),
+		attribute.Int("limit", limit),
+		attribute.String("cursor", cursor),
+	)
 
 	// Check if user is a member of the server
 	serverMemberExists, err := usecase.PostRepository.CheckServerMember(ctxContext, serverId, userId)
@@ -456,7 +520,7 @@ func (usecase *PostUsecase) GetServerPosts(ctx *fiber.Ctx, serverIdParam string,
 	return response, nil
 }
 
-func (usecase *PostUsecase) GetPost(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID) (model.ServerPostResponse, error) {
+func (usecase *PostUsecase) GetPost(ctx fiber.Ctx, postIdParam string, userId uuid.UUID) (model.ServerPostResponse, error) {
 	var response model.ServerPostResponse
 
 	postId, err := uuid.Parse(postIdParam)
@@ -469,6 +533,15 @@ func (usecase *PostUsecase) GetPost(ctx *fiber.Ctx, postIdParam string, userId u
 	}
 
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tr.Start(ctxContext, "usecase.GetPost")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId.String()),
+		attribute.String("post.id", postIdParam),
+	)
 
 	// Check if user is a member of the server where the post belongs (single query)
 	serverMemberExists, err := usecase.PostRepository.CheckPostServerMember(ctxContext, postId, userId)
@@ -477,11 +550,13 @@ func (usecase *PostUsecase) GetPost(ctx *fiber.Ctx, postIdParam string, userId u
 	}
 
 	if serverMemberExists != 1 {
-		return response, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not a member of this server",
 			Param:   "postId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "GetPost")
+		return response, err
 	}
 
 	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
@@ -494,7 +569,7 @@ func (usecase *PostUsecase) GetPost(ctx *fiber.Ctx, postIdParam string, userId u
 	return response, nil
 }
 
-func (usecase *PostUsecase) LikePost(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID) (model.PostLikeResponse, error) {
+func (usecase *PostUsecase) LikePost(ctx fiber.Ctx, postIdParam string, userId uuid.UUID) (model.PostLikeResponse, error) {
 	response := model.PostLikeResponse{}
 
 	postId, err := uuid.Parse(postIdParam)
@@ -507,6 +582,15 @@ func (usecase *PostUsecase) LikePost(ctx *fiber.Ctx, postIdParam string, userId 
 	}
 
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tr.Start(ctxContext, "usecase.LikePost")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId.String()),
+		attribute.String("post.id", postIdParam),
+	)
 
 	// Check if user is a member of the server where the post belongs (single query)
 	serverMemberExists, err := usecase.PostRepository.CheckPostServerMember(ctxContext, postId, userId)
@@ -515,11 +599,13 @@ func (usecase *PostUsecase) LikePost(ctx *fiber.Ctx, postIdParam string, userId 
 	}
 
 	if serverMemberExists != 1 {
-		return response, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not a member of this server",
 			Param:   "postId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "LikePost")
+		return response, err
 	}
 
 	// Check if user already liked this post
@@ -529,11 +615,13 @@ func (usecase *PostUsecase) LikePost(ctx *fiber.Ctx, postIdParam string, userId 
 	}
 
 	if likeExists == 1 {
-		return response, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You already liked this post",
 			Param:   "postId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "LikePost")
+		return response, err
 	}
 
 	now := time.Now().UTC()
@@ -564,7 +652,7 @@ func (usecase *PostUsecase) LikePost(ctx *fiber.Ctx, postIdParam string, userId 
 	return response, nil
 }
 
-func (usecase *PostUsecase) UnlikePost(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID) (model.PostLikeResponse, error) {
+func (usecase *PostUsecase) UnlikePost(ctx fiber.Ctx, postIdParam string, userId uuid.UUID) (model.PostLikeResponse, error) {
 	response := model.PostLikeResponse{}
 
 	postId, err := uuid.Parse(postIdParam)
@@ -577,6 +665,15 @@ func (usecase *PostUsecase) UnlikePost(ctx *fiber.Ctx, postIdParam string, userI
 	}
 
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tr.Start(ctxContext, "usecase.UnlikePost")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId.String()),
+		attribute.String("post.id", postIdParam),
+	)
 
 	// Check if user is a member of the server where the post belongs (single query)
 	serverMemberExists, err := usecase.PostRepository.CheckPostServerMember(ctxContext, postId, userId)
@@ -585,11 +682,13 @@ func (usecase *PostUsecase) UnlikePost(ctx *fiber.Ctx, postIdParam string, userI
 	}
 
 	if serverMemberExists != 1 {
-		return response, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not a member of this server",
 			Param:   "postId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UnlikePost")
+		return response, err
 	}
 
 	// Check if user already liked this post
@@ -599,11 +698,13 @@ func (usecase *PostUsecase) UnlikePost(ctx *fiber.Ctx, postIdParam string, userI
 	}
 
 	if likeExists != 1 {
-		return response, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You haven't liked this post yet",
 			Param:   "postId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UnlikePost")
+		return response, err
 	}
 
 	err = usecase.PostRepository.DeletePostLike(ctxContext, postId, userId)
@@ -622,7 +723,7 @@ func (usecase *PostUsecase) UnlikePost(ctx *fiber.Ctx, postIdParam string, userI
 	return response, nil
 }
 
-func (usecase *PostUsecase) CreateComment(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID, payload model.ServerCommentCreateRequest) (model.ServerCommentResponse, error) {
+func (usecase *PostUsecase) CreateComment(ctx fiber.Ctx, postIdParam string, userId uuid.UUID, payload model.ServerCommentCreateRequest) (model.ServerCommentResponse, error) {
 	response := model.ServerCommentResponse{}
 
 	postId, err := uuid.Parse(postIdParam)
@@ -670,6 +771,15 @@ func (usecase *PostUsecase) CreateComment(ctx *fiber.Ctx, postIdParam string, us
 	}
 
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tr.Start(ctxContext, "usecase.CreateComment")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId.String()),
+		attribute.String("post.id", postIdParam),
+	)
 
 	// Check if user is a member of the server where the post belongs (single query)
 	serverMemberExists, err := usecase.PostRepository.CheckPostServerMember(ctxContext, postId, userId)
@@ -678,11 +788,13 @@ func (usecase *PostUsecase) CreateComment(ctx *fiber.Ctx, postIdParam string, us
 	}
 
 	if serverMemberExists != 1 {
-		return response, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not a member of this server",
 			Param:   "postId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "CreateComment")
+		return response, err
 	}
 
 	// If parentId is provided, check if parent comment exists and belongs to the same post
@@ -693,11 +805,13 @@ func (usecase *PostUsecase) CreateComment(ctx *fiber.Ctx, postIdParam string, us
 		}
 
 		if parentExists != 1 {
-			return response, &model.ValidationError{
+			err := &model.ValidationError{
 				Code:    constant.ERR_VALIDATION_CODE,
 				Message: "Parent comment not found",
 				Param:   "parentId",
 			}
+			util.RecordValidationError(ctxContext, usecase.Log, span, err, "CreateComment")
+			return response, err
 		}
 	}
 
@@ -734,10 +848,10 @@ func (usecase *PostUsecase) CreateComment(ctx *fiber.Ctx, postIdParam string, us
 	return response, nil
 }
 
-func (usecase *PostUsecase) GetComments(ctx *fiber.Ctx, postIdParam string, userId uuid.UUID) (model.ServerCommentListResponse, error) {
+func (usecase *PostUsecase) GetComments(ctx fiber.Ctx, postIdParam string, userId uuid.UUID) (model.ServerCommentListResponse, error) {
 	response := model.ServerCommentListResponse{}
 
-	limit := ctx.QueryInt("limit", constant.DEFAULT_LIMIT)
+	limit := fiber.Query[int](ctx, "limit", constant.DEFAULT_LIMIT)
 	cursor := ctx.Query("cursor", "")
 
 	postId, err := uuid.Parse(postIdParam)
@@ -764,6 +878,17 @@ func (usecase *PostUsecase) GetComments(ctx *fiber.Ctx, postIdParam string, user
 	}
 
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tr.Start(ctxContext, "usecase.GetComments")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId.String()),
+		attribute.String("post.id", postIdParam),
+		attribute.Int("limit", limit),
+		attribute.String("cursor", cursor),
+	)
 
 	// Check if user is a member of the server where the post belongs (single query)
 	serverMemberExists, err := usecase.PostRepository.CheckPostServerMember(ctxContext, postId, userId)
@@ -772,11 +897,13 @@ func (usecase *PostUsecase) GetComments(ctx *fiber.Ctx, postIdParam string, user
 	}
 
 	if serverMemberExists != 1 {
-		return response, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not a member of this server",
 			Param:   "postId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "GetComments")
+		return response, err
 	}
 
 	var serverCommentCursor model.ServerCommentCursor
@@ -830,7 +957,7 @@ func (usecase *PostUsecase) GetComments(ctx *fiber.Ctx, postIdParam string, user
 	return response, nil
 }
 
-func (usecase *PostUsecase) DeleteComment(ctx *fiber.Ctx, postIdParam string, commentIdParam string, userId uuid.UUID) error {
+func (usecase *PostUsecase) DeleteComment(ctx fiber.Ctx, postIdParam string, commentIdParam string, userId uuid.UUID) error {
 	postId, err := uuid.Parse(postIdParam)
 	if err != nil {
 		return &model.ValidationError{
@@ -850,6 +977,16 @@ func (usecase *PostUsecase) DeleteComment(ctx *fiber.Ctx, postIdParam string, co
 	}
 
 	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tr.Start(ctxContext, "usecase.DeleteComment")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId.String()),
+		attribute.String("post.id", postIdParam),
+		attribute.String("comment.id", commentIdParam),
+	)
 
 	// Check if user is a member of the server where the post belongs (single query)
 	serverMemberExists, err := usecase.PostRepository.CheckPostServerMember(ctxContext, postId, userId)
@@ -858,11 +995,13 @@ func (usecase *PostUsecase) DeleteComment(ctx *fiber.Ctx, postIdParam string, co
 	}
 
 	if serverMemberExists != 1 {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not a member of this server",
 			Param:   "postId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "DeleteComment")
+		return err
 	}
 
 	// Check if user is the author of the comment
@@ -872,11 +1011,13 @@ func (usecase *PostUsecase) DeleteComment(ctx *fiber.Ctx, postIdParam string, co
 	}
 
 	if commentOwnerExists != 1 {
-		return &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "You are not the author of this comment",
 			Param:   "commentId",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "DeleteComment")
+		return err
 	}
 
 	err = usecase.PostRepository.DeleteComment(ctxContext, commentId)

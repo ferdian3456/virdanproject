@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
-	
+
 	"os"
 	"path/filepath"
 	"strconv"
@@ -60,7 +60,7 @@ var controllerTemplate = `package http
 
 import (
 	"github.com/ferdian3456/virdanproject/internal/usecase"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/zap"
 )

@@ -7,7 +7,7 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/usecase"
 	"github.com/ferdian3456/virdanproject/internal/util"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/zap"
 )
@@ -29,7 +29,7 @@ func NewAuthMiddleware(app *fiber.App, zap *zap.Logger, koanf *koanf.Koanf, user
 }
 
 func (middleware *AuthMiddleware) ProtectedRoute() fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		var validationErr *model.ValidationError
 
 		accessToken := ctx.Get("Authorization")

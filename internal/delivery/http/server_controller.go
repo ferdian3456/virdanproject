@@ -7,7 +7,7 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/model"
 	"github.com/ferdian3456/virdanproject/internal/usecase"
 	"github.com/ferdian3456/virdanproject/internal/util"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/zap"
@@ -27,7 +27,7 @@ func NewServerController(serverUsecase *usecase.ServerUsecase, zap *zap.Logger, 
 	}
 }
 
-// func (controller *ServerController) GetUserServer(ctx *fiber.Ctx) error {
+// func (controller *ServerController) GetUserServer(ctx fiber.Ctx) error {
 // 	userId := ctx.Locals("userId").(uuid.UUID)
 
 // 	var validationErr *model.ValidationError
@@ -44,7 +44,7 @@ func NewServerController(serverUsecase *usecase.ServerUsecase, zap *zap.Logger, 
 // 	return util.SendSuccessResponseWithData(ctx, response)
 // }
 
-// func (controller *ServerController) JoinServer(ctx *fiber.Ctx) error {
+// func (controller *ServerController) JoinServer(ctx fiber.Ctx) error {
 // 	userId := ctx.Locals("userId").(uuid.UUID)
 
 // 	var validationErr *model.ValidationError
@@ -61,16 +61,16 @@ func NewServerController(serverUsecase *usecase.ServerUsecase, zap *zap.Logger, 
 // 	return util.SendSuccessResponseWithData(ctx, response)
 // }
 
-func (controller *ServerController) CreateInviteLink(ctx *fiber.Ctx) error {
+func (controller *ServerController) CreateInviteLink(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
 	var payload model.ServerInviteLinkRequest
 	err := util.ReadRequestBody(ctx, &payload)
 	if err != nil {
-		return util.SendErrorResponse(ctx, &model.ValidationError{
+		return util.RecordAndSendValidationError(ctx, controller.Log, &model.ValidationError{
 			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
 			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
-		})
+		}, "ServerController.CreateInviteLink")
 	}
 
 	var validationErr *model.ValidationError
@@ -78,7 +78,7 @@ func (controller *ServerController) CreateInviteLink(ctx *fiber.Ctx) error {
 	response, err := controller.ServerUsecase.CreateInviteLink(ctx, userId, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.CreateInviteLink")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -87,16 +87,16 @@ func (controller *ServerController) CreateInviteLink(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
-func (controller *ServerController) JoinServerFromInvite(ctx *fiber.Ctx) error {
+func (controller *ServerController) JoinServerFromInvite(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
 	var payload model.ServerJoinRequest
 	err := util.ReadRequestBody(ctx, &payload)
 	if err != nil {
-		return util.SendErrorResponse(ctx, &model.ValidationError{
+		return util.RecordAndSendValidationError(ctx, controller.Log, &model.ValidationError{
 			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
 			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
-		})
+		}, "ServerController.JoinServerFromInvite")
 	}
 
 	var validationErr *model.ValidationError
@@ -104,7 +104,7 @@ func (controller *ServerController) JoinServerFromInvite(ctx *fiber.Ctx) error {
 	err = controller.ServerUsecase.JoinServerFromInvite(ctx, userId, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.JoinServerFromInvite")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -113,7 +113,7 @@ func (controller *ServerController) JoinServerFromInvite(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
-func (controller *ServerController) GetServerInfoForInvite(ctx *fiber.Ctx) error {
+func (controller *ServerController) GetServerInfoForInvite(ctx fiber.Ctx) error {
 	var validationErr *model.ValidationError
 
 	inviteCode := ctx.Params("inviteCode")
@@ -121,7 +121,7 @@ func (controller *ServerController) GetServerInfoForInvite(ctx *fiber.Ctx) error
 	response, err := controller.ServerUsecase.GetServerInfoForInvite(ctx, inviteCode)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.GetServerInfoForInvite")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -130,16 +130,16 @@ func (controller *ServerController) GetServerInfoForInvite(ctx *fiber.Ctx) error
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
-func (controller *ServerController) CreateServer(ctx *fiber.Ctx) error {
+func (controller *ServerController) CreateServer(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
 	var payload model.ServerCreateRequest
 	err := util.ReadRequestBody(ctx, &payload)
 	if err != nil {
-		return util.SendErrorResponse(ctx, &model.ValidationError{
+		return util.RecordAndSendValidationError(ctx, controller.Log, &model.ValidationError{
 			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
 			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
-		})
+		}, "ServerController.CreateServer")
 	}
 
 	var validationErr *model.ValidationError
@@ -147,7 +147,7 @@ func (controller *ServerController) CreateServer(ctx *fiber.Ctx) error {
 	response, err := controller.ServerUsecase.CreateServer(ctx, userId, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.CreateServer")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -156,7 +156,7 @@ func (controller *ServerController) CreateServer(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
-func (controller *ServerController) GetDiscoveryServer(ctx *fiber.Ctx) error {
+func (controller *ServerController) GetDiscoveryServer(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
 	var validationErr *model.ValidationError
@@ -164,7 +164,7 @@ func (controller *ServerController) GetDiscoveryServer(ctx *fiber.Ctx) error {
 	response, err := controller.ServerUsecase.GetDiscoveryServer(ctx, userId)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.GetDiscoveryServer")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -173,7 +173,7 @@ func (controller *ServerController) GetDiscoveryServer(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
-func (controller *ServerController) GetUserServer(ctx *fiber.Ctx) error {
+func (controller *ServerController) GetUserServer(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
 	var validationErr *model.ValidationError
@@ -181,7 +181,7 @@ func (controller *ServerController) GetUserServer(ctx *fiber.Ctx) error {
 	response, err := controller.ServerUsecase.GetUserServer(ctx, userId)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.GetUserServer")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -190,7 +190,7 @@ func (controller *ServerController) GetUserServer(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
-func (controller *ServerController) JoinServer(ctx *fiber.Ctx) error {
+func (controller *ServerController) JoinServer(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
 	var validationErr *model.ValidationError
@@ -198,7 +198,7 @@ func (controller *ServerController) JoinServer(ctx *fiber.Ctx) error {
 	err := controller.ServerUsecase.JoinServer(ctx, userId)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.JoinServer")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -207,7 +207,7 @@ func (controller *ServerController) JoinServer(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
-// func (controller *ServerController) GetServerById(ctx *fiber.Ctx) error {
+// func (controller *ServerController) GetServerById(ctx fiber.Ctx) error {
 // 	serverId := ctx.Params("id")
 
 // 	var validationErr *model.ValidationError
@@ -224,17 +224,17 @@ func (controller *ServerController) JoinServer(ctx *fiber.Ctx) error {
 // 	return util.SendSuccessResponseWithData(ctx, response)
 // }
 
-func (controller *ServerController) UpdateServerName(ctx *fiber.Ctx) error {
+func (controller *ServerController) UpdateServerName(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 	serverIdParam := ctx.Params("id")
 
 	var payload model.ServerUpdateNameRequest
 	err := util.ReadRequestBody(ctx, &payload)
 	if err != nil {
-		return util.SendErrorResponse(ctx, &model.ValidationError{
+		return util.RecordAndSendValidationError(ctx, controller.Log, &model.ValidationError{
 			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
 			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
-		})
+		}, "ServerController.UpdateServerName")
 	}
 
 	var validationErr *model.ValidationError
@@ -242,7 +242,7 @@ func (controller *ServerController) UpdateServerName(ctx *fiber.Ctx) error {
 	response, err := controller.ServerUsecase.UpdateServerName(ctx, userId, serverIdParam, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.UpdateServerName")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -251,17 +251,17 @@ func (controller *ServerController) UpdateServerName(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
-func (controller *ServerController) UpdateServerShortName(ctx *fiber.Ctx) error {
+func (controller *ServerController) UpdateServerShortName(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 	serverIdParam := ctx.Params("id")
 
 	var payload model.ServerUpdateShortNameRequest
 	err := util.ReadRequestBody(ctx, &payload)
 	if err != nil {
-		return util.SendErrorResponse(ctx, &model.ValidationError{
+		return util.RecordAndSendValidationError(ctx, controller.Log, &model.ValidationError{
 			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
 			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
-		})
+		}, "ServerController.UpdateServerShortName")
 	}
 
 	var validationErr *model.ValidationError
@@ -269,7 +269,7 @@ func (controller *ServerController) UpdateServerShortName(ctx *fiber.Ctx) error 
 	response, err := controller.ServerUsecase.UpdateServerShortName(ctx, userId, serverIdParam, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.UpdateServerShortName")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -278,17 +278,17 @@ func (controller *ServerController) UpdateServerShortName(ctx *fiber.Ctx) error 
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
-func (controller *ServerController) UpdateServerCategory(ctx *fiber.Ctx) error {
+func (controller *ServerController) UpdateServerCategory(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 	serverIdParam := ctx.Params("id")
 
 	var payload model.ServerUpdateCategoryRequest
 	err := util.ReadRequestBody(ctx, &payload)
 	if err != nil {
-		return util.SendErrorResponse(ctx, &model.ValidationError{
+		return util.RecordAndSendValidationError(ctx, controller.Log, &model.ValidationError{
 			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
 			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
-		})
+		}, "ServerController.UpdateServerCategory")
 	}
 
 	var validationErr *model.ValidationError
@@ -296,7 +296,7 @@ func (controller *ServerController) UpdateServerCategory(ctx *fiber.Ctx) error {
 	response, err := controller.ServerUsecase.UpdateServerCategory(ctx, userId, serverIdParam, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.UpdateServerCategory")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -305,17 +305,17 @@ func (controller *ServerController) UpdateServerCategory(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
-func (controller *ServerController) UpdateServerDescription(ctx *fiber.Ctx) error {
+func (controller *ServerController) UpdateServerDescription(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 	serverIdParam := ctx.Params("id")
 
 	var payload model.ServerUpdateDescriptionRequest
 	err := util.ReadRequestBody(ctx, &payload)
 	if err != nil {
-		return util.SendErrorResponse(ctx, &model.ValidationError{
+		return util.RecordAndSendValidationError(ctx, controller.Log, &model.ValidationError{
 			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
 			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
-		})
+		}, "ServerController.UpdateServerDescription")
 	}
 
 	var validationErr *model.ValidationError
@@ -323,7 +323,7 @@ func (controller *ServerController) UpdateServerDescription(ctx *fiber.Ctx) erro
 	response, err := controller.ServerUsecase.UpdateServerDescription(ctx, userId, serverIdParam, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.UpdateServerDescription")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -332,7 +332,7 @@ func (controller *ServerController) UpdateServerDescription(ctx *fiber.Ctx) erro
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
-func (controller *ServerController) DeleteServer(ctx *fiber.Ctx) error {
+func (controller *ServerController) DeleteServer(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 	serverIdParam := ctx.Params("id")
 
@@ -341,7 +341,7 @@ func (controller *ServerController) DeleteServer(ctx *fiber.Ctx) error {
 	err := controller.ServerUsecase.DeleteServer(ctx, userId, serverIdParam)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.DeleteServer")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -350,7 +350,7 @@ func (controller *ServerController) DeleteServer(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
-func (controller *ServerController) UpdateServerAvatar(ctx *fiber.Ctx) error {
+func (controller *ServerController) UpdateServerAvatar(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 	serverIdParam := ctx.Params("id")
 
@@ -359,7 +359,7 @@ func (controller *ServerController) UpdateServerAvatar(ctx *fiber.Ctx) error {
 	err := controller.ServerUsecase.UpdateServerAvatar(ctx, userId, serverIdParam)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.UpdateServerAvatar")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -368,7 +368,7 @@ func (controller *ServerController) UpdateServerAvatar(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
-func (controller *ServerController) UpdateServerBanner(ctx *fiber.Ctx) error {
+func (controller *ServerController) UpdateServerBanner(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 	serverIdParam := ctx.Params("id")
 
@@ -377,7 +377,7 @@ func (controller *ServerController) UpdateServerBanner(ctx *fiber.Ctx) error {
 	err := controller.ServerUsecase.UpdateServerBanner(ctx, userId, serverIdParam)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.UpdateServerBanner")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -386,17 +386,17 @@ func (controller *ServerController) UpdateServerBanner(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
-func (controller *ServerController) UpdateServerSettings(ctx *fiber.Ctx) error {
+func (controller *ServerController) UpdateServerSettings(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 	serverIdParam := ctx.Params("id")
 
 	var payload model.ServerSettingsCreateRequest
 	err := util.ReadRequestBody(ctx, &payload)
 	if err != nil {
-		return util.SendErrorResponse(ctx, &model.ValidationError{
+		return util.RecordAndSendValidationError(ctx, controller.Log, &model.ValidationError{
 			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
 			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
-		})
+		}, "ServerController.UpdateServerSettings")
 	}
 
 	var validationErr *model.ValidationError
@@ -404,7 +404,7 @@ func (controller *ServerController) UpdateServerSettings(ctx *fiber.Ctx) error {
 	err = controller.ServerUsecase.UpdateServerSettings(ctx, userId, serverIdParam, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.UpdateServerSettings")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -413,13 +413,13 @@ func (controller *ServerController) UpdateServerSettings(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
-func (controller *ServerController) GetCategoryServer(ctx *fiber.Ctx) error {
+func (controller *ServerController) GetCategoryServer(ctx fiber.Ctx) error {
 	var validationErr *model.ValidationError
 
 	response, err := controller.ServerUsecase.GetCategoryServer(ctx)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.GetCategoryServer")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -428,13 +428,13 @@ func (controller *ServerController) GetCategoryServer(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
-func (controller *ServerController) GetServerById(ctx *fiber.Ctx) error {
+func (controller *ServerController) GetServerById(ctx fiber.Ctx) error {
 	var validationErr *model.ValidationError
 
 	response, err := controller.ServerUsecase.GetServerById(ctx)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.GetServerById")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)

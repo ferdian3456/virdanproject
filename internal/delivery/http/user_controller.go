@@ -9,7 +9,7 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/util"
 	"github.com/google/uuid"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/zap"
 )
@@ -28,7 +28,7 @@ func NewUserController(userUsecase *usecase.UserUsecase, zap *zap.Logger, koanf 
 	}
 }
 
-// func (controller UserController) Register(ctx *fiber.Ctx) error {
+// func (controller UserController) Register(ctx fiber.Ctx) error {
 // 	var payload model.UserCreateRequest
 // 	err := util.ReadRequestBody(ctx, &payload)
 // 	if err != nil {
@@ -52,7 +52,7 @@ func NewUserController(userUsecase *usecase.UserUsecase, zap *zap.Logger, koanf 
 // 	return util.SendSuccessResponseWithData(ctx, response)
 // }
 
-func (controller UserController) Login(ctx *fiber.Ctx) error {
+func (controller UserController) Login(ctx fiber.Ctx) error {
 	var payload model.UserLoginRequest
 	err := util.ReadRequestBody(ctx, &payload)
 	if err != nil {
@@ -67,7 +67,7 @@ func (controller UserController) Login(ctx *fiber.Ctx) error {
 	response, err := controller.UserUsecase.Login(ctx, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponse(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "UserController.Login")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -76,7 +76,7 @@ func (controller UserController) Login(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
-func (controller UserController) GetUserInfo(ctx *fiber.Ctx) error {
+func (controller UserController) GetUserInfo(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
 	var validationErr *model.ValidationError
@@ -84,7 +84,7 @@ func (controller UserController) GetUserInfo(ctx *fiber.Ctx) error {
 	response, err := controller.UserUsecase.GetUserInfo(ctx, userId)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationErrorNotFound(ctx, controller.Log, validationErr, "UserController.GetUserInfo")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -93,7 +93,7 @@ func (controller UserController) GetUserInfo(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
-func (controller UserController) Logout(ctx *fiber.Ctx) error {
+func (controller UserController) Logout(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
 	err := controller.UserUsecase.Logout(ctx, userId)
@@ -104,7 +104,7 @@ func (controller UserController) Logout(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
-func (controller UserController) UpdateAvatar(ctx *fiber.Ctx) error {
+func (controller UserController) UpdateAvatar(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
 	var validationErr *model.ValidationError
@@ -121,7 +121,7 @@ func (controller UserController) UpdateAvatar(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
-func (controller UserController) StartSignup(ctx *fiber.Ctx) error {
+func (controller UserController) StartSignup(ctx fiber.Ctx) error {
 	var payload model.UserSignupStartRequest
 	err := util.ReadRequestBody(ctx, &payload)
 	if err != nil {
@@ -135,7 +135,7 @@ func (controller UserController) StartSignup(ctx *fiber.Ctx) error {
 	response, err := controller.UserUsecase.StartSignup(ctx, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponse(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "UserController.StartSignup")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -144,7 +144,7 @@ func (controller UserController) StartSignup(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
-func (controller UserController) VerifyOtp(ctx *fiber.Ctx) error {
+func (controller UserController) VerifyOtp(ctx fiber.Ctx) error {
 	var payload model.UserVerifyOTPRequest
 	err := util.ReadRequestBody(ctx, &payload)
 	if err != nil {
@@ -158,7 +158,7 @@ func (controller UserController) VerifyOtp(ctx *fiber.Ctx) error {
 	err = controller.UserUsecase.VerifyOtp(ctx, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponse(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "UserController.VerifyOtp")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -167,7 +167,7 @@ func (controller UserController) VerifyOtp(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
-func (controller UserController) VerifyUsername(ctx *fiber.Ctx) error {
+func (controller UserController) VerifyUsername(ctx fiber.Ctx) error {
 	var payload model.UserVerifyUsernameRequest
 	err := util.ReadRequestBody(ctx, &payload)
 	if err != nil {
@@ -181,7 +181,7 @@ func (controller UserController) VerifyUsername(ctx *fiber.Ctx) error {
 	err = controller.UserUsecase.VerifyUsername(ctx, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponse(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "UserController.VerifyUsername")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -190,7 +190,7 @@ func (controller UserController) VerifyUsername(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
-func (controller UserController) GetSignupStatus(ctx *fiber.Ctx) error {
+func (controller UserController) GetSignupStatus(ctx fiber.Ctx) error {
 	sessionId := ctx.Params("sessionId")
 
 	var validationErr *model.ValidationError
@@ -198,7 +198,7 @@ func (controller UserController) GetSignupStatus(ctx *fiber.Ctx) error {
 	response, err := controller.UserUsecase.GetSignupStatus(ctx, sessionId)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponse(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "UserController.GetSignupStatus")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -207,7 +207,7 @@ func (controller UserController) GetSignupStatus(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
-func (controller UserController) VerifyPassword(ctx *fiber.Ctx) error {
+func (controller UserController) VerifyPassword(ctx fiber.Ctx) error {
 	var payload model.UserVerifyPasswordRequest
 	err := util.ReadRequestBody(ctx, &payload)
 	if err != nil {
@@ -221,7 +221,7 @@ func (controller UserController) VerifyPassword(ctx *fiber.Ctx) error {
 	response, err := controller.UserUsecase.VerifyPassword(ctx, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponse(ctx, err)
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "UserController.VerifyPassword")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -230,7 +230,7 @@ func (controller UserController) VerifyPassword(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
-func (controller UserController) UpdateUsername(ctx *fiber.Ctx) error {
+func (controller UserController) UpdateUsername(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
 	var payload model.UsernameUpdateRequest
@@ -247,7 +247,7 @@ func (controller UserController) UpdateUsername(ctx *fiber.Ctx) error {
 	err = controller.UserUsecase.UpdateUsername(ctx, userId, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationErrorNotFound(ctx, controller.Log, validationErr, "UserController.UpdateUsername")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -256,7 +256,7 @@ func (controller UserController) UpdateUsername(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
-func (controller UserController) UpdateFullname(ctx *fiber.Ctx) error {
+func (controller UserController) UpdateFullname(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
 	var payload model.FullnameUpdateRequest
@@ -273,7 +273,7 @@ func (controller UserController) UpdateFullname(ctx *fiber.Ctx) error {
 	err = controller.UserUsecase.UpdateFullname(ctx, userId, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationErrorNotFound(ctx, controller.Log, validationErr, "UserController.UpdateFullname")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
@@ -282,7 +282,7 @@ func (controller UserController) UpdateFullname(ctx *fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
-func (controller UserController) UpdateBio(ctx *fiber.Ctx) error {
+func (controller UserController) UpdateBio(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
 	var payload model.BioUpdateRequest
@@ -299,7 +299,7 @@ func (controller UserController) UpdateBio(ctx *fiber.Ctx) error {
 	err = controller.UserUsecase.UpdateBio(ctx, userId, payload)
 	if err != nil {
 		if errors.As(err, &validationErr) {
-			return util.SendErrorResponseNotFound(ctx, err)
+			return util.RecordAndSendValidationErrorNotFound(ctx, controller.Log, validationErr, "UserController.UpdateBio")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)

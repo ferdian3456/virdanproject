@@ -8,7 +8,7 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/usecase"
 	"github.com/minio/minio-go/v7"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/knadh/koanf/v2"
 	"github.com/redis/go-redis/v9"
@@ -25,15 +25,15 @@ type ServerConfig struct {
 }
 
 func Server(config *ServerConfig) {
-	serverRepository := repository.NewServerRepository(config.Log, config.DB, config.DBCache, config.MinIO)
+	serverRepository := repository.NewServerRepository(config.Log, config.Config, config.DB, config.DBCache, config.MinIO)
 	serverUsecase := usecase.NewServerUsecase(serverRepository, config.DB, config.Log, config.Config)
 	serverController := http.NewServerController(serverUsecase, config.Log, config.Config)
 
-	userRepository := repository.NewUserRepository(config.Log, config.DB, config.DBCache, config.MinIO)
+	userRepository := repository.NewUserRepository(config.Log, config.Config, config.DB, config.DBCache, config.MinIO)
 	userUsecase := usecase.NewUserUsecase(userRepository, serverRepository, config.DB, config.Log, config.Config)
 	userController := http.NewUserController(userUsecase, config.Log, config.Config)
 
-	postRepository := repository.NewPostRepository(config.Log, config.DB, config.DBCache, config.MinIO)
+	postRepository := repository.NewPostRepository(config.Log, config.Config, config.DB, config.DBCache, config.MinIO)
 	postUsecase := usecase.NewPostUsecase(postRepository, config.DB, config.Log, config.Config)
 	postController := http.NewPostController(postUsecase, config.Log, config.Config)
 
@@ -45,6 +45,9 @@ func Server(config *ServerConfig) {
 		ServerController: serverController,
 		PostController:   postController,
 		AuthMiddleware:   authMiddleware,
+		DB:               config.DB,
+		DBCache:          config.DBCache,
+		MinIO:            config.MinIO,
 	}
 
 	routeConfig.SetupRoute()
