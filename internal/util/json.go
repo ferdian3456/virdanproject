@@ -3,19 +3,19 @@ package util
 import (
 	"github.com/ferdian3456/virdanproject/internal/constant"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"go.uber.org/zap"
 )
 
-func ReadRequestBody(ctx *fiber.Ctx, result interface{}) error {
-	err := ctx.BodyParser(&result)
+func ReadRequestBody(ctx fiber.Ctx, result interface{}) error {
+	err := ctx.Bind().Body(result)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func SendSuccessResponseNoData(ctx *fiber.Ctx) error {
+func SendSuccessResponseNoData(ctx fiber.Ctx) error {
 	err := ctx.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status": "OK",
 	})
@@ -25,7 +25,7 @@ func SendSuccessResponseNoData(ctx *fiber.Ctx) error {
 	return nil
 }
 
-func SendSuccessResponseWithData(ctx *fiber.Ctx, data interface{}) error {
+func SendSuccessResponseWithData(ctx fiber.Ctx, data interface{}) error {
 	err := ctx.Status(fiber.StatusOK).JSON(data)
 	if err != nil {
 		return err
@@ -34,7 +34,7 @@ func SendSuccessResponseWithData(ctx *fiber.Ctx, data interface{}) error {
 	return nil
 }
 
-func SendErrorResponse(ctx *fiber.Ctx, error error) error {
+func SendErrorResponse(ctx fiber.Ctx, error error) error {
 	err := ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 		"error": error,
 	})
@@ -45,7 +45,7 @@ func SendErrorResponse(ctx *fiber.Ctx, error error) error {
 	return nil
 }
 
-func SendErrorResponseNotFound(ctx *fiber.Ctx, error error) error {
+func SendErrorResponseNotFound(ctx fiber.Ctx, error error) error {
 	err := ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
 		"error": error,
 	})
@@ -56,7 +56,7 @@ func SendErrorResponseNotFound(ctx *fiber.Ctx, error error) error {
 	return nil
 }
 
-func SendErrorResponseInternalServer(ctx *fiber.Ctx, log *zap.Logger, error error) error {
+func SendErrorResponseInternalServer(ctx fiber.Ctx, log *zap.Logger, error error) error {
 	err := ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 		"error": fiber.Map{
 			"code":    constant.ERR_INTERNAL_SERVER_ERROR_CODE,

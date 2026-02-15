@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewMinIO(config *koanf.Koanf, log *zap.Logger) *minio.Client {
+func NewMinIO(ctx context.Context, config *koanf.Koanf, log *zap.Logger) *minio.Client {
 	minioClient, err := minio.New(config.String("MINIO_URL"), &minio.Options{
 		Creds:  credentials.NewStaticV4(config.String("MINIO_USER"), config.String("MINIO_PASSWORD"), ""),
 		Secure: false,
@@ -20,7 +20,6 @@ func NewMinIO(config *koanf.Koanf, log *zap.Logger) *minio.Client {
 
 	bucketName := config.String("MINIO_BUCKET_NAME")
 	location := config.String("MINIO_LOCATION")
-	ctx := context.Background()
 
 	err = minioClient.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{
 		Region: location,

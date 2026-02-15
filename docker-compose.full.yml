@@ -1,4 +1,44 @@
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: virdanproject-app
+    env_file:
+      - .env.docker
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    networks:
+      - observability
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: virdanproject-cadvisor
+    privileged: true
+    devices:
+      - /dev/kmsg
+    environment:
+      - DOCKER_API_VERSION=1.44
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    networks:
+      - observability
+    command:
+      - -housekeeping_interval=10s
+
   postgres:
     image: postgres:15.4
     container_name: virdanproject-postgres
@@ -42,7 +82,7 @@ services:
     container_name: virdanproject-minio
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000" # api to send data
+      - "9000:9000"
       - "9001:9001"
     environment:
       MINIO_ROOT_USER: minioadmin
@@ -119,6 +159,7 @@ services:
       - ./observability-config/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
       - ./observability-config/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/provider.yaml
       - ./dashboard/virdan-dashboard.json:/etc/grafana/dashboards/virdan-dashboard.json
+      - ./dashboard/virdan-production-unified.json:/etc/grafana/dashboards/virdan-production-unified.json
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin

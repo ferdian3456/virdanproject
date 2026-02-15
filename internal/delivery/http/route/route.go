@@ -4,7 +4,10 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/delivery/http"
 	"github.com/ferdian3456/virdanproject/internal/delivery/http/middleware"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/minio/minio-go/v7"
+	"github.com/redis/go-redis/v9"
 )
 
 type RouteConfig struct {
@@ -13,13 +16,51 @@ type RouteConfig struct {
 	UserController   *http.UserController
 	ServerController *http.ServerController
 	PostController   *http.PostController
+	DB               *pgxpool.Pool
+	DBCache          *redis.Client
+	MinIO            *minio.Client
 }
 
 func (c *RouteConfig) SetupRoute() {
 	api := c.App.Group("/api")
 
-	api.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"status": "ok"})
+	api.Get("/health", func(fiberCtx fiber.Ctx) error {
+		ctx := fiberCtx.Context()
+
+		health := fiber.Map{
+			"status": "ok",
+			"checks": fiber.Map{},
+		}
+
+		// Postgres Check
+		if err := c.DB.Ping(ctx); err != nil {
+			health["status"] = "error"
+			health["checks"].(fiber.Map)["postgres"] = "down: " + err.Error()
+		} else {
+			health["checks"].(fiber.Map)["postgres"] = "up"
+		}
+
+		// Redis Check
+		if err := c.DBCache.Ping(ctx).Err(); err != nil {
+			health["status"] = "error"
+			health["checks"].(fiber.Map)["redis"] = "down: " + err.Error()
+		} else {
+			health["checks"].(fiber.Map)["redis"] = "up"
+		}
+
+		// MinIO Check
+		if _, err := c.MinIO.ListBuckets(ctx); err != nil {
+			health["status"] = "error"
+			health["checks"].(fiber.Map)["minio"] = "down: " + err.Error()
+		} else {
+			health["checks"].(fiber.Map)["minio"] = "up"
+		}
+
+		if health["status"] == "error" {
+			return fiberCtx.Status(fiber.StatusServiceUnavailable).JSON(health)
+		}
+
+		return fiberCtx.JSON(health)
 	})
 
 	authGroup := api.Group("/auth")

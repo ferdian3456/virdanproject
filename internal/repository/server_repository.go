@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/knadh/koanf/v2"
 	"github.com/minio/minio-go/v7"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -18,14 +19,16 @@ import (
 
 type ServerRepository struct {
 	Log      *zap.Logger
+	Config   *koanf.Koanf
 	DB       *pgxpool.Pool
 	DBCache  *redis.Client
 	DBObject *minio.Client
 }
 
-func NewServerRepository(zap *zap.Logger, db *pgxpool.Pool, dbCache *redis.Client, minio *minio.Client) *ServerRepository {
+func NewServerRepository(zap *zap.Logger, koanf *koanf.Koanf, db *pgxpool.Pool, dbCache *redis.Client, minio *minio.Client) *ServerRepository {
 	return &ServerRepository{
 		Log:      zap,
+		Config:   koanf,
 		DB:       db,
 		DBCache:  dbCache,
 		DBObject: minio,

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 
 	"github.com/ferdian3456/virdanproject/tests/integration/setup"
 	"github.com/stretchr/testify/require"
