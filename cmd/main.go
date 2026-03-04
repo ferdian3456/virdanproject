@@ -74,6 +74,8 @@ func main() {
 
 	fiber.Use(middleware.LoggingMiddleware(koanf, meterProvider, zap))
 
+	fiber.Use(middleware.CORSMiddleware())
+
 	config.Server(&config.ServerConfig{
 		Router:  fiber,
 		DB:      postgresql,

@@ -328,10 +328,12 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 	if cursor.Id != uuid.Nil && !cursor.CreateDatetime.IsZero() {
 		// Query with cursor for pagination
 		queryWithCursor := `
-			SELECT sp.author_id, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
+			SELECT sp.author_id, us.username,uai.object_key,sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
 			       COALESCE(comment_counts.comment_count, 0) as comment_count,
 			       COALESCE(like_counts.like_count, 0) as like_count
 			FROM server_posts sp
+			INNER JOIN users us ON sp.author_id = us.id
+			LEFT JOIN user_avatar_images uai ON us.id= uai.user_id
 			INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
 			LEFT JOIN (
 				SELECT post_id, COUNT(*) as comment_count
@@ -352,10 +354,12 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 	} else {
 		// Query without cursor for first page
 		query := `
-			SELECT sp.author_id, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
+			SELECT sp.author_id, us.username,uai.object_key,sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
 			       COALESCE(comment_counts.comment_count, 0) as comment_count,
 			       COALESCE(like_counts.like_count, 0) as like_count
 			FROM server_posts sp
+			INNER JOIN users us ON sp.author_id = us.id
+			LEFT JOIN user_avatar_images uai ON us.id= uai.user_id
 			INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
 			LEFT JOIN (
 				SELECT post_id, COUNT(*) as comment_count
@@ -386,7 +390,7 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 
 	for rows.Next() {
 		var post model.ServerPostResponse
-		err := rows.Scan(&post.OwnerId, &post.PostId, &post.PostImageUrl, &post.Caption, &post.CreateDatetime, &post.UpdateDatetime, &post.CommentCount, &post.LikeCount)
+		err := rows.Scan(&post.OwnerId, &post.OwnerName, &post.OwnerImageUrl, &post.PostId, &post.PostImageUrl, &post.Caption, &post.CreateDatetime, &post.UpdateDatetime, &post.CommentCount, &post.LikeCount)
 		if err != nil {
 			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan server post row", zap.Error(err))
 			span.RecordError(err)
@@ -395,6 +399,9 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 		}
 
 		post.PostImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, post.PostImageUrl)
+		if post.OwnerImageUrl != nil {
+			*post.OwnerImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *post.OwnerImageUrl)
+		}
 
 		posts = append(posts, post)
 	}
