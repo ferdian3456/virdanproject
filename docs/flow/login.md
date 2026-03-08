@@ -17,6 +17,25 @@ No authentication required.
 8. Store hashed tokens in Redis cache
 9. Return token pair to client
 
+### Database Operations
+
+#### PostgreSQL — Get User Auth
+```sql
+SELECT id, password FROM users WHERE username = $1 LIMIT 1
+```
+- **Table**: `users`
+- **Columns read**: `id` (UUID), `password` (bcrypt hash)
+- **Filter**: `username` (case-insensitive, lowered before query)
+
+#### Redis — Store Auth Tokens
+```
+SET auth:acccessToken:{userId} {sha256(accessToken)} EX 900
+SET auth:refreshToken:{userId} {sha256(refreshToken)} EX 900
+```
+- **Keys**: `auth:acccessToken:{userId}`, `auth:refreshToken:{userId}`
+- **TTL**: 15 minutes (900 seconds)
+- **Value**: SHA-256 hash of the raw JWT token
+
 ### Error Cases
 - Missing/invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
 - Username empty → `400` with "Username is required to not be empty"

@@ -414,6 +414,25 @@ paths:
         8. Store hashed tokens in Redis cache
         9. Return token pair to client
 
+        ### Database Operations
+
+        #### PostgreSQL — Get User Auth
+        ```sql
+        SELECT id, password FROM users WHERE username = $1 LIMIT 1
+        ```
+        - **Table**: `users`
+        - **Columns read**: `id` (UUID), `password` (bcrypt hash)
+        - **Filter**: `username` (case-insensitive, lowered before query)
+
+        #### Redis — Store Auth Tokens
+        ```
+        SET auth:acccessToken:{userId} {sha256(accessToken)} EX 900
+        SET auth:refreshToken:{userId} {sha256(refreshToken)} EX 900
+        ```
+        - **Keys**: `auth:acccessToken:{userId}`, `auth:refreshToken:{userId}`
+        - **TTL**: 15 minutes (900 seconds)
+        - **Value**: SHA-256 hash of the raw JWT token
+
         ### Error Cases
         - Missing/invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
         - Username empty → `400` with "Username is required to not be empty"
@@ -476,6 +495,15 @@ paths:
         3. Check if session exists — return error if expired/not found
         4. Return session ID and current step
 
+        ### Database Operations
+
+        #### Redis — Get Session Step
+        ```
+        HMGET signup:{sessionId} step
+        ```
+        - Returns current step value
+        - If `nil`, session has expired (TTL 30 minutes) or doesn't exist
+
         ### Possible Steps
         - `start_signup` — email submitted, OTP sent, waiting for OTP verification
         - `otp_verified` — OTP verified, waiting for username
@@ -535,6 +563,27 @@ paths:
         6. Check if OTP has expired (compare timestamps)
         7. Delete OTP state from session (otpHash, otpExpiresAt)
         8. Set verification state: `{step: "otp_verified", verifiedAt: timestamp}`
+
+        ### Database Operations
+
+        #### Redis — Get OTP Data
+        ```
+        HMGET signup:{sessionId} otp otp_expires_at
+        ```
+        - Retrieves `otp` (SHA-256 hash) and `otp_expires_at` (unix timestamp)
+        - If both are `nil`, session has expired or doesn't exist
+
+        #### Redis — Delete OTP State
+        ```
+        HDEL signup:{sessionId} otp otp_expires_at
+        ```
+
+        #### Redis — Set Verification State
+        ```
+        HSET signup:{sessionId}
+          step            "otp_verified"
+          otp_verified_at {unix_timestamp}
+        ```
 
         ### Error Cases
         - Invalid sessionId format → `400` with "Invalid session id"
@@ -604,6 +653,42 @@ paths:
         14. Store hashed tokens in Redis cache
         15. Return token pair to client
 
+        ### Database Operations
+
+        #### Redis — Get All Session Data
+        ```
+        HGETALL signup:{sessionId}
+        ```
+        - Returns map with keys: `email`, `step`, `username`, `create_at`, `otp_verified_at`
+
+        #### PostgreSQL — Check Username & Email Unique
+        ```sql
+        SELECT username, email FROM users WHERE username = $1 OR email = $2 LIMIT 1
+        ```
+        - **Table**: `users`
+        - **Columns**: `username`, `email`
+
+        #### Redis — Delete Session
+        ```
+        DEL signup:{sessionId}
+        DEL signup_email:{email}
+        ```
+
+        #### PostgreSQL — Create User
+        ```sql
+        INSERT INTO users (id, username, fullname, bio, avatar_image_id, email, password, settings, create_datetime, update_datetime, create_user_id, update_user_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ```
+        - **Table**: `users`
+        - **Columns**: `id` (UUID), `username`, `fullname` (titleCase of username), `bio` (NULL), `avatar_image_id` (NULL), `email`, `password` (bcrypt hash), `settings` (JSON), timestamps, audit user IDs
+
+        #### Redis — Store Auth Tokens
+        ```
+        SET auth:acccessToken:{userId} {sha256(accessToken)} EX 900
+        SET auth:refreshToken:{userId} {sha256(refreshToken)} EX 900
+        ```
+        - **TTL**: 15 minutes
+
         ### Error Cases
         - Invalid sessionId → `400` with "Invalid session id"
         - Password empty → `400` with "Password is required to not be empty"
@@ -672,6 +757,45 @@ paths:
         13. Store email→sessionId mapping in Redis (for duplicate detection)
         14. Return `sessionId` and `otpExpiresAt` to client
 
+        ### Database Operations
+
+        #### PostgreSQL — Check Email Unique
+        ```sql
+        SELECT 1 FROM users WHERE email = $1 LIMIT 1
+        ```
+        - **Table**: `users`
+        - **Column**: `email`
+
+        #### Redis — Check Existing Email Session
+        ```
+        GET signup_email:{email}
+        ```
+        - Returns `sessionId` if exists, used to detect and clean up old sessions
+
+        #### Redis — Delete Old Session (if exists)
+        ```
+        DEL signup:{oldSessionId}
+        DEL signup_email:{email}
+        ```
+
+        #### Redis — Create Signup Session
+        ```
+        HSET signup:{sessionId}
+          email          {email}
+          otp            {sha256(otpCode)}
+          otp_expires_at {unix_timestamp}
+          step           "start_signup"
+          create_at      {unix_timestamp}
+        EXPIRE signup:{sessionId} 1800
+        ```
+        - **TTL**: 30 minutes
+
+        #### Redis — Map Email to Session
+        ```
+        SET signup_email:{email} {sessionId} EX 1800
+        ```
+        - **TTL**: 30 minutes
+
         ### Error Cases
         - Email empty → `400` with "Email is required to not be empty"
         - Email < 16 chars → `400` with "email must be at least 16 characters"
@@ -734,6 +858,29 @@ paths:
         7. Check if username is already taken in the database
         8. Store username in session state and update step to `username_set`
 
+        ### Database Operations
+
+        #### Redis — Get Session State
+        ```
+        HMGET signup:{sessionId} step
+        ```
+        - Returns current step (e.g., `"otp_verified"`)
+        - If `nil`, session expired
+
+        #### PostgreSQL — Check Username Unique
+        ```sql
+        SELECT 1 FROM users WHERE username = $1 LIMIT 1
+        ```
+        - **Table**: `users`
+        - **Column**: `username`
+
+        #### Redis — Update Session State
+        ```
+        HSET signup:{sessionId}
+          step     "username_set"
+          username {username}
+        ```
+
         ### Error Cases
         - Invalid sessionId → `400` with "Invalid session id"
         - Username empty → `400` with "Username is required to not be empty"
@@ -779,7 +926,7 @@ paths:
         ## Get Post Flow
 
         ### Overview
-        Retrieves a single post by ID. Requires membership in the server where the post belongs.
+        Retrieves a single post by its ID. Requires membership in the server where the post belongs.
 
         ### Auth
         Requires `Authorization` header with Bearer JWT access token.
@@ -787,16 +934,47 @@ paths:
         ### Business Logic
         1. Get `userId` from context
         2. Parse `postId` from URL path — must be a valid UUID
-        3. Check if user is a member of the server where the post belongs (single query)
-        4. Fetch post details with author info, image URL, comment count, and like count
+        3. Check if user is a member of the server where the post belongs (via joined query)
+        4. Get post details from database
+        5. Build MinIO image URLs
+        6. Return post data
+
+        ### Database Operations
+
+        #### PostgreSQL — Check Post Server Membership
+        ```sql
+        SELECT 1
+        FROM server_posts sp
+        INNER JOIN server_members sm ON sp.server_id = sm.server_id
+        WHERE sp.id = $1 AND sm.user_id = $2 AND sm.status = $3
+        ```
+        - **Tables**: `server_posts` JOIN `server_members`
+        - Checks the post exists AND the user is an active member of that post's server
+
+        #### PostgreSQL — Get Post
+        ```sql
+        SELECT sp.author_id, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
+               COALESCE(comment_counts.comment_count, 0) as comment_count,
+               COALESCE(like_counts.like_count, 0) as like_count
+        FROM server_posts sp
+        INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
+        LEFT JOIN (
+            SELECT post_id, COUNT(*) as comment_count FROM server_post_comments GROUP BY post_id
+        ) comment_counts ON sp.id = comment_counts.post_id
+        LEFT JOIN (
+            SELECT post_id, COUNT(*) as like_count FROM server_post_likes GROUP BY post_id
+        ) like_counts ON sp.id = like_counts.post_id
+        WHERE sp.id = $1
+        ```
+        - **Columns returned**: `author_id`, `id`, image `object_key`, `caption`, timestamps, `comment_count`, `like_count`
 
         ### Error Cases
         - Invalid postId → `400` with "Invalid post id"
-        - Not a member of the server → `400` with "You are not a member of this server"
+        - Not a member → `400` with "You are not a member of this server"
 
         ### Flow
         ```
-        Request → Auth Middleware → Parse PostId → Check Server Membership via Post (DB) → Get Post (DB) → Response
+        Request → Auth Middleware → Parse PostId → Check Membership (DB) → Get Post (DB) → Build Image URL → Response
         ```
       parameters:
       - description: Bearer access token
@@ -847,6 +1025,38 @@ paths:
         6. If cursor provided, decode and unmarshal
         7. Query comments from database (limit + 1 for cursor detection)
         8. Build next cursor if more data exists
+
+        ### Database Operations
+
+        #### PostgreSQL — Check Post Server Membership
+        ```sql
+        SELECT 1
+        FROM server_posts sp
+        INNER JOIN server_members sm ON sp.server_id = sm.server_id
+        WHERE sp.id = $1 AND sm.user_id = $2 AND sm.status = $3
+        ```
+
+        #### PostgreSQL — Get Comments (first page)
+        ```sql
+        SELECT id, author_id, parent_id, content, create_datetime, update_datetime
+        FROM server_post_comments
+        WHERE post_id = $1
+        ORDER BY create_datetime DESC, id DESC
+        LIMIT $2
+        ```
+
+        #### PostgreSQL — Get Comments (with cursor)
+        ```sql
+        SELECT id, author_id, parent_id, content, create_datetime, update_datetime
+        FROM server_post_comments
+        WHERE post_id = $1
+        AND (create_datetime < $2 OR (create_datetime = $2 AND id < $3))
+        ORDER BY create_datetime DESC, id DESC
+        LIMIT $4
+        ```
+        - **Table**: `server_post_comments`
+        - **Columns returned**: `id` (UUID), `author_id`, `parent_id` (nullable, for nested replies), `content`, `create_datetime`, `update_datetime`
+        - **Cursor**: keyset pagination on `(create_datetime, id)` DESC
 
         ### Query Parameters
         - `limit` — number of items per page (optional)
@@ -921,6 +1131,31 @@ paths:
         7. Create comment record in database
         8. Return created comment details
 
+        ### Database Operations
+
+        #### PostgreSQL — Check Post Server Membership
+        ```sql
+        SELECT 1
+        FROM server_posts sp
+        INNER JOIN server_members sm ON sp.server_id = sm.server_id
+        WHERE sp.id = $1 AND sm.user_id = $2 AND sm.status = $3
+        ```
+
+        #### PostgreSQL — Check Parent Comment Exists (if parentId provided)
+        ```sql
+        SELECT 1 FROM server_post_comments WHERE id = $1 AND post_id = $2
+        ```
+        - **Table**: `server_post_comments`
+        - **Filter**: `id` (parent comment UUID) + `post_id` (must match current post)
+
+        #### PostgreSQL — Create Comment
+        ```sql
+        INSERT INTO server_post_comments (id, post_id, author_id, parent_id, content, create_datetime, update_datetime, create_user_id, update_user_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ```
+        - **Table**: `server_post_comments`
+        - **Columns**: `id` (UUID), `post_id`, `author_id`, `parent_id` (nullable UUID, for nested replies), `content` (1–1000 chars), timestamps, audit IDs
+
         ### Error Cases
         - Invalid postId → `400` with "Invalid post id"
         - Content empty → `400` with "Content is required"
@@ -986,6 +1221,29 @@ paths:
         4. Check if user is the author of the comment
         5. Delete comment from database
 
+        ### Database Operations
+
+        #### PostgreSQL — Check Post Server Membership
+        ```sql
+        SELECT 1
+        FROM server_posts sp
+        INNER JOIN server_members sm ON sp.server_id = sm.server_id
+        WHERE sp.id = $1 AND sm.user_id = $2 AND sm.status = $3
+        ```
+
+        #### PostgreSQL — Check Comment Ownership
+        ```sql
+        SELECT 1 FROM server_post_comments WHERE id = $1 AND author_id = $2
+        ```
+        - **Table**: `server_post_comments`
+        - **Filter**: `id` (comment UUID) + `author_id` (user UUID)
+
+        #### PostgreSQL — Delete Comment
+        ```sql
+        DELETE FROM server_post_comments WHERE id = $1
+        ```
+        - **Table**: `server_post_comments`
+
         ### Error Cases
         - Invalid postId → `400` with "Invalid post id"
         - Invalid commentId → `400` with "Invalid comment id"
@@ -1048,6 +1306,31 @@ paths:
         6. Fetch updated post to get new like count
         7. Return updated like count
 
+        ### Database Operations
+
+        #### PostgreSQL — Check Post Server Membership
+        ```sql
+        SELECT 1
+        FROM server_posts sp
+        INNER JOIN server_members sm ON sp.server_id = sm.server_id
+        WHERE sp.id = $1 AND sm.user_id = $2 AND sm.status = $3
+        ```
+
+        #### PostgreSQL — Check Already Liked
+        ```sql
+        SELECT 1 FROM server_post_likes WHERE post_id = $1 AND user_id = $2
+        ```
+        - If no row → hasn't liked yet, return error
+
+        #### PostgreSQL — Delete Like
+        ```sql
+        DELETE FROM server_post_likes WHERE post_id = $1 AND user_id = $2
+        ```
+        - **Table**: `server_post_likes`
+
+        #### PostgreSQL — Get Updated Like Count (via GetPost)
+        Uses the same aggregated query as Get Post.
+
         ### Error Cases
         - Invalid postId → `400` with "Invalid post id"
         - Not a member → `400` with "You are not a member of this server"
@@ -1104,6 +1387,34 @@ paths:
         5. Create like record in database
         6. Fetch updated post to get new like count
         7. Return updated like count
+
+        ### Database Operations
+
+        #### PostgreSQL — Check Post Server Membership
+        ```sql
+        SELECT 1
+        FROM server_posts sp
+        INNER JOIN server_members sm ON sp.server_id = sm.server_id
+        WHERE sp.id = $1 AND sm.user_id = $2 AND sm.status = $3
+        ```
+
+        #### PostgreSQL — Check Already Liked
+        ```sql
+        SELECT 1 FROM server_post_likes WHERE post_id = $1 AND user_id = $2
+        ```
+        - **Table**: `server_post_likes`
+        - If row exists → already liked
+
+        #### PostgreSQL — Create Like
+        ```sql
+        INSERT INTO server_post_likes (id, post_id, user_id, create_datetime, update_datetime, create_user_id, update_user_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ```
+        - **Table**: `server_post_likes`
+        - **Columns**: `id` (UUID), `post_id`, `user_id`, timestamps, audit IDs
+
+        #### PostgreSQL — Get Updated Like Count (via GetPost)
+        Uses the same aggregated query as Get Post to fetch the updated like count.
 
         ### Error Cases
         - Invalid postId → `400` with "Invalid post id"
@@ -1163,6 +1474,46 @@ paths:
         6. Build MinIO image URLs for avatar and banner
         7. If results > limit, create next cursor from last item's ID and createDatetime
         8. Return paginated server list
+
+        ### Database Operations
+
+        #### PostgreSQL — Get Discovery Servers (first page)
+        ```sql
+        SELECT A.id, A.name, A.short_name, B.name, C.object_key, D.object_key, A.description, A.create_datetime
+        FROM servers A
+        LEFT JOIN server_categories B ON A.category_id = B.id
+        LEFT JOIN server_avatar_images C ON A.avatar_image_id = C.id
+        LEFT JOIN server_banner_images D ON A.banner_image_id = D.id
+        WHERE ($1::int IS NULL OR B.id = $1)
+        AND (A.settings->>'isPrivate')::boolean = false
+        ORDER BY A.create_datetime DESC, A.id DESC
+        LIMIT $2
+        ```
+
+        #### PostgreSQL — Get Discovery Servers (with cursor)
+        ```sql
+        SELECT A.id, A.name, A.short_name, B.name, C.object_key, D.object_key, A.description, A.create_datetime
+        FROM servers A
+        LEFT JOIN server_categories B ON A.category_id = B.id
+        LEFT JOIN server_avatar_images C ON A.avatar_image_id = C.id
+        LEFT JOIN server_banner_images D ON A.banner_image_id = D.id
+        WHERE (A.create_datetime < $1 OR (A.create_datetime = $1 AND A.id < $2))
+        AND ($3::int IS NULL OR B.id = $3)
+        AND (A.settings->>'isPrivate')::boolean = false
+        ORDER BY A.create_datetime DESC, A.id DESC
+        LIMIT $4
+        ```
+        - **Tables**: `servers` (A) LEFT JOIN `server_categories` (B), `server_avatar_images` (C), `server_banner_images` (D)
+        - **Filter**: Only public servers (`settings->>'isPrivate' = false`)
+        - **Cursor**: keyset pagination on `(create_datetime, id)` DESC
+        - **Category filter**: Optional, filters by `server_categories.id`
+
+        #### MinIO — Image URL Construction
+        ```
+        {MINIO_FULL_URL}/{object_key}
+        ```
+        - Avatar: `{MINIO_FULL_URL}/server/avatar/{imageId}.webp`
+        - Banner: `{MINIO_FULL_URL}/server/banner/{imageId}.webp`
 
         ### Query Parameters
         - `limit` — number of items per page (optional, has default)
@@ -1230,6 +1581,20 @@ paths:
         3. Check server ownership
         4. Delete server from database (CASCADE deletes related records)
 
+        ### Database Operations
+
+        #### PostgreSQL — Check Server Ownership
+        ```sql
+        SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
+        ```
+
+        #### PostgreSQL — Delete Server
+        ```sql
+        DELETE FROM servers WHERE id = $1
+        ```
+        - **Table**: `servers`
+        - **CASCADE**: Database constraints cascade-delete related records: `server_members`, `server_roles`, `server_invites`, `server_posts` (which cascade-delete `server_post_likes`, `server_post_comments`), `server_avatar_images`, `server_banner_images`
+
         ### Error Cases
         - Invalid server id → `400` with "Invalid server id"
         - Not owner → `400` with "You are not the owner of this server"
@@ -1282,6 +1647,37 @@ paths:
         4. If server not found (or private and user is not a member), return error
         5. Build full MinIO URLs for avatar and banner images
         6. Return server detail
+
+        ### Database Operations
+
+        #### PostgreSQL — Get Server By ID (with access control)
+        ```sql
+        SELECT A.id, A.name, A.short_name, B.name, C.object_key, D.object_key,
+               A.description, A.create_datetime, E.username, (A.settings->>'isPrivate')::boolean as is_private
+        FROM servers A
+        LEFT JOIN server_categories B ON A.category_id = B.id
+        LEFT JOIN server_avatar_images C ON A.avatar_image_id = C.id
+        LEFT JOIN server_banner_images D ON A.banner_image_id = D.id
+        LEFT JOIN users E ON A.create_user_id = E.id
+        WHERE A.id = $1
+        AND (
+            (A.settings->>'isPrivate')::boolean = false
+            OR
+            EXISTS (
+                SELECT 1 FROM server_members F
+                WHERE F.server_id = A.id AND F.user_id = $2 AND F.status = 1
+            )
+        )
+        ```
+        - **Tables**: `servers` (A) LEFT JOIN `server_categories` (B), `server_avatar_images` (C), `server_banner_images` (D), `users` (E)
+        - **Subquery**: checks `server_members` for active membership if server is private
+        - **Columns returned**: `id`, `name`, `short_name`, `category_name`, avatar `object_key`, banner `object_key`, `description`, `create_datetime`, `username` (creator), `is_private`
+
+        #### MinIO — Image URL Construction
+        ```
+        Avatar: {MINIO_FULL_URL}/{object_key}  (e.g., server/avatar/{imageId}.webp)
+        Banner: {MINIO_FULL_URL}/{object_key}  (e.g., server/banner/{imageId}.webp)
+        ```
 
         ### Error Cases
         - Invalid server id → `400` with "Invalid server id"
@@ -1344,6 +1740,56 @@ paths:
         8. If new avatar provided: create new image record → update server reference → upload to MinIO → delete old image if exists
         9. If no new avatar (empty file): update server to remove reference → delete old image if exists
         10. Commit transaction
+
+        ### Database Operations
+
+        #### PostgreSQL — Check Server Ownership
+        ```sql
+        SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
+        ```
+
+        #### PostgreSQL — Get Server Detail (inside TX, for old avatar)
+        ```sql
+        SELECT id, owner_id, name, short_name, category_id, avatar_image_id, banner_image_id, description, settings, create_datetime, update_datetime, create_user_id, update_user_id
+        FROM servers WHERE id = $1
+        ```
+        - Used to get `avatar_image_id` for old avatar cleanup
+
+        #### PostgreSQL — Create New Avatar Image (inside TX)
+        ```sql
+        INSERT INTO server_avatar_images (id, bucket, object_key, mime_type, size, create_datetime, update_datetime, create_user_id, update_user_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ```
+        - **Table**: `server_avatar_images`
+        - **Columns**: `id` (UUID), `bucket`, `object_key` (e.g., `server/avatar/{imageId}.webp`), `mime_type` (`image/webp`), `size`
+
+        #### PostgreSQL — Update Server Avatar Reference (inside TX)
+        ```sql
+        UPDATE servers SET avatar_image_id = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
+        ```
+        - Sets `avatar_image_id` to new image UUID or NULL (when removing)
+
+        #### PostgreSQL — Get Old Avatar Object Key (inside TX)
+        ```sql
+        SELECT object_key FROM server_avatar_images WHERE id = $1 LIMIT 1
+        ```
+
+        #### PostgreSQL — Delete Old Avatar Image Record (inside TX)
+        ```sql
+        DELETE FROM server_avatar_images WHERE id = $1
+        ```
+
+        #### MinIO — Upload New Avatar
+        ```
+        PUT {bucket}/server/avatar/{imageId}.webp
+        Content-Type: image/webp
+        Cache-Control: public, max-age=31536000, immutable
+        ```
+
+        #### MinIO — Delete Old Avatar (if exists)
+        ```
+        DELETE {bucket}/{old_object_key}
+        ```
 
         ### Error Cases
         - Invalid server id → `400` with "Invalid server id"
@@ -1411,6 +1857,48 @@ paths:
         9. If no new banner: update server to remove reference → delete old image if exists
         10. Commit transaction
 
+        ### Database Operations
+
+        #### PostgreSQL — Check Server Ownership
+        ```sql
+        SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
+        ```
+
+        #### PostgreSQL — Create New Banner Image (inside TX)
+        ```sql
+        INSERT INTO server_banner_images (id, bucket, object_key, mime_type, size, create_datetime, update_datetime, create_user_id, update_user_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ```
+        - **Table**: `server_banner_images`
+        - **Columns**: `id` (UUID), `bucket`, `object_key` (e.g., `server/banner/{imageId}.webp`), `mime_type` (`image/webp`), `size`
+
+        #### PostgreSQL — Update Server Banner Reference (inside TX)
+        ```sql
+        UPDATE servers SET banner_image_id = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
+        ```
+
+        #### PostgreSQL — Get Old Banner Object Key (inside TX)
+        ```sql
+        SELECT object_key FROM server_banner_images WHERE id = $1 LIMIT 1
+        ```
+
+        #### PostgreSQL — Delete Old Banner Image Record (inside TX)
+        ```sql
+        DELETE FROM server_banner_images WHERE id = $1
+        ```
+
+        #### MinIO — Upload New Banner
+        ```
+        PUT {bucket}/server/banner/{imageId}.webp
+        Content-Type: image/webp
+        Cache-Control: public, max-age=31536000, immutable
+        ```
+
+        #### MinIO — Delete Old Banner (if exists)
+        ```
+        DELETE {bucket}/{old_object_key}
+        ```
+
         ### Error Cases
         - Invalid server id → `400` with "Invalid server id"
         - Not owner → `400` with "You are not the owner of this server"
@@ -1472,6 +1960,32 @@ paths:
         4. Check server ownership
         5. Update category in database
         6. Return updated server details
+
+        ### Database Operations
+
+        #### PostgreSQL — Check Category Exists (if categoryId not null)
+        ```sql
+        SELECT 1 FROM server_categories WHERE id = $1
+        ```
+        - **Table**: `server_categories`
+
+        #### PostgreSQL — Check Server Ownership
+        ```sql
+        SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
+        ```
+
+        #### PostgreSQL — Update Category
+        ```sql
+        UPDATE servers SET category_id = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
+        ```
+        - **Table**: `servers`
+        - **Columns updated**: `category_id` (nullable INT, FK to `server_categories`), `update_datetime`, `update_user_id`
+
+        #### PostgreSQL — Get Server Detail (after update)
+        ```sql
+        SELECT id, owner_id, name, short_name, category_id, avatar_image_id, banner_image_id, description, settings, create_datetime, update_datetime, create_user_id, update_user_id
+        FROM servers WHERE id = $1
+        ```
 
         ### Error Cases
         - Invalid server id → `400` with "Invalid server id"
@@ -1537,6 +2051,26 @@ paths:
         4. Update description in database
         5. Return updated server details
 
+        ### Database Operations
+
+        #### PostgreSQL — Check Server Ownership
+        ```sql
+        SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
+        ```
+
+        #### PostgreSQL — Update Description
+        ```sql
+        UPDATE servers SET description = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
+        ```
+        - **Table**: `servers`
+        - **Columns updated**: `description` (nullable TEXT), `update_datetime`, `update_user_id`
+
+        #### PostgreSQL — Get Server Detail (after update)
+        ```sql
+        SELECT id, owner_id, name, short_name, category_id, avatar_image_id, banner_image_id, description, settings, create_datetime, update_datetime, create_user_id, update_user_id
+        FROM servers WHERE id = $1
+        ```
+
         ### Error Cases
         - Invalid server id → `400` with "Invalid server id"
         - Not owner → `400` with "You are not the owner of this server"
@@ -1600,6 +2134,30 @@ paths:
         4. Check server ownership — only the owner can update
         5. Update server name in database
         6. Fetch and return updated server details
+
+        ### Database Operations
+
+        #### PostgreSQL — Check Server Ownership
+        ```sql
+        SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
+        ```
+        - **Table**: `servers`
+        - **Filter**: `id` + `owner_id`
+
+        #### PostgreSQL — Update Server Name
+        ```sql
+        UPDATE servers SET name = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
+        ```
+        - **Table**: `servers`
+        - **Columns updated**: `name`, `update_datetime`, `update_user_id`
+
+        #### PostgreSQL — Get Server Detail (after update)
+        ```sql
+        SELECT id, owner_id, name, short_name, category_id, avatar_image_id, banner_image_id, description, settings, create_datetime, update_datetime, create_user_id, update_user_id
+        FROM servers WHERE id = $1
+        ```
+        - **Table**: `servers`
+        - Returns full server detail for response
 
         ### Error Cases
         - Invalid server id → `400` with "Invalid server id"
@@ -1668,6 +2226,21 @@ paths:
         5. Marshal settings to JSON
         6. Update settings in database
 
+        ### Database Operations
+
+        #### PostgreSQL — Check Server Ownership
+        ```sql
+        SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
+        ```
+
+        #### PostgreSQL — Update Settings
+        ```sql
+        UPDATE servers SET settings = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
+        ```
+        - **Table**: `servers`
+        - **Columns updated**: `settings` (JSONB), `update_datetime`, `update_user_id`
+        - **Settings schema**: `{"isPrivate": boolean}`
+
         ### Settings Fields
         - `isPrivate` — boolean, whether the server is private (only joinable via invite)
 
@@ -1733,6 +2306,26 @@ paths:
         4. Check server ownership
         5. Update short name in database
         6. Return updated server details
+
+        ### Database Operations
+
+        #### PostgreSQL — Check Server Ownership
+        ```sql
+        SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
+        ```
+
+        #### PostgreSQL — Update Short Name
+        ```sql
+        UPDATE servers SET short_name = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
+        ```
+        - **Table**: `servers`
+        - **Columns updated**: `short_name`, `update_datetime`, `update_user_id`
+
+        #### PostgreSQL — Get Server Detail (after update)
+        ```sql
+        SELECT id, owner_id, name, short_name, category_id, avatar_image_id, banner_image_id, description, settings, create_datetime, update_datetime, create_user_id, update_user_id
+        FROM servers WHERE id = $1
+        ```
 
         ### Error Cases
         - Invalid server id → `400` with "Invalid server id"
@@ -1802,6 +2395,23 @@ paths:
         6. Create invite record in database with code, max uses, expiration time
         7. Return invite code and expiration timestamp
 
+        ### Database Operations
+
+        #### PostgreSQL — Check Invite Code Unique (up to 10 retries)
+        ```sql
+        SELECT 1 FROM server_invites WHERE code = $1
+        ```
+        - **Table**: `server_invites`
+        - Retries with new code if code already exists
+
+        #### PostgreSQL — Create Invite
+        ```sql
+        INSERT INTO server_invites (id, server_id, code, max_uses, used_count, expires_datetime, is_active, create_user_id, update_user_id, create_datetime, update_datetime)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ```
+        - **Table**: `server_invites`
+        - **Columns**: `id` (UUID), `server_id`, `code` (8-char random string), `max_uses`, `used_count` (0 initially), `expires_datetime` (now + expiresInMinutes), `is_active` (true), timestamps, audit IDs
+
         ### Error Cases
         - Invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
         - expiresInMinutes ≤ 0 → `400` with "Expires in minutes must be greater than 0"
@@ -1869,6 +2479,38 @@ paths:
         7. All operations wrapped in a database transaction
         8. Return success with no data
 
+        ### Database Operations
+
+        #### PostgreSQL — Check Server Eligible (public)
+        ```sql
+        SELECT 1 FROM servers WHERE id = $1 AND (settings->>'isPrivate')::boolean = false
+        ```
+        - **Table**: `servers`
+        - **Filter**: `id` + `settings->>'isPrivate' = false`
+
+        #### PostgreSQL — Check Server Member
+        ```sql
+        SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2 AND status = 1
+        ```
+        - **Table**: `server_members`
+        - **Filter**: `server_id`, `user_id`, `status = 1` (active)
+
+        #### PostgreSQL — Create Server Role (inside TX)
+        ```sql
+        INSERT INTO server_roles (id, server_id, name, permissions, create_datetime, update_datetime, create_user_id, update_user_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ```
+        - **Table**: `server_roles`
+        - **Values**: `name` = "member", `permissions` = `{}`
+
+        #### PostgreSQL — Create Server Member (inside TX)
+        ```sql
+        INSERT INTO server_members (id, server_id, user_id, server_role_id, status, joined_datetime, left_datetime, create_datetime, update_datetime, create_user_id, update_user_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ```
+        - **Table**: `server_members`
+        - **Values**: `status = 1` (active), `left_datetime = NULL`
+
         ### Error Cases
         - Invalid serverId → `400` with "Invalid server id"
         - Server not found or private → `400` with "Unable to join server because server is not exists or private"
@@ -1925,6 +2567,51 @@ paths:
         6. If cursor provided, decode and unmarshal
         7. Query posts from database (limit + 1 for cursor detection) with author info and image URLs
         8. Build next cursor if more data exists
+
+        ### Database Operations
+
+        #### PostgreSQL — Check Server Member
+        ```sql
+        SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2 AND status = $3
+        ```
+
+        #### PostgreSQL — Get Server Posts (first page)
+        ```sql
+        SELECT sp.author_id, us.username, uai.object_key, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
+               COALESCE(comment_counts.comment_count, 0) as comment_count,
+               COALESCE(like_counts.like_count, 0) as like_count
+        FROM server_posts sp
+        INNER JOIN users us ON sp.author_id = us.id
+        LEFT JOIN user_avatar_images uai ON us.id = uai.user_id
+        INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
+        LEFT JOIN (
+            SELECT post_id, COUNT(*) as comment_count FROM server_post_comments GROUP BY post_id
+        ) comment_counts ON sp.id = comment_counts.post_id
+        LEFT JOIN (
+            SELECT post_id, COUNT(*) as like_count FROM server_post_likes GROUP BY post_id
+        ) like_counts ON sp.id = like_counts.post_id
+        WHERE sp.server_id = $1
+        ORDER BY sp.create_datetime DESC, sp.id DESC
+        LIMIT $2
+        ```
+
+        #### PostgreSQL — Get Server Posts (with cursor)
+        Same query with additional cursor filter:
+        ```sql
+        WHERE sp.server_id = $1
+        AND (sp.create_datetime < $2 OR (sp.create_datetime = $2 AND sp.id < $3))
+        ORDER BY sp.create_datetime DESC, sp.id DESC
+        LIMIT $4
+        ```
+        - **Tables**: `server_posts`, `users`, `user_avatar_images`, `server_post_images`, `server_post_comments` (aggregated), `server_post_likes` (aggregated)
+        - **Cursor**: keyset pagination on `(create_datetime, id)` DESC
+        - **Columns returned**: `author_id`, `username`, author avatar `object_key`, post `id`, post image `object_key`, `caption`, timestamps, `comment_count`, `like_count`
+
+        #### MinIO — Image URL Construction
+        ```
+        Post image: {MINIO_FULL_URL}/{object_key}  (e.g., server/post/{imageId}.webp)
+        Author avatar: {MINIO_FULL_URL}/{object_key}  (e.g., user/avatar/{imageId}.webp)
+        ```
 
         ### Query Parameters
         - `limit` — number of items per page (optional)
@@ -2003,6 +2690,49 @@ paths:
         11. Commit transaction
         12. Fetch and return full post details including author info and image URL
 
+        ### Database Operations
+
+        #### PostgreSQL — Check Server Member
+        ```sql
+        SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2 AND status = $3
+        ```
+        - **Table**: `server_members`
+        - **Filter**: `server_id`, `user_id`, `status = 1` (active)
+
+        #### PostgreSQL — Create Post Image (inside TX)
+        ```sql
+        INSERT INTO server_post_images (id, bucket, object_key, mime_type, size, create_datetime, update_datetime, create_user_id, update_user_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ```
+        - **Table**: `server_post_images`
+        - **Columns**: `id` (UUID), `bucket`, `object_key` (e.g., `server/post/{imageId}.webp`), `mime_type` (`image/webp`), `size`
+
+        #### PostgreSQL — Create Post (inside TX)
+        ```sql
+        INSERT INTO server_posts (id, server_id, author_id, post_image_id, caption, create_datetime, update_datetime, create_user_id, update_user_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ```
+        - **Table**: `server_posts`
+        - **Columns**: `id` (UUID), `server_id`, `author_id`, `post_image_id` (FK to `server_post_images`), `caption`
+
+        #### PostgreSQL — Get Post Details (after creation)
+        ```sql
+        SELECT sp.author_id, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
+               COALESCE(comment_counts.comment_count, 0), COALESCE(like_counts.like_count, 0)
+        FROM server_posts sp
+        INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
+        LEFT JOIN (SELECT post_id, COUNT(*) as comment_count FROM server_post_comments GROUP BY post_id) comment_counts ON sp.id = comment_counts.post_id
+        LEFT JOIN (SELECT post_id, COUNT(*) as like_count FROM server_post_likes GROUP BY post_id) like_counts ON sp.id = like_counts.post_id
+        WHERE sp.id = $1
+        ```
+
+        #### MinIO — Upload Post Image
+        ```
+        PUT {bucket}/server/post/{imageId}.webp
+        Content-Type: image/webp
+        Cache-Control: public, max-age=31536000, immutable
+        ```
+
         ### Error Cases
         - Invalid serverId → `400` with "Invalid server id"
         - Not a member → `400` with "You are not a member of this server"
@@ -2076,6 +2806,45 @@ paths:
         9. Commit transaction
         10. Delete image file from MinIO
 
+        ### Database Operations
+
+        #### PostgreSQL — Check Server Member
+        ```sql
+        SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2 AND status = $3
+        ```
+
+        #### PostgreSQL — Check Post Ownership
+        ```sql
+        SELECT 1 FROM server_posts WHERE id = $1 AND author_id = $2
+        ```
+
+        #### PostgreSQL — Get Post Image Info (inside TX)
+        ```sql
+        SELECT sp.post_image_id, spi.object_key
+        FROM server_posts sp
+        INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
+        WHERE sp.id = $1
+        ```
+        - **Tables**: `server_posts` JOIN `server_post_images`
+        - **Returns**: `post_image_id` (UUID), `object_key` (MinIO path)
+
+        #### PostgreSQL — Delete Post (inside TX)
+        ```sql
+        DELETE FROM server_posts WHERE id = $1
+        ```
+        - **CASCADE**: deletes related `server_post_comments` and `server_post_likes`
+
+        #### PostgreSQL — Delete Post Image Record (inside TX)
+        ```sql
+        DELETE FROM server_post_images WHERE id = $1
+        ```
+
+        #### MinIO — Delete Post Image (after TX commit)
+        ```
+        DELETE {bucket}/{object_key}
+        ```
+        - Example: `DELETE {bucket}/server/post/{imageId}.webp`
+
         ### Error Cases
         - Invalid serverId → `400` with "Invalid server id"
         - Invalid postId → `400` with "Invalid post id"
@@ -2139,6 +2908,38 @@ paths:
         5. Check if user is the author of the post
         6. Update post caption in database
         7. Fetch and return updated post details
+
+        ### Database Operations
+
+        #### PostgreSQL — Check Server Member
+        ```sql
+        SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2 AND status = $3
+        ```
+
+        #### PostgreSQL — Check Post Ownership
+        ```sql
+        SELECT 1 FROM server_posts WHERE id = $1 AND author_id = $2
+        ```
+        - **Table**: `server_posts`
+        - **Filter**: `id` (post UUID) + `author_id` (user UUID)
+
+        #### PostgreSQL — Update Caption
+        ```sql
+        UPDATE server_posts SET caption = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
+        ```
+        - **Table**: `server_posts`
+        - **Columns updated**: `caption`, `update_datetime`, `update_user_id`
+
+        #### PostgreSQL — Get Post (after update)
+        ```sql
+        SELECT sp.author_id, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
+               COALESCE(comment_counts.comment_count, 0), COALESCE(like_counts.like_count, 0)
+        FROM server_posts sp
+        INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
+        LEFT JOIN (...) comment_counts ON sp.id = comment_counts.post_id
+        LEFT JOIN (...) like_counts ON sp.id = like_counts.post_id
+        WHERE sp.id = $1
+        ```
 
         ### Error Cases
         - Invalid serverId → `400` with "Invalid server id"
@@ -2210,6 +3011,26 @@ paths:
         4. Query categories from database (limit + 1 for cursor detection)
         5. Build next cursor if more data exists
 
+        ### Database Operations
+
+        #### PostgreSQL — Get Categories (first page)
+        ```sql
+        SELECT id, name FROM server_categories
+        ORDER BY id DESC
+        LIMIT $1
+        ```
+
+        #### PostgreSQL — Get Categories (with cursor)
+        ```sql
+        SELECT id, name FROM server_categories
+        WHERE id < $1
+        ORDER BY id DESC
+        LIMIT $2
+        ```
+        - **Table**: `server_categories`
+        - **Columns**: `id` (INT), `name` (VARCHAR)
+        - **Cursor**: keyset pagination on `id` DESC
+
         ### Query Parameters
         - `limit` — number of items per page (optional)
         - `cursor` — base64-encoded cursor for next page (optional)
@@ -2279,6 +3100,39 @@ paths:
         9. All operations wrapped in a database transaction
         10. Return created server details
 
+        ### Database Operations
+
+        #### PostgreSQL — Check Category Exists (if categoryId provided)
+        ```sql
+        SELECT 1 FROM server_categories WHERE id = $1
+        ```
+        - **Table**: `server_categories`
+        - **Column**: `id`
+
+        #### PostgreSQL — Create Server (inside TX)
+        ```sql
+        INSERT INTO servers (id, owner_id, name, short_name, category_id, avatar_image_id, banner_image_id, description, settings, create_datetime, update_datetime, create_user_id, update_user_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        ```
+        - **Table**: `servers`
+        - **Key columns**: `id` (UUID), `owner_id`, `name`, `short_name`, `category_id` (nullable), `avatar_image_id` (NULL initially), `banner_image_id` (NULL initially), `description` (nullable), `settings` (JSONB, e.g., `{"isPrivate": false}`)
+
+        #### PostgreSQL — Create Server Role (inside TX)
+        ```sql
+        INSERT INTO server_roles (id, server_id, name, permissions, create_datetime, update_datetime, create_user_id, update_user_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ```
+        - **Table**: `server_roles`
+        - **Key columns**: `id` (UUID), `server_id`, `name` ("owner"), `permissions` (JSONB, `{"*": true}`)
+
+        #### PostgreSQL — Create Server Member (inside TX)
+        ```sql
+        INSERT INTO server_members (id, server_id, user_id, server_role_id, status, joined_datetime, left_datetime, create_datetime, update_datetime, create_user_id, update_user_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ```
+        - **Table**: `server_members`
+        - **Key columns**: `id` (UUID), `server_id`, `user_id`, `server_role_id`, `status` (1 = active), `joined_datetime`, `left_datetime` (NULL)
+
         ### Error Cases
         - Name empty → `400` with "Name is required to not be empty"
         - Name < 5 chars → `400` with "Name must be at least 4 characters"
@@ -2340,6 +3194,28 @@ paths:
         4. Build full MinIO URLs for avatar and banner images
         5. Return server info (owner name, server name, description, images)
 
+        ### Database Operations
+
+        #### PostgreSQL — Get Server Info via Invite Code
+        ```sql
+        SELECT C.username, A.name, A.description, D.object_key, E.object_key
+        FROM servers A
+        INNER JOIN server_invites B ON A.id = B.server_id
+        INNER JOIN users C ON C.id = A.owner_id
+        LEFT JOIN server_avatar_images D ON A.avatar_image_id = D.id
+        LEFT JOIN server_banner_images E ON A.banner_image_id = E.id
+        WHERE B.code = $1
+        ```
+        - **Tables**: `servers` (A) INNER JOIN `server_invites` (B), `users` (C), LEFT JOIN `server_avatar_images` (D), `server_banner_images` (E)
+        - **Filter**: `server_invites.code = {inviteCode}`
+        - **Columns returned**: `username` (owner), server `name`, `description`, avatar `object_key`, banner `object_key`
+
+        #### MinIO — Image URL Construction
+        ```
+        Avatar: {MINIO_FULL_URL}/{object_key}
+        Banner: {MINIO_FULL_URL}/{object_key}
+        ```
+
         ### Error Cases
         - Invite code not found → `400` with "Invite code is not exists"
 
@@ -2392,6 +3268,37 @@ paths:
         5. Create "member" role for the user
         6. Create server member record
         7. All operations wrapped in a database transaction
+
+        ### Database Operations
+
+        #### PostgreSQL — Check Invite Code & Get Server ID
+        ```sql
+        SELECT server_id FROM server_invites WHERE code = $1 AND is_active = true AND used_count < max_uses
+        ```
+        - **Table**: `server_invites`
+        - **Filter**: `code` match + `is_active = true` + `used_count < max_uses`
+        - Returns `server_id` (UUID) or no rows if invalid/expired/used up
+
+        #### PostgreSQL — Check Server Member
+        ```sql
+        SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2 AND status = 1
+        ```
+        - **Table**: `server_members`
+        - Checks if user is already an active member
+
+        #### PostgreSQL — Create Server Role (inside TX)
+        ```sql
+        INSERT INTO server_roles (id, server_id, name, permissions, create_datetime, update_datetime, create_user_id, update_user_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ```
+        - **Values**: `name = "member"`, `permissions = {}`
+
+        #### PostgreSQL — Create Server Member (inside TX)
+        ```sql
+        INSERT INTO server_members (id, server_id, user_id, server_role_id, status, joined_datetime, left_datetime, create_datetime, update_datetime, create_user_id, update_user_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ```
+        - **Values**: `status = 1` (active), `left_datetime = NULL`
 
         ### Error Cases
         - Invite code empty → `400` with "Invite code is required to not be empty"
@@ -2452,9 +3359,32 @@ paths:
         7. If results > limit, create next cursor from last item
         8. Return paginated server list
 
-        ### Query Parameters
-        - `limit` — number of items per page (optional)
-        - `cursor` — base64-encoded cursor for next page (optional)
+        ### Database Operations
+
+        #### PostgreSQL — Get User Servers (first page)
+        ```sql
+        SELECT B.id, B.name, B.short_name, C.object_key, A.joined_datetime
+        FROM server_members A
+        INNER JOIN servers B ON A.server_id = B.id
+        LEFT JOIN server_avatar_images C ON C.id = B.avatar_image_id
+        WHERE A.user_id = $1
+        ORDER BY A.joined_datetime DESC, A.server_id DESC
+        LIMIT $2
+        ```
+
+        #### PostgreSQL — Get User Servers (with cursor)
+        ```sql
+        SELECT B.id, B.name, B.short_name, C.object_key, A.joined_datetime
+        FROM server_members A
+        INNER JOIN servers B ON A.server_id = B.id
+        LEFT JOIN server_avatar_images C ON C.id = B.avatar_image_id
+        WHERE (A.joined_datetime < $1 OR (A.joined_datetime = $1 AND A.server_id < $2)) AND A.user_id = $3
+        ORDER BY A.joined_datetime DESC, A.server_id DESC
+        LIMIT $4
+        ```
+        - **Tables**: `server_members` (A) INNER JOIN `servers` (B), LEFT JOIN `server_avatar_images` (C)
+        - **Cursor**: keyset pagination on `(joined_datetime, server_id)` DESC
+        - **Columns returned**: `id`, `name`, `short_name`, `object_key` (avatar), `joined_datetime`
 
         ### Error Cases
         - Limit < 0 → `400` with "Limit must be greater or equal than 0"
@@ -2523,6 +3453,40 @@ paths:
         9. Commit transaction
         10. Return success with no data
 
+        ### Database Operations
+
+        #### PostgreSQL — Get Existing Avatar (inside TX)
+        ```sql
+        SELECT object_key FROM user_avatar_images WHERE user_id = $1 LIMIT 1
+        ```
+        - **Table**: `user_avatar_images`
+        - **Column**: `object_key` (path in MinIO)
+
+        #### PostgreSQL — Delete Old Avatar Record (inside TX)
+        ```sql
+        DELETE FROM user_avatar_images WHERE user_id = $1
+        ```
+
+        #### PostgreSQL — Insert New Avatar Record (inside TX)
+        ```sql
+        INSERT INTO user_avatar_images (id, user_id, bucket, object_key, mime_type, size, create_datetime, update_datetime, create_user_id, update_user_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ```
+        - **Table**: `user_avatar_images`
+        - **Columns**: `id` (UUID), `user_id`, `bucket` (MinIO bucket name), `object_key` (e.g., `user/avatar/{imageId}.webp`), `mime_type` (`image/webp`), `size` (bytes), timestamps, audit IDs
+
+        #### MinIO — Upload Avatar
+        ```
+        PUT {bucket}/user/avatar/{imageId}.webp
+        Content-Type: image/webp
+        Cache-Control: public, max-age=31536000, immutable
+        ```
+
+        #### MinIO — Delete Old Avatar (if exists)
+        ```
+        DELETE {bucket}/{old_object_key}
+        ```
+
         ### Error Cases
         - No/invalid auth token → `404` (handled by auth middleware)
         - Missing avatar file → `400` with "Avatar is required to not be empty"
@@ -2583,6 +3547,17 @@ paths:
         3. If bio is empty string, set to NULL in database; otherwise set to provided value
         4. Update bio in database
         5. Return success with no data
+
+        ### Database Operations
+
+        #### PostgreSQL — Update Bio
+        ```sql
+        UPDATE users SET bio = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
+        ```
+        - **Table**: `users`
+        - **Columns updated**: `bio` (nullable TEXT), `update_datetime`, `update_user_id`
+        - **Filter**: `id = {userId}`
+        - **Note**: `$1` can be NULL (when bio is empty string) or the bio text
 
         ### Error Cases
         - No/invalid auth token → `404` (handled by auth middleware)
@@ -2645,6 +3620,16 @@ paths:
         5. Update fullname in database
         6. Return success with no data
 
+        ### Database Operations
+
+        #### PostgreSQL — Update Fullname
+        ```sql
+        UPDATE users SET fullname = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
+        ```
+        - **Table**: `users`
+        - **Columns updated**: `fullname`, `update_datetime`, `update_user_id`
+        - **Filter**: `id = {userId}`
+
         ### Error Cases
         - No/invalid auth token → `404` (handled by auth middleware)
         - Invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
@@ -2704,6 +3689,16 @@ paths:
         2. Remove access token and refresh token from Redis cache
         3. Return success with no data
 
+        ### Database Operations
+
+        #### Redis — Remove Auth Tokens
+        ```
+        DEL auth:acccessToken:{userId}
+        DEL auth:refreshToken:{userId}
+        ```
+        - Deletes both the access token hash and refresh token hash from Redis
+        - After deletion, the user's current JWT becomes invalid for future requests
+
         ### Error Cases
         - No/invalid auth token → `404` (handled by auth middleware)
         - Redis error → `500` internal server error
@@ -2750,6 +3745,27 @@ paths:
         2. Query user info from database by userId
         3. If user has an avatar image, construct the full MinIO URL for the avatar
         4. Return user profile data
+
+        ### Database Operations
+
+        #### PostgreSQL — Get User Info
+        ```sql
+        SELECT A.id, A.username, A.fullname, A.email, B.object_key, A.bio, A.create_datetime, A.update_datetime
+        FROM users A
+        LEFT JOIN user_avatar_images B ON A.id = B.user_id
+        WHERE A.id = $1
+        LIMIT 1
+        ```
+        - **Tables**: `users` (A) LEFT JOIN `user_avatar_images` (B)
+        - **Join condition**: `users.id = user_avatar_images.user_id`
+        - **Columns returned**: `id`, `username`, `fullname`, `email`, `object_key` (avatar), `bio`, `create_datetime`, `update_datetime`
+
+        #### MinIO — Avatar URL Construction
+        ```
+        {MINIO_FULL_URL}/{object_key}
+        ```
+        - If `object_key` is not NULL, full URL is built as: `http(s)://{host}:{port}/{bucket}/{object_key}`
+        - Object key format: `user/avatar/{imageId}.webp`
 
         ### Error Cases
         - No/invalid auth token → `404` (handled by auth middleware)

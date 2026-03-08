@@ -23,6 +23,42 @@ No authentication required.
 14. Store hashed tokens in Redis cache
 15. Return token pair to client
 
+### Database Operations
+
+#### Redis — Get All Session Data
+```
+HGETALL signup:{sessionId}
+```
+- Returns map with keys: `email`, `step`, `username`, `create_at`, `otp_verified_at`
+
+#### PostgreSQL — Check Username & Email Unique
+```sql
+SELECT username, email FROM users WHERE username = $1 OR email = $2 LIMIT 1
+```
+- **Table**: `users`
+- **Columns**: `username`, `email`
+
+#### Redis — Delete Session
+```
+DEL signup:{sessionId}
+DEL signup_email:{email}
+```
+
+#### PostgreSQL — Create User
+```sql
+INSERT INTO users (id, username, fullname, bio, avatar_image_id, email, password, settings, create_datetime, update_datetime, create_user_id, update_user_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+```
+- **Table**: `users`
+- **Columns**: `id` (UUID), `username`, `fullname` (titleCase of username), `bio` (NULL), `avatar_image_id` (NULL), `email`, `password` (bcrypt hash), `settings` (JSON), timestamps, audit user IDs
+
+#### Redis — Store Auth Tokens
+```
+SET auth:acccessToken:{userId} {sha256(accessToken)} EX 900
+SET auth:refreshToken:{userId} {sha256(refreshToken)} EX 900
+```
+- **TTL**: 15 minutes
+
 ### Error Cases
 - Invalid sessionId → `400` with "Invalid session id"
 - Password empty → `400` with "Password is required to not be empty"

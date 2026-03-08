@@ -12,6 +12,15 @@ No authentication required.
 3. Check if session exists — return error if expired/not found
 4. Return session ID and current step
 
+### Database Operations
+
+#### Redis — Get Session Step
+```
+HMGET signup:{sessionId} step
+```
+- Returns current step value
+- If `nil`, session has expired (TTL 30 minutes) or doesn't exist
+
 ### Possible Steps
 - `start_signup` — email submitted, OTP sent, waiting for OTP verification
 - `otp_verified` — OTP verified, waiting for username

@@ -14,6 +14,16 @@ Requires `Authorization` header with Bearer JWT access token.
 5. Update fullname in database
 6. Return success with no data
 
+### Database Operations
+
+#### PostgreSQL — Update Fullname
+```sql
+UPDATE users SET fullname = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
+```
+- **Table**: `users`
+- **Columns updated**: `fullname`, `update_datetime`, `update_user_id`
+- **Filter**: `id = {userId}`
+
 ### Error Cases
 - No/invalid auth token → `404` (handled by auth middleware)
 - Invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`

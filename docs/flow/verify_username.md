@@ -16,6 +16,29 @@ No authentication required.
 7. Check if username is already taken in the database
 8. Store username in session state and update step to `username_set`
 
+### Database Operations
+
+#### Redis — Get Session State
+```
+HMGET signup:{sessionId} step
+```
+- Returns current step (e.g., `"otp_verified"`)
+- If `nil`, session expired
+
+#### PostgreSQL — Check Username Unique
+```sql
+SELECT 1 FROM users WHERE username = $1 LIMIT 1
+```
+- **Table**: `users`
+- **Column**: `username`
+
+#### Redis — Update Session State
+```
+HSET signup:{sessionId}
+  step     "username_set"
+  username {username}
+```
+
 ### Error Cases
 - Invalid sessionId → `400` with "Invalid session id"
 - Username empty → `400` with "Username is required to not be empty"

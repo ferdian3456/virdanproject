@@ -20,6 +20,40 @@ Requires `Authorization` header with Bearer JWT access token.
 9. Commit transaction
 10. Return success with no data
 
+### Database Operations
+
+#### PostgreSQL — Get Existing Avatar (inside TX)
+```sql
+SELECT object_key FROM user_avatar_images WHERE user_id = $1 LIMIT 1
+```
+- **Table**: `user_avatar_images`
+- **Column**: `object_key` (path in MinIO)
+
+#### PostgreSQL — Delete Old Avatar Record (inside TX)
+```sql
+DELETE FROM user_avatar_images WHERE user_id = $1
+```
+
+#### PostgreSQL — Insert New Avatar Record (inside TX)
+```sql
+INSERT INTO user_avatar_images (id, user_id, bucket, object_key, mime_type, size, create_datetime, update_datetime, create_user_id, update_user_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+```
+- **Table**: `user_avatar_images`
+- **Columns**: `id` (UUID), `user_id`, `bucket` (MinIO bucket name), `object_key` (e.g., `user/avatar/{imageId}.webp`), `mime_type` (`image/webp`), `size` (bytes), timestamps, audit IDs
+
+#### MinIO — Upload Avatar
+```
+PUT {bucket}/user/avatar/{imageId}.webp
+Content-Type: image/webp
+Cache-Control: public, max-age=31536000, immutable
+```
+
+#### MinIO — Delete Old Avatar (if exists)
+```
+DELETE {bucket}/{old_object_key}
+```
+
 ### Error Cases
 - No/invalid auth token → `404` (handled by auth middleware)
 - Missing avatar file → `400` with "Avatar is required to not be empty"

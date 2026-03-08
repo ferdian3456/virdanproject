@@ -22,6 +22,45 @@ No authentication required.
 13. Store email→sessionId mapping in Redis (for duplicate detection)
 14. Return `sessionId` and `otpExpiresAt` to client
 
+### Database Operations
+
+#### PostgreSQL — Check Email Unique
+```sql
+SELECT 1 FROM users WHERE email = $1 LIMIT 1
+```
+- **Table**: `users`
+- **Column**: `email`
+
+#### Redis — Check Existing Email Session
+```
+GET signup_email:{email}
+```
+- Returns `sessionId` if exists, used to detect and clean up old sessions
+
+#### Redis — Delete Old Session (if exists)
+```
+DEL signup:{oldSessionId}
+DEL signup_email:{email}
+```
+
+#### Redis — Create Signup Session
+```
+HSET signup:{sessionId}
+  email          {email}
+  otp            {sha256(otpCode)}
+  otp_expires_at {unix_timestamp}
+  step           "start_signup"
+  create_at      {unix_timestamp}
+EXPIRE signup:{sessionId} 1800
+```
+- **TTL**: 30 minutes
+
+#### Redis — Map Email to Session
+```
+SET signup_email:{email} {sessionId} EX 1800
+```
+- **TTL**: 30 minutes
+
 ### Error Cases
 - Email empty → `400` with "Email is required to not be empty"
 - Email < 16 chars → `400` with "email must be at least 16 characters"

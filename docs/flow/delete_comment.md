@@ -13,6 +13,29 @@ Requires `Authorization` header with Bearer JWT access token.
 4. Check if user is the author of the comment
 5. Delete comment from database
 
+### Database Operations
+
+#### PostgreSQL — Check Post Server Membership
+```sql
+SELECT 1
+FROM server_posts sp
+INNER JOIN server_members sm ON sp.server_id = sm.server_id
+WHERE sp.id = $1 AND sm.user_id = $2 AND sm.status = $3
+```
+
+#### PostgreSQL — Check Comment Ownership
+```sql
+SELECT 1 FROM server_post_comments WHERE id = $1 AND author_id = $2
+```
+- **Table**: `server_post_comments`
+- **Filter**: `id` (comment UUID) + `author_id` (user UUID)
+
+#### PostgreSQL — Delete Comment
+```sql
+DELETE FROM server_post_comments WHERE id = $1
+```
+- **Table**: `server_post_comments`
+
 ### Error Cases
 - Invalid postId → `400` with "Invalid post id"
 - Invalid commentId → `400` with "Invalid comment id"

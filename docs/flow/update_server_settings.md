@@ -14,6 +14,21 @@ Requires `Authorization` header with Bearer JWT access token.
 5. Marshal settings to JSON
 6. Update settings in database
 
+### Database Operations
+
+#### PostgreSQL — Check Server Ownership
+```sql
+SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
+```
+
+#### PostgreSQL — Update Settings
+```sql
+UPDATE servers SET settings = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
+```
+- **Table**: `servers`
+- **Columns updated**: `settings` (JSONB), `update_datetime`, `update_user_id`
+- **Settings schema**: `{"isPrivate": boolean}`
+
 ### Settings Fields
 - `isPrivate` — boolean, whether the server is private (only joinable via invite)
 

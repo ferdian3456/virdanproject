@@ -15,6 +15,23 @@ Requires `Authorization` header with Bearer JWT access token.
 6. Create invite record in database with code, max uses, expiration time
 7. Return invite code and expiration timestamp
 
+### Database Operations
+
+#### PostgreSQL — Check Invite Code Unique (up to 10 retries)
+```sql
+SELECT 1 FROM server_invites WHERE code = $1
+```
+- **Table**: `server_invites`
+- Retries with new code if code already exists
+
+#### PostgreSQL — Create Invite
+```sql
+INSERT INTO server_invites (id, server_id, code, max_uses, used_count, expires_datetime, is_active, create_user_id, update_user_id, create_datetime, update_datetime)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+```
+- **Table**: `server_invites`
+- **Columns**: `id` (UUID), `server_id`, `code` (8-char random string), `max_uses`, `used_count` (0 initially), `expires_datetime` (now + expiresInMinutes), `is_active` (true), timestamps, audit IDs
+
 ### Error Cases
 - Invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
 - expiresInMinutes ≤ 0 → `400` with "Expires in minutes must be greater than 0"

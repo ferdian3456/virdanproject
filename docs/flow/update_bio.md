@@ -13,6 +13,17 @@ Requires `Authorization` header with Bearer JWT access token.
 4. Update bio in database
 5. Return success with no data
 
+### Database Operations
+
+#### PostgreSQL — Update Bio
+```sql
+UPDATE users SET bio = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
+```
+- **Table**: `users`
+- **Columns updated**: `bio` (nullable TEXT), `update_datetime`, `update_user_id`
+- **Filter**: `id = {userId}`
+- **Note**: `$1` can be NULL (when bio is empty string) or the bio text
+
 ### Error Cases
 - No/invalid auth token → `404` (handled by auth middleware)
 - Invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`

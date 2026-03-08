@@ -13,6 +13,26 @@ Requires `Authorization` header with Bearer JWT access token.
 4. Query categories from database (limit + 1 for cursor detection)
 5. Build next cursor if more data exists
 
+### Database Operations
+
+#### PostgreSQL — Get Categories (first page)
+```sql
+SELECT id, name FROM server_categories
+ORDER BY id DESC
+LIMIT $1
+```
+
+#### PostgreSQL — Get Categories (with cursor)
+```sql
+SELECT id, name FROM server_categories
+WHERE id < $1
+ORDER BY id DESC
+LIMIT $2
+```
+- **Table**: `server_categories`
+- **Columns**: `id` (INT), `name` (VARCHAR)
+- **Cursor**: keyset pagination on `id` DESC
+
 ### Query Parameters
 - `limit` — number of items per page (optional)
 - `cursor` — base64-encoded cursor for next page (optional)

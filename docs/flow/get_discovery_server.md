@@ -16,6 +16,46 @@ Requires `Authorization` header with Bearer JWT access token.
 7. If results > limit, create next cursor from last item's ID and createDatetime
 8. Return paginated server list
 
+### Database Operations
+
+#### PostgreSQL — Get Discovery Servers (first page)
+```sql
+SELECT A.id, A.name, A.short_name, B.name, C.object_key, D.object_key, A.description, A.create_datetime
+FROM servers A
+LEFT JOIN server_categories B ON A.category_id = B.id
+LEFT JOIN server_avatar_images C ON A.avatar_image_id = C.id
+LEFT JOIN server_banner_images D ON A.banner_image_id = D.id
+WHERE ($1::int IS NULL OR B.id = $1)
+AND (A.settings->>'isPrivate')::boolean = false
+ORDER BY A.create_datetime DESC, A.id DESC
+LIMIT $2
+```
+
+#### PostgreSQL — Get Discovery Servers (with cursor)
+```sql
+SELECT A.id, A.name, A.short_name, B.name, C.object_key, D.object_key, A.description, A.create_datetime
+FROM servers A
+LEFT JOIN server_categories B ON A.category_id = B.id
+LEFT JOIN server_avatar_images C ON A.avatar_image_id = C.id
+LEFT JOIN server_banner_images D ON A.banner_image_id = D.id
+WHERE (A.create_datetime < $1 OR (A.create_datetime = $1 AND A.id < $2))
+AND ($3::int IS NULL OR B.id = $3)
+AND (A.settings->>'isPrivate')::boolean = false
+ORDER BY A.create_datetime DESC, A.id DESC
+LIMIT $4
+```
+- **Tables**: `servers` (A) LEFT JOIN `server_categories` (B), `server_avatar_images` (C), `server_banner_images` (D)
+- **Filter**: Only public servers (`settings->>'isPrivate' = false`)
+- **Cursor**: keyset pagination on `(create_datetime, id)` DESC
+- **Category filter**: Optional, filters by `server_categories.id`
+
+#### MinIO — Image URL Construction
+```
+{MINIO_FULL_URL}/{object_key}
+```
+- Avatar: `{MINIO_FULL_URL}/server/avatar/{imageId}.webp`
+- Banner: `{MINIO_FULL_URL}/server/banner/{imageId}.webp`
+
 ### Query Parameters
 - `limit` — number of items per page (optional, has default)
 - `categoryId` — filter by category (optional, 0 = all categories)

@@ -16,6 +16,27 @@ No authentication required.
 7. Delete OTP state from session (otpHash, otpExpiresAt)
 8. Set verification state: `{step: "otp_verified", verifiedAt: timestamp}`
 
+### Database Operations
+
+#### Redis — Get OTP Data
+```
+HMGET signup:{sessionId} otp otp_expires_at
+```
+- Retrieves `otp` (SHA-256 hash) and `otp_expires_at` (unix timestamp)
+- If both are `nil`, session has expired or doesn't exist
+
+#### Redis — Delete OTP State
+```
+HDEL signup:{sessionId} otp otp_expires_at
+```
+
+#### Redis — Set Verification State
+```
+HSET signup:{sessionId}
+  step            "otp_verified"
+  otp_verified_at {unix_timestamp}
+```
+
 ### Error Cases
 - Invalid sessionId format → `400` with "Invalid session id"
 - OTP empty → `400` with "OTP is required to not be empty"
