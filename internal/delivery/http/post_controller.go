@@ -27,6 +27,20 @@ func NewPostController(postUsecase *usecase.PostUsecase, zap *zap.Logger, koanf 
 	}
 }
 
+// CreatePost godoc
+// @Summary      Create a new post
+// @Description.markdown create_post
+// @Tags         posts
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
+// @Param        image formData file true "Post image file"
+// @Param        caption formData string true "Post caption"
+// @Success      200   {object}  model.ServerPostResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/{serverId}/posts [post]
 func (controller *PostController) CreatePost(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -55,6 +69,20 @@ func (controller *PostController) CreatePost(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// UpdatePost godoc
+// @Summary      Update post caption
+// @Description.markdown update_post
+// @Tags         posts
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
+// @Param        postId path string true "Post UUID"
+// @Param        body body model.ServerPostUpdateCaptionRequest true "Payload"
+// @Success      200   {object}  model.ServerPostResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/{serverId}/posts/{postId} [put]
 func (controller *PostController) UpdatePost(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -85,6 +113,18 @@ func (controller *PostController) UpdatePost(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// DeletePost godoc
+// @Summary      Delete a post
+// @Description.markdown delete_post
+// @Tags         posts
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
+// @Param        postId path string true "Post UUID"
+// @Success      200
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/{serverId}/posts/{postId} [delete]
 func (controller *PostController) DeletePost(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -105,6 +145,19 @@ func (controller *PostController) DeletePost(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
+// GetServerPosts godoc
+// @Summary      Get posts from a server
+// @Description.markdown get_server_posts
+// @Tags         posts
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
+// @Param        limit query int false "Items per page"
+// @Param        cursor query string false "Pagination cursor"
+// @Success      200   {object}  model.ServerPostListResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/{serverId}/posts [get]
 func (controller *PostController) GetServerPosts(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -124,6 +177,17 @@ func (controller *PostController) GetServerPosts(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// GetPost godoc
+// @Summary      Get a single post
+// @Description.markdown get_post
+// @Tags         posts
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        postId path string true "Post UUID"
+// @Success      200   {object}  model.ServerPostResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /posts/{postId} [get]
 func (controller *PostController) GetPost(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -143,6 +207,17 @@ func (controller *PostController) GetPost(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// LikePost godoc
+// @Summary      Like a post
+// @Description.markdown like_post
+// @Tags         post-interactions
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        postId path string true "Post UUID"
+// @Success      200   {object}  model.PostLikeResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /posts/{postId}/likes [post]
 func (controller *PostController) LikePost(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -162,6 +237,17 @@ func (controller *PostController) LikePost(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// UnlikePost godoc
+// @Summary      Unlike a post
+// @Description.markdown unlike_post
+// @Tags         post-interactions
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        postId path string true "Post UUID"
+// @Success      200   {object}  model.PostLikeResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /posts/{postId}/likes [delete]
 func (controller *PostController) UnlikePost(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -181,6 +267,19 @@ func (controller *PostController) UnlikePost(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// CreateComment godoc
+// @Summary      Create a comment on a post
+// @Description.markdown create_comment
+// @Tags         post-interactions
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        postId path string true "Post UUID"
+// @Param        body body model.ServerCommentCreateRequest true "Payload"
+// @Success      200   {object}  model.ServerCommentResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /posts/{postId}/comments [post]
 func (controller *PostController) CreateComment(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -211,6 +310,19 @@ func (controller *PostController) CreateComment(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// GetComments godoc
+// @Summary      Get comments on a post
+// @Description.markdown get_comments
+// @Tags         post-interactions
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        postId path string true "Post UUID"
+// @Param        limit query int false "Items per page"
+// @Param        cursor query string false "Pagination cursor"
+// @Success      200   {object}  model.ServerCommentListResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /posts/{postId}/comments [get]
 func (controller *PostController) GetComments(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -230,6 +342,18 @@ func (controller *PostController) GetComments(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// DeleteComment godoc
+// @Summary      Delete a comment
+// @Description.markdown delete_comment
+// @Tags         post-interactions
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        postId path string true "Post UUID"
+// @Param        commentId path string true "Comment UUID"
+// @Success      200
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /posts/{postId}/comments/{commentId} [delete]
 func (controller *PostController) DeleteComment(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 

@@ -1,3 +1,8 @@
+// @title           Virdan API
+// @version         1.0
+// @description     Virdan Project API Documentation
+// @host            localhost:8081
+// @BasePath        /api
 package main
 
 import (

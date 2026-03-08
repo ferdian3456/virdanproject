@@ -1,0 +1,30 @@
+## Get User Server Flow
+
+### Overview
+Retrieves a paginated list of servers that the authenticated user is a member of. Supports cursor-based pagination.
+
+### Auth
+Requires `Authorization` header with Bearer JWT access token.
+
+### Business Logic
+1. Get `userId` from context
+2. Parse query parameters: `limit` (default: system default), `cursor` (optional)
+3. Validate `limit` (>= 0 and <= max limit)
+4. If cursor provided, decode from base64 and unmarshal to `ServerUserCursor`
+5. Query servers where user is a member (limit + 1 for cursor detection)
+6. Build MinIO image URLs for server avatars
+7. If results > limit, create next cursor from last item
+8. Return paginated server list
+
+### Query Parameters
+- `limit` — number of items per page (optional)
+- `cursor` — base64-encoded cursor for next page (optional)
+
+### Error Cases
+- Limit < 0 → `400` with "Limit must be greater or equal than 0"
+- Limit > max → `400` with "Limit is exceeded max limit: {max}"
+
+### Flow
+```
+Request → Auth Middleware → Parse Query Params → Validate Limit → Decode Cursor → Query User Servers (DB) → Build Image URLs → Build Next Cursor → Response
+```

@@ -38,7 +38,7 @@ type ServerCreateResponse struct {
 	ShortName      string                 `json:"shortName"`
 	CategoryId     *int                   `json:"categoryId"`
 	Description    *string                `json:"description"`
-	Settings       sonic.NoCopyRawMessage `json:"settings"`
+	Settings       sonic.NoCopyRawMessage `json:"settings" swaggertype:"object"`
 	CreateDatetime time.Time              `json:"createDatetime"`
 	UpdateDatetime time.Time              `json:"updateDatetime"`
 	CreateUserId   uuid.UUID              `json:"createUserId"`
@@ -54,7 +54,7 @@ type ServerUpdateResponse struct {
 	AvatarImageId  *uuid.UUID             `json:"avatarImageId"`
 	BannerImageId  *uuid.UUID             `json:"bannerImageId"`
 	Description    *string                `json:"description"`
-	Settings       sonic.NoCopyRawMessage `json:"settings"`
+	Settings       sonic.NoCopyRawMessage `json:"settings" swaggertype:"object"`
 	CreateDatetime time.Time              `json:"createDatetime"`
 	UpdateDatetime time.Time              `json:"updateDatetime"`
 	CreateUserId   uuid.UUID              `json:"createUserId"`

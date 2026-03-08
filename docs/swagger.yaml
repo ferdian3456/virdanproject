@@ -1,0 +1,2801 @@
+basePath: /api
+definitions:
+  model.BioUpdateRequest:
+    properties:
+      bio:
+        type: string
+    type: object
+  model.DiscoveryServerResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.ServerInfoResponse'
+        type: array
+      page:
+        $ref: '#/definitions/model.Page'
+    type: object
+  model.FullnameUpdateRequest:
+    properties:
+      fullname:
+        type: string
+    type: object
+  model.Page:
+    properties:
+      nextCursor:
+        type: string
+    type: object
+  model.PostLikeResponse:
+    properties:
+      likeCount:
+        type: integer
+    type: object
+  model.ServerCategoryListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.ServerCategoryResponse'
+        type: array
+      page:
+        $ref: '#/definitions/model.Page'
+    type: object
+  model.ServerCategoryResponse:
+    properties:
+      categoryName:
+        type: string
+      id:
+        type: integer
+    type: object
+  model.ServerCommentCreateRequest:
+    properties:
+      content:
+        type: string
+      parentId:
+        type: string
+    type: object
+  model.ServerCommentListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.ServerCommentResponse'
+        type: array
+      page:
+        $ref: '#/definitions/model.Page'
+    type: object
+  model.ServerCommentResponse:
+    properties:
+      authorId:
+        type: string
+      content:
+        type: string
+      createDatetime:
+        type: string
+      id:
+        type: string
+      parentId:
+        type: string
+      updateDatetime:
+        type: string
+    type: object
+  model.ServerCreateRequest:
+    properties:
+      categoryId:
+        type: integer
+      description:
+        type: string
+      name:
+        type: string
+      settings:
+        $ref: '#/definitions/model.ServerSettingsCreateRequest'
+      shortName:
+        type: string
+    type: object
+  model.ServerCreateResponse:
+    properties:
+      categoryId:
+        type: integer
+      createDatetime:
+        type: string
+      createUserId:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      ownerId:
+        type: string
+      settings:
+        type: object
+      shortName:
+        type: string
+      updateDatetime:
+        type: string
+      updateUserId:
+        type: string
+    type: object
+  model.ServerDetailResponse:
+    properties:
+      avatarImageUrl:
+        type: string
+      bannerImageUrl:
+        type: string
+      categoryName:
+        type: string
+      createDatetime:
+        type: string
+      createdBy:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      shortName:
+        type: string
+    type: object
+  model.ServerInfoForInviteResponse:
+    properties:
+      avatarImageId:
+        type: string
+      bannerImageId:
+        type: string
+      description:
+        type: string
+      ownerName:
+        type: string
+      serverName:
+        type: string
+    type: object
+  model.ServerInfoResponse:
+    properties:
+      avatarImageUrl:
+        type: string
+      bannerImageUrl:
+        type: string
+      categoryName:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      shortName:
+        type: string
+    type: object
+  model.ServerInviteLinkRequest:
+    properties:
+      expiresInMinutes:
+        type: integer
+      maxUses:
+        type: integer
+    type: object
+  model.ServerInviteLinkResponse:
+    properties:
+      expiresAt:
+        type: string
+      inviteCode:
+        type: string
+    type: object
+  model.ServerJoinRequest:
+    properties:
+      inviteCode:
+        type: string
+    type: object
+  model.ServerPostListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.ServerPostResponse'
+        type: array
+      page:
+        $ref: '#/definitions/model.Page'
+    type: object
+  model.ServerPostResponse:
+    properties:
+      caption:
+        type: string
+      commentCount:
+        type: integer
+      createDatetime:
+        type: string
+      likeCount:
+        type: integer
+      ownerId:
+        type: string
+      ownerImageUrl:
+        type: string
+      ownerName:
+        type: string
+      postId:
+        type: string
+      postImageUrl:
+        type: string
+      updateDatetime:
+        type: string
+    type: object
+  model.ServerPostUpdateCaptionRequest:
+    properties:
+      caption:
+        type: string
+    type: object
+  model.ServerSettingsCreateRequest:
+    properties:
+      isPrivate:
+        type: boolean
+    type: object
+  model.ServerUpdateCategoryRequest:
+    properties:
+      categoryId:
+        type: integer
+    type: object
+  model.ServerUpdateDescriptionRequest:
+    properties:
+      description:
+        type: string
+    type: object
+  model.ServerUpdateNameRequest:
+    properties:
+      name:
+        type: string
+    type: object
+  model.ServerUpdateResponse:
+    properties:
+      avatarImageId:
+        type: string
+      bannerImageId:
+        type: string
+      categoryId:
+        type: integer
+      createDatetime:
+        type: string
+      createUserId:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      ownerId:
+        type: string
+      settings:
+        type: object
+      shortName:
+        type: string
+      updateDatetime:
+        type: string
+      updateUserId:
+        type: string
+    type: object
+  model.ServerUpdateShortNameRequest:
+    properties:
+      shortName:
+        type: string
+    type: object
+  model.ServerUserListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.ServerUserResponse'
+        type: array
+      page:
+        $ref: '#/definitions/model.Page'
+    type: object
+  model.ServerUserResponse:
+    properties:
+      avatarImageUrl:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      shortName:
+        type: string
+    type: object
+  model.TokenResponse:
+    properties:
+      accessToken:
+        type: string
+      accessTokenExpiresIn:
+        type: integer
+      refreshToken:
+        type: string
+      refreshTokenExpiresIn:
+        type: integer
+      tokenType:
+        type: string
+    type: object
+  model.UserLoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  model.UserResponse:
+    properties:
+      avatarImage:
+        type: string
+      bio:
+        type: string
+      createDatetime:
+        type: string
+      email:
+        type: string
+      fullname:
+        type: string
+      id:
+        type: string
+      updateDatetime:
+        type: string
+      username:
+        type: string
+    type: object
+  model.UserSignupStartRequest:
+    properties:
+      email:
+        type: string
+    type: object
+  model.UserSignupStartResponse:
+    properties:
+      otpExpiresAt:
+        type: integer
+      sessionId:
+        type: string
+    type: object
+  model.UserSignupStatus:
+    properties:
+      sessionId:
+        type: string
+      step:
+        type: string
+    type: object
+  model.UserVerifyOTPRequest:
+    properties:
+      otp:
+        type: string
+      sessionId:
+        type: string
+    type: object
+  model.UserVerifyPasswordRequest:
+    properties:
+      password:
+        type: string
+      sessionId:
+        type: string
+    type: object
+  model.UserVerifyUsernameRequest:
+    properties:
+      sessionId:
+        type: string
+      username:
+        type: string
+    type: object
+  model.ValidationError:
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+      param:
+        type: string
+    type: object
+host: localhost:8081
+info:
+  contact: {}
+  description: Virdan Project API Documentation
+  title: Virdan API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        ## Login Flow
+
+        ### Overview
+        Authenticates a user with username and password, returns JWT token pair (access + refresh).
+
+        ### Auth
+        No authentication required.
+
+        ### Business Logic
+        1. Validate request payload — `username` and `password` are required
+        2. Validate username length (4–22 characters)
+        3. Validate password length (5–20 characters)
+        4. Convert username to lowercase
+        5. Look up user by username in database — return validation error if not found
+        6. Compare password with bcrypt hash — return validation error if incorrect
+        7. Generate JWT access token & refresh token
+        8. Store hashed tokens in Redis cache
+        9. Return token pair to client
+
+        ### Error Cases
+        - Missing/invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
+        - Username empty → `400` with "Username is required to not be empty"
+        - Username < 4 chars → `400` with "Username must be at least 4 characters"
+        - Username > 22 chars → `400` with "username must be at most 22 characters"
+        - Password empty → `400` with "Password is required to not be empty"
+        - Password < 5 chars → `400` with "Password must be at least 5 characters"
+        - Password > 20 chars → `400` with "Password must be at most 20 characters"
+        - Username not found in database → `400` validation error
+        - Password incorrect → `400` with "Password is incorrect"
+
+        ### Flow
+        ```
+        Request → Validate Payload → Validate Username → Validate Password → Lookup User (DB) → Compare Password (bcrypt) → Generate JWT Pair → Store Tokens (Redis) → Response
+        ```
+
+        ### Token Info
+        - **Access Token** — short-lived, used for authenticating API requests
+        - **Refresh Token** — long-lived, used to generate new access tokens
+        - **Token Type** — Bearer
+      parameters:
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.UserLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Login user
+      tags:
+      - auth
+  /auth/signup/{sessionId}/status:
+    get:
+      description: |
+        ## Get Signup Status Flow
+
+        ### Overview
+        Retrieves the current step/status of an active signup session.
+
+        ### Auth
+        No authentication required.
+
+        ### Business Logic
+        1. Parse `sessionId` from URL path parameter — must be a valid UUID
+        2. Get session state from Redis
+        3. Check if session exists — return error if expired/not found
+        4. Return session ID and current step
+
+        ### Possible Steps
+        - `start_signup` — email submitted, OTP sent, waiting for OTP verification
+        - `otp_verified` — OTP verified, waiting for username
+        - `username_set` — username set, waiting for password
+
+        ### Error Cases
+        - Invalid sessionId format → `400` with "Invalid session id"
+        - Session expired/not found → `400` with "Signup session is expired or not exists"
+
+        ### Flow
+        ```
+        Request → Parse SessionId → Get Session State (Redis) → Return Step
+        ```
+      parameters:
+      - description: Signup session UUID
+        in: path
+        name: sessionId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.UserSignupStatus'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Get signup session status
+      tags:
+      - auth
+  /auth/signup/otp:
+    post:
+      consumes:
+      - application/json
+      description: |
+        ## Verify OTP Flow
+
+        ### Overview
+        Verifies the OTP code sent to the user's email during signup. This is step 2 of the multi-step signup process.
+
+        ### Auth
+        No authentication required.
+
+        ### Business Logic
+        1. Parse and validate `sessionId` — must be a valid UUID
+        2. Validate OTP is not empty and at least 6 characters
+        3. Retrieve OTP data from Redis using sessionId
+        4. Check OTP and expiration data exist — return error if session expired
+        5. Compare provided OTP hash with stored hash using constant-time comparison
+        6. Check if OTP has expired (compare timestamps)
+        7. Delete OTP state from session (otpHash, otpExpiresAt)
+        8. Set verification state: `{step: "otp_verified", verifiedAt: timestamp}`
+
+        ### Error Cases
+        - Invalid sessionId format → `400` with "Invalid session id"
+        - OTP empty → `400` with "OTP is required to not be empty"
+        - OTP < 6 chars → `400` with "OTP must be at least 6 characters"
+        - Session expired or not found → `400` with "OTP does not exists or expired"
+        - OTP mismatch → `400` with "Otp does not match"
+        - OTP expired → `400` with "Otp is expired"
+
+        ### Flow
+        ```
+        Request → Validate SessionId → Validate OTP → Get Session Data (Redis) → Compare OTP Hash → Check Expiration → Update Session State (Redis) → Response (no data)
+        ```
+
+        ### Next Step
+        After OTP verification, call `POST /api/auth/signup/username` with `sessionId` and desired `username`.
+      parameters:
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.UserVerifyOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Verify OTP code
+      tags:
+      - auth
+  /auth/signup/password:
+    post:
+      consumes:
+      - application/json
+      description: |
+        ## Verify Password Flow
+
+        ### Overview
+        Completes the multi-step signup process by setting the password, creating the user account, and returning JWT tokens. This is the final step (step 4) of signup.
+
+        ### Auth
+        No authentication required.
+
+        ### Business Logic
+        1. Parse and validate `sessionId` — must be a valid UUID
+        2. Validate password is not empty
+        3. Validate password length (5–20 characters)
+        4. Get all session data from Redis
+        5. Verify session exists
+        6. Verify session step is `username_set` (previous steps must be completed)
+        7. Final check: verify username and email are still unique in the database
+        8. If email is already taken at this point, delete the entire session and return error
+        9. Delete signup session from Redis
+        10. Delete email→session mapping from Redis
+        11. Hash password with bcrypt
+        12. Create user record in database (username, fullname = titleCase(username), email, hashed password)
+        13. Generate JWT access token & refresh token
+        14. Store hashed tokens in Redis cache
+        15. Return token pair to client
+
+        ### Error Cases
+        - Invalid sessionId → `400` with "Invalid session id"
+        - Password empty → `400` with "Password is required to not be empty"
+        - Password < 5 chars → `400` with "Password must be at least 5 characters"
+        - Password > 20 chars → `400` with "Password must be at most 20 characters"
+        - Session expired/not found → `400` with "Signup session is expired or not exists"
+        - Wrong step (not username_set) → `400` with "Invalid signup step for this session"
+        - Username already taken (race condition) → `400` with "Username is already exist"
+        - Email already taken (race condition) → `400` with "Email is already exist"
+
+        ### Flow
+        ```
+        Request → Validate SessionId → Validate Password → Get Session (Redis) → Check Step = username_set → Check Unique (DB) → Delete Session (Redis) → Hash Password → Create User (DB) → Generate JWT → Store Tokens (Redis) → Response
+        ```
+      parameters:
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.UserVerifyPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Verify password and complete signup
+      tags:
+      - auth
+  /auth/signup/start:
+    post:
+      consumes:
+      - application/json
+      description: |
+        ## Start Signup Flow
+
+        ### Overview
+        Initiates the multi-step signup process by sending an OTP verification email to the provided email address.
+
+        ### Auth
+        No authentication required.
+
+        ### Business Logic
+        1. Validate email is not empty
+        2. Validate email length (16–80 characters)
+        3. Convert email to lowercase
+        4. Check if email already exists in users table — return error if taken
+        5. Check if there's an existing signup session for this email
+        6. If previous session exists, delete old session data (email session + signup session)
+        7. Generate 6-digit OTP code
+        8. Hash OTP with SHA-256
+        9. Create a new session UUID
+        10. Set OTP expiration to 5 minutes from now
+        11. Send OTP email using SMTP (HTML template)
+        12. Store signup session in Redis: `sessionId → {email, otpHash, otpExpiresAt, step: "start_signup"}`
+        13. Store email→sessionId mapping in Redis (for duplicate detection)
+        14. Return `sessionId` and `otpExpiresAt` to client
+
+        ### Error Cases
+        - Email empty → `400` with "Email is required to not be empty"
+        - Email < 16 chars → `400` with "email must be at least 16 characters"
+        - Email > 80 chars → `400` with "Email must be at most 80 characters"
+        - Email already registered → `400` with "Email is already exists"
+        - SMTP failure → `500` internal server error
+
+        ### Flow
+        ```
+        Request → Validate Email → Check Email Unique (DB) → Check Existing Session (Redis) → Delete Old Session → Generate OTP → Send Email (SMTP) → Store Session (Redis) → Response
+        ```
+
+        ### Next Step
+        After receiving the OTP via email, call `POST /api/auth/signup/otp` with the `sessionId` and OTP code.
+      parameters:
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.UserSignupStartRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.UserSignupStartResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Start signup process
+      tags:
+      - auth
+  /auth/signup/username:
+    post:
+      consumes:
+      - application/json
+      description: |
+        ## Verify Username Flow
+
+        ### Overview
+        Sets the username for a signup session. This is step 3 of the multi-step signup process. The session must have completed OTP verification first.
+
+        ### Auth
+        No authentication required.
+
+        ### Business Logic
+        1. Parse and validate `sessionId` — must be a valid UUID
+        2. Validate username is not empty
+        3. Validate username length (4–22 characters)
+        4. Get current signup session state from Redis
+        5. Verify session exists and is not expired
+        6. Verify session step is NOT `start_signup` (OTP must be verified first)
+        7. Check if username is already taken in the database
+        8. Store username in session state and update step to `username_set`
+
+        ### Error Cases
+        - Invalid sessionId → `400` with "Invalid session id"
+        - Username empty → `400` with "Username is required to not be empty"
+        - Username < 4 chars → `400` with "Username must be at least 4 characters"
+        - Username > 22 chars → `400` with "username must be at most 22 characters"
+        - Session expired/not found → `400` with "Signup session is expired or not exists"
+        - OTP not yet verified → `400` with "Invalid signup step for this session"
+        - Username already taken → `400` with "Username is already taken"
+
+        ### Flow
+        ```
+        Request → Validate SessionId → Validate Username → Get Session (Redis) → Check Step ≠ start_signup → Check Username Unique (DB) → Update Session (Redis) → Response (no data)
+        ```
+
+        ### Next Step
+        After setting username, call `POST /api/auth/signup/password` with `sessionId` and `password` to complete registration.
+      parameters:
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.UserVerifyUsernameRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Verify and set username
+      tags:
+      - auth
+  /posts/{postId}:
+    get:
+      description: |
+        ## Get Post Flow
+
+        ### Overview
+        Retrieves a single post by ID. Requires membership in the server where the post belongs.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `postId` from URL path — must be a valid UUID
+        3. Check if user is a member of the server where the post belongs (single query)
+        4. Fetch post details with author info, image URL, comment count, and like count
+
+        ### Error Cases
+        - Invalid postId → `400` with "Invalid post id"
+        - Not a member of the server → `400` with "You are not a member of this server"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse PostId → Check Server Membership via Post (DB) → Get Post (DB) → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Post UUID
+        in: path
+        name: postId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerPostResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Get a single post
+      tags:
+      - posts
+  /posts/{postId}/comments:
+    get:
+      description: |
+        ## Get Comments Flow
+
+        ### Overview
+        Retrieves a paginated list of comments for a specific post. Requires membership in the server where the post belongs. Uses cursor-based pagination.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `postId` from URL path — must be a valid UUID
+        3. Parse query parameters: `limit`, `cursor`
+        4. Validate `limit` (>= 0 and <= max limit)
+        5. Check if user is a member of the server where the post belongs
+        6. If cursor provided, decode and unmarshal
+        7. Query comments from database (limit + 1 for cursor detection)
+        8. Build next cursor if more data exists
+
+        ### Query Parameters
+        - `limit` — number of items per page (optional)
+        - `cursor` — base64-encoded cursor for next page (optional)
+
+        ### Error Cases
+        - Invalid postId → `400` with "Invalid post id"
+        - Limit < 0 → `400`
+        - Limit > max → `400`
+        - Not a member → `400` with "You are not a member of this server"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse PostId → Validate Limit → Check Membership (DB) → Decode Cursor → Query Comments (DB) → Build Next Cursor → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Post UUID
+        in: path
+        name: postId
+        required: true
+        type: string
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerCommentListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Get comments on a post
+      tags:
+      - post-interactions
+    post:
+      consumes:
+      - application/json
+      description: |
+        ## Create Comment Flow
+
+        ### Overview
+        Creates a comment on a post. Requires membership in the server where the post belongs. Supports nested replies via `parentId`.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `postId` from URL path — must be a valid UUID
+        3. Validate `content` (required, 1–1000 characters)
+        4. If `parentId` provided, parse as UUID
+        5. Check if user is a member of the server where the post belongs
+        6. If `parentId` provided, verify parent comment exists and belongs to the same post
+        7. Create comment record in database
+        8. Return created comment details
+
+        ### Error Cases
+        - Invalid postId → `400` with "Invalid post id"
+        - Content empty → `400` with "Content is required"
+        - Content > 1000 chars → `400` with "Content must be at most 1000 characters"
+        - Invalid parentId format → `400` with "Invalid parent comment id"
+        - Not a member → `400` with "You are not a member of this server"
+        - Parent comment not found → `400` with "Parent comment not found"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse PostId → Validate Content → Parse ParentId → Check Membership (DB) → Check Parent Exists (DB) → Create Comment (DB) → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Post UUID
+        in: path
+        name: postId
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.ServerCommentCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerCommentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Create a comment on a post
+      tags:
+      - post-interactions
+  /posts/{postId}/comments/{commentId}:
+    delete:
+      description: |
+        ## Delete Comment Flow
+
+        ### Overview
+        Deletes a comment from a post. Only the comment author can delete their own comment. Requires membership in the server where the post belongs.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `postId` and `commentId` from URL path — must be valid UUIDs
+        3. Check if user is a member of the server where the post belongs
+        4. Check if user is the author of the comment
+        5. Delete comment from database
+
+        ### Error Cases
+        - Invalid postId → `400` with "Invalid post id"
+        - Invalid commentId → `400` with "Invalid comment id"
+        - Not a member → `400` with "You are not a member of this server"
+        - Not the author → `400` with "You are not the author of this comment"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse Params → Check Membership (DB) → Check Comment Ownership (DB) → Delete Comment (DB) → Response (no data)
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Post UUID
+        in: path
+        name: postId
+        required: true
+        type: string
+      - description: Comment UUID
+        in: path
+        name: commentId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Delete a comment
+      tags:
+      - post-interactions
+  /posts/{postId}/likes:
+    delete:
+      description: |
+        ## Unlike Post Flow
+
+        ### Overview
+        Removes a like from a post. Requires membership in the server where the post belongs. User must have previously liked the post.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `postId` from URL path — must be a valid UUID
+        3. Check if user is a member of the server where the post belongs
+        4. Check if user has liked this post — return error if not liked
+        5. Delete like record from database
+        6. Fetch updated post to get new like count
+        7. Return updated like count
+
+        ### Error Cases
+        - Invalid postId → `400` with "Invalid post id"
+        - Not a member → `400` with "You are not a member of this server"
+        - Not liked yet → `400` with "You haven't liked this post yet"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse PostId → Check Membership (DB) → Check Already Liked (DB) → Delete Like (DB) → Get Updated Count (DB) → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Post UUID
+        in: path
+        name: postId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.PostLikeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Unlike a post
+      tags:
+      - post-interactions
+    post:
+      description: |
+        ## Like Post Flow
+
+        ### Overview
+        Likes a post. Requires membership in the server where the post belongs. Each user can only like a post once.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `postId` from URL path — must be a valid UUID
+        3. Check if user is a member of the server where the post belongs
+        4. Check if user already liked this post — return error if already liked
+        5. Create like record in database
+        6. Fetch updated post to get new like count
+        7. Return updated like count
+
+        ### Error Cases
+        - Invalid postId → `400` with "Invalid post id"
+        - Not a member → `400` with "You are not a member of this server"
+        - Already liked → `400` with "You already liked this post"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse PostId → Check Membership (DB) → Check Not Already Liked (DB) → Create Like (DB) → Get Updated Count (DB) → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Post UUID
+        in: path
+        name: postId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.PostLikeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Like a post
+      tags:
+      - post-interactions
+  /servers/:
+    get:
+      description: |
+        ## Get Discovery Server Flow
+
+        ### Overview
+        Retrieves a paginated list of discoverable (public) servers. Supports cursor-based pagination and optional filtering by category.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse query parameters: `limit` (default: system default), `categoryId` (default: 0 = all), `cursor` (optional)
+        3. Validate `limit` (>= 0 and <= max limit)
+        4. If cursor provided, decode from base64 URL-safe encoding and unmarshal to `ServerDiscoveryCursor`
+        5. Query discoverable servers from database (limit + 1 for cursor detection)
+        6. Build MinIO image URLs for avatar and banner
+        7. If results > limit, create next cursor from last item's ID and createDatetime
+        8. Return paginated server list
+
+        ### Query Parameters
+        - `limit` — number of items per page (optional, has default)
+        - `categoryId` — filter by category (optional, 0 = all categories)
+        - `cursor` — base64-encoded cursor for next page (optional)
+
+        ### Error Cases
+        - Limit < 0 → `400` with "Limit must be greater or equal than 0"
+        - Limit > max → `400` with "Limit is exceeded max limit: {max}"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse Query Params → Validate Limit → Decode Cursor → Query Servers (DB) → Build Image URLs → Build Next Cursor → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by category ID
+        in: query
+        name: categoryId
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.DiscoveryServerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Get discoverable servers
+      tags:
+      - servers
+  /servers/{id}:
+    delete:
+      description: |
+        ## Delete Server Flow
+
+        ### Overview
+        Deletes a server permanently. Only the server owner can perform this action.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `id` from URL path — must be a valid UUID
+        3. Check server ownership
+        4. Delete server from database (CASCADE deletes related records)
+
+        ### Error Cases
+        - Invalid server id → `400` with "Invalid server id"
+        - Not owner → `400` with "You are not the owner of this server"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse ServerId → Check Ownership (DB) → Delete Server (DB, CASCADE) → Response (no data)
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Delete a server
+      tags:
+      - servers
+    get:
+      description: |
+        ## Get Server By ID Flow
+
+        ### Overview
+        Retrieves detailed information about a specific server. Access is controlled: public servers are visible to all authenticated users, private servers are only visible to members.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `id` from URL path parameter — must be a valid UUID
+        3. Query server details with a single query that checks both existence AND membership for private servers
+        4. If server not found (or private and user is not a member), return error
+        5. Build full MinIO URLs for avatar and banner images
+        6. Return server detail
+
+        ### Error Cases
+        - Invalid server id → `400` with "Invalid server id"
+        - Server not found or no permission → `400` with "Server not found or you don't have permission to access it"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse ServerId → Query Server (DB, checks visibility + membership) → Build Image URLs → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Get server by ID
+      tags:
+      - servers
+  /servers/{id}/avatar:
+    put:
+      consumes:
+      - multipart/form-data
+      description: |
+        ## Update Server Avatar Flow
+
+        ### Overview
+        Updates the avatar image of a server. Only the server owner can perform this action. Accepts multipart form file upload.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `id` from URL path — must be a valid UUID
+        3. Check server ownership
+        4. Read `avatar` file from multipart form
+        5. Validate image file (format, size)
+        6. Begin database transaction
+        7. Get current server detail to find old avatar
+        8. If new avatar provided: create new image record → update server reference → upload to MinIO → delete old image if exists
+        9. If no new avatar (empty file): update server to remove reference → delete old image if exists
+        10. Commit transaction
+
+        ### Error Cases
+        - Invalid server id → `400` with "Invalid server id"
+        - Not owner → `400` with "You are not the owner of this server"
+        - Invalid image → `400` validation error
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse ServerId → Check Ownership (DB) → Read File → Validate Image → Begin TX → Handle Old/New Avatar → Commit TX → Response (no data)
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Avatar image file
+        in: formData
+        name: avatar
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Update server avatar
+      tags:
+      - servers
+  /servers/{id}/banner:
+    put:
+      consumes:
+      - multipart/form-data
+      description: |
+        ## Update Server Banner Flow
+
+        ### Overview
+        Updates the banner image of a server. Only the server owner can perform this action. Accepts multipart form file upload.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `id` from URL path — must be a valid UUID
+        3. Check server ownership
+        4. Read `banner` file from multipart form
+        5. Validate image file (format, size)
+        6. Begin database transaction
+        7. Get current server detail to find old banner
+        8. If new banner provided: create new image record → update server reference → upload to MinIO → delete old image if exists
+        9. If no new banner: update server to remove reference → delete old image if exists
+        10. Commit transaction
+
+        ### Error Cases
+        - Invalid server id → `400` with "Invalid server id"
+        - Not owner → `400` with "You are not the owner of this server"
+        - Invalid image → `400` validation error
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse ServerId → Check Ownership (DB) → Read File → Validate Image → Begin TX → Handle Old/New Banner → Commit TX → Response (no data)
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Banner image file
+        in: formData
+        name: banner
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Update server banner
+      tags:
+      - servers
+  /servers/{id}/category:
+    put:
+      consumes:
+      - application/json
+      description: |
+        ## Update Server Category Flow
+
+        ### Overview
+        Updates the category of a server. Only the server owner can perform this action. Set `categoryId` to `null` to remove the category.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `id` from URL path — must be a valid UUID
+        3. If `categoryId` is provided (not null), verify the category exists in database
+        4. Check server ownership
+        5. Update category in database
+        6. Return updated server details
+
+        ### Error Cases
+        - Invalid server id → `400` with "Invalid server id"
+        - Category not found → `400` with "Category id is not found"
+        - Not owner → `400` with "You are not the owner of this server"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse ServerId → Check Category Exists (DB) → Check Ownership (DB) → Update (DB) → Get Detail (DB) → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.ServerUpdateCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerUpdateResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Update server category
+      tags:
+      - servers
+  /servers/{id}/description:
+    put:
+      consumes:
+      - application/json
+      description: |
+        ## Update Server Description Flow
+
+        ### Overview
+        Updates the description of a server. Only the server owner can perform this action.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `id` from URL path — must be a valid UUID
+        3. Check server ownership
+        4. Update description in database
+        5. Return updated server details
+
+        ### Error Cases
+        - Invalid server id → `400` with "Invalid server id"
+        - Not owner → `400` with "You are not the owner of this server"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse ServerId → Check Ownership (DB) → Update Description (DB) → Get Detail (DB) → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.ServerUpdateDescriptionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerUpdateResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Update server description
+      tags:
+      - servers
+  /servers/{id}/name:
+    put:
+      consumes:
+      - application/json
+      description: |
+        ## Update Server Name Flow
+
+        ### Overview
+        Updates the name of a server. Only the server owner can perform this action.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `id` from URL path parameter — must be a valid UUID
+        3. Validate `name` (required, 5–40 characters)
+        4. Check server ownership — only the owner can update
+        5. Update server name in database
+        6. Fetch and return updated server details
+
+        ### Error Cases
+        - Invalid server id → `400` with "Invalid server id"
+        - Name empty → `400` with "Name is required to not be empty"
+        - Name < 5 chars → `400` with "Name must be at least 4 characters"
+        - Name > 40 chars → `400` with "Name must be at most 40 characters"
+        - Not owner → `400` with "You are not the owner of this server"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse ServerId → Validate Name → Check Ownership (DB) → Update Name (DB) → Get Server Detail (DB) → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.ServerUpdateNameRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerUpdateResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Update server name
+      tags:
+      - servers
+  /servers/{id}/settings:
+    put:
+      consumes:
+      - application/json
+      description: |
+        ## Update Server Settings Flow
+
+        ### Overview
+        Updates the settings of a server (e.g., privacy settings). Only the server owner can perform this action.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `id` from URL path — must be a valid UUID
+        3. Parse request body for settings
+        4. Check server ownership
+        5. Marshal settings to JSON
+        6. Update settings in database
+
+        ### Settings Fields
+        - `isPrivate` — boolean, whether the server is private (only joinable via invite)
+
+        ### Error Cases
+        - Invalid server id → `400` with "Invalid server id"
+        - Invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
+        - Not owner → `400` with "You are not the owner of this server"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse ServerId → Parse Body → Check Ownership (DB) → Update Settings (DB) → Response (no data)
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.ServerSettingsCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Update server settings
+      tags:
+      - servers
+  /servers/{id}/shortName:
+    put:
+      consumes:
+      - application/json
+      description: |
+        ## Update Server Short Name Flow
+
+        ### Overview
+        Updates the short name of a server. Only the server owner can perform this action.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `id` from URL path — must be a valid UUID
+        3. Validate `shortName` (required, 5–10 characters)
+        4. Check server ownership
+        5. Update short name in database
+        6. Return updated server details
+
+        ### Error Cases
+        - Invalid server id → `400` with "Invalid server id"
+        - ShortName empty → `400` with "Short name is required to not be empty"
+        - ShortName < 5 chars → `400` with "Short name must be at least 5 characters"
+        - ShortName > 10 chars → `400` with "Short name must be at most 10 characters"
+        - Not owner → `400` with "You are not the owner of this server"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse ServerId → Validate ShortName → Check Ownership (DB) → Update (DB) → Get Detail (DB) → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.ServerUpdateShortNameRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerUpdateResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Update server short name
+      tags:
+      - servers
+  /servers/{serverId}/invites:
+    post:
+      consumes:
+      - application/json
+      description: |
+        ## Create Invite Link Flow
+
+        ### Overview
+        Creates a new invite link for a server. The invite code can be shared with others to join the server.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `serverId` from URL path — must be a valid UUID
+        3. Validate `expiresInMinutes` (1–10080, max 1 week)
+        4. Validate `maxUses` (1–100)
+        5. Generate unique 8-character invite code (retry up to 10 times for uniqueness)
+        6. Create invite record in database with code, max uses, expiration time
+        7. Return invite code and expiration timestamp
+
+        ### Error Cases
+        - Invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
+        - expiresInMinutes ≤ 0 → `400` with "Expires in minutes must be greater than 0"
+        - expiresInMinutes > 10080 → `400` with "Expires in minutes must be lower or equal than 10080 or one week"
+        - maxUses ≤ 0 → `400` with "Max uses must be greater than 0"
+        - maxUses > 100 → `400` with "Max uses must be lower or equal than 100"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse ServerId → Validate Params → Generate Invite Code → Check Uniqueness (DB) → Create Invite (DB) → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.ServerInviteLinkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerInviteLinkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Create server invite link
+      tags:
+      - server-invites
+  /servers/{serverId}/join:
+    post:
+      description: |
+        ## Join Server Flow
+
+        ### Overview
+        Allows an authenticated user to join a public (non-private) server directly without an invite code.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `serverId` from URL path parameter — must be a valid UUID
+        3. Check if server exists and is eligible to join (not private)
+        4. Check if user is already a member — return error if already joined
+        5. Create a "member" role for the user in this server
+        6. Create server member record linking user to server
+        7. All operations wrapped in a database transaction
+        8. Return success with no data
+
+        ### Error Cases
+        - Invalid serverId → `400` with "Invalid server id"
+        - Server not found or private → `400` with "Unable to join server because server is not exists or private"
+        - Already a member → `400` with "Unable to join server because user is already a member"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse ServerId → Check Server Eligible (DB) → Check Not Already Member (DB) → Begin TX → Create Role (DB) → Create Member (DB) → Commit TX → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Join a public server
+      tags:
+      - servers
+  /servers/{serverId}/posts:
+    get:
+      description: |
+        ## Get Server Posts Flow
+
+        ### Overview
+        Retrieves a paginated list of posts from a specific server. Requires server membership. Uses cursor-based pagination.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `serverId` from URL path — must be a valid UUID
+        3. Parse query parameters: `limit`, `cursor`
+        4. Validate `limit` (>= 0 and <= max limit)
+        5. Check if user is a member of the server
+        6. If cursor provided, decode and unmarshal
+        7. Query posts from database (limit + 1 for cursor detection) with author info and image URLs
+        8. Build next cursor if more data exists
+
+        ### Query Parameters
+        - `limit` — number of items per page (optional)
+        - `cursor` — base64-encoded cursor for next page (optional)
+
+        ### Error Cases
+        - Invalid serverId → `400` with "Invalid server id"
+        - Limit < 0 → `400` with "Limit must be greater or equal than 0"
+        - Limit > max → `400` with "Limit is exceeded max limit: {max}"
+        - Not a member → `400` with "You are not a member of this server"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse Params → Validate Limit → Check Membership (DB) → Decode Cursor → Query Posts (DB) → Build Next Cursor → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerPostListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Get posts from a server
+      tags:
+      - posts
+    post:
+      consumes:
+      - multipart/form-data
+      description: |
+        ## Create Post Flow
+
+        ### Overview
+        Creates a new post in a server. Requires server membership. Posts must include an image (uploaded as multipart form) and a caption.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `serverId` from URL path — must be a valid UUID
+        3. Check if user is a member of the server
+        4. Read `image` file from multipart form (required, cannot be empty)
+        5. Validate image file (format, size)
+        6. Read `caption` from form value (required)
+        7. Begin database transaction
+        8. Upload image to MinIO (`server/post/{imageId}.webp`)
+        9. Create post image record in database
+        10. Create post record in database
+        11. Commit transaction
+        12. Fetch and return full post details including author info and image URL
+
+        ### Error Cases
+        - Invalid serverId → `400` with "Invalid server id"
+        - Not a member → `400` with "You are not a member of this server"
+        - No image file → `400` with "Image is required"
+        - Invalid image format → `400` validation error
+        - Caption empty → `400` with "Caption is required"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse ServerId → Check Membership (DB) → Read Image → Validate Image → Read Caption → Begin TX → Upload Image (MinIO) → Create Image Record (DB) → Create Post (DB) → Commit TX → Get Post (DB) → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Post image file
+        in: formData
+        name: image
+        required: true
+        type: file
+      - description: Post caption
+        in: formData
+        name: caption
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerPostResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Create a new post
+      tags:
+      - posts
+  /servers/{serverId}/posts/{postId}:
+    delete:
+      description: |
+        ## Delete Post Flow
+
+        ### Overview
+        Deletes a post from a server. Only the post author and server member can delete the post. Cascade deletes comments, likes, and also removes the image from MinIO.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `serverId` and `postId` from URL path — must be valid UUIDs
+        3. Check if user is a member of the server
+        4. Check if user is the author of the post
+        5. Begin database transaction
+        6. Get post image info (imageId, objectKey)
+        7. Delete post from database (CASCADE deletes comments and likes)
+        8. Delete post image record from database
+        9. Commit transaction
+        10. Delete image file from MinIO
+
+        ### Error Cases
+        - Invalid serverId → `400` with "Invalid server id"
+        - Invalid postId → `400` with "Invalid post id"
+        - Not a member → `400` with "You are not a member of this server"
+        - Not the author → `400` with "You are not the author of this post"
+        - Post not found (no image) → `400` with "Post not found"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse Params → Check Membership (DB) → Check Ownership (DB) → Begin TX → Get Image Info → Delete Post (DB, CASCADE) → Delete Image Record (DB) → Commit TX → Delete Image (MinIO) → Response (no data)
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Post UUID
+        in: path
+        name: postId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Delete a post
+      tags:
+      - posts
+    put:
+      consumes:
+      - application/json
+      description: |
+        ## Update Post Flow
+
+        ### Overview
+        Updates the caption of an existing post. Only the post author and server member can update the post.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse `serverId` and `postId` from URL path — must be valid UUIDs
+        3. Parse request body for `caption` (required)
+        4. Check if user is a member of the server
+        5. Check if user is the author of the post
+        6. Update post caption in database
+        7. Fetch and return updated post details
+
+        ### Error Cases
+        - Invalid serverId → `400` with "Invalid server id"
+        - Invalid postId → `400` with "Invalid post id"
+        - Invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
+        - Caption empty → `400` with "Caption is required"
+        - Not a member → `400` with "You are not a member of this server"
+        - Not the author → `400` with "You are not the author of this post"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse Params → Parse Body → Check Membership (DB) → Check Ownership (DB) → Update Caption (DB) → Get Post (DB) → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Post UUID
+        in: path
+        name: postId
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.ServerPostUpdateCaptionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerPostResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Update post caption
+      tags:
+      - posts
+  /servers/categories:
+    get:
+      description: |
+        ## Get Category Server Flow
+
+        ### Overview
+        Retrieves a paginated list of server categories. Supports cursor-based pagination.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Parse query parameters: `limit` (default: system default), `cursor` (optional)
+        2. Validate `limit` (>= 0 and <= max limit)
+        3. If cursor provided, decode from base64 and unmarshal
+        4. Query categories from database (limit + 1 for cursor detection)
+        5. Build next cursor if more data exists
+
+        ### Query Parameters
+        - `limit` — number of items per page (optional)
+        - `cursor` — base64-encoded cursor for next page (optional)
+
+        ### Error Cases
+        - Limit < 0 → `400` with "Limit must be greater or equal than 0"
+        - Limit > max → `400` with "Limit is exceeded max limit: {max}"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse Query Params → Validate Limit → Decode Cursor → Query Categories (DB) → Build Next Cursor → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerCategoryListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Get server categories
+      tags:
+      - servers
+  /servers/create:
+    post:
+      consumes:
+      - application/json
+      description: |
+        ## Create Server Flow
+
+        ### Overview
+        Creates a new server (community). The creator automatically becomes the owner with full permissions. A server role and server member record are also created in a transaction.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse and validate request body
+        3. Validate `name` (required, 5–40 characters)
+        4. Validate `shortName` (required, 5–10 characters)
+        5. If `categoryId` is provided, verify category exists in database
+        6. Create server record with JSON settings (`isPrivate`)
+        7. Create owner role with full permissions (`{"*": true}`)
+        8. Create server member record linking user to server with owner role
+        9. All operations wrapped in a database transaction
+        10. Return created server details
+
+        ### Error Cases
+        - Name empty → `400` with "Name is required to not be empty"
+        - Name < 5 chars → `400` with "Name must be at least 4 characters"
+        - Name > 40 chars → `400` with "Name must be at most 40 characters"
+        - ShortName empty → `400` with "Short name is required to not be empty"
+        - ShortName < 5 chars → `400` with "Short name must be at least 5 characters"
+        - ShortName > 10 chars → `400` with "Short name must be at most 10 characters"
+        - Invalid categoryId → `400` with "Category id is not found"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Validate Body → Check Category (DB) → Begin TX → Create Server (DB) → Create Role (DB) → Create Member (DB) → Commit TX → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.ServerCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerCreateResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Create a new server
+      tags:
+      - servers
+  /servers/invites/{inviteCode}:
+    get:
+      description: |
+        ## Get Server Info For Invite Flow
+
+        ### Overview
+        Retrieves public information about a server using an invite code. This is a **public endpoint** (no authentication required) — used to show server preview before joining.
+
+        ### Auth
+        No authentication required.
+
+        ### Business Logic
+        1. Parse `inviteCode` from URL path parameter
+        2. Query server info associated with the invite code
+        3. If no server found for invite code, return error
+        4. Build full MinIO URLs for avatar and banner images
+        5. Return server info (owner name, server name, description, images)
+
+        ### Error Cases
+        - Invite code not found → `400` with "Invite code is not exists"
+
+        ### Flow
+        ```
+        Request → Parse InviteCode → Query Server Info (DB) → Build Image URLs (MinIO) → Response
+        ```
+      parameters:
+      - description: Invite code (8 characters)
+        in: path
+        name: inviteCode
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerInfoForInviteResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Get server info for invite preview
+      tags:
+      - server-invites
+  /servers/join:
+    post:
+      consumes:
+      - application/json
+      description: |
+        ## Join Server From Invite Flow
+
+        ### Overview
+        Allows an authenticated user to join a server using an invite code. Works for both public and private servers.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Validate `inviteCode` (required, exactly 8 characters)
+        3. Verify invite code exists, is active, not expired, and not fully used — retrieve associated serverId
+        4. Check if user is already a member
+        5. Create "member" role for the user
+        6. Create server member record
+        7. All operations wrapped in a database transaction
+
+        ### Error Cases
+        - Invite code empty → `400` with "Invite code is required to not be empty"
+        - Invite code ≠ 8 chars → `400` with "Invite code must be 8 characters"
+        - Invalid/expired/used invite → `400` with "Invite code is not exists, expired or used up"
+        - Already a member → `400` with "Unable to join server because user is already a member"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Validate InviteCode → Check Invite Valid (DB) → Get ServerId → Check Not Member (DB) → Begin TX → Create Role (DB) → Create Member (DB) → Commit TX → Response (no data)
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.ServerJoinRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Join server using invite code
+      tags:
+      - server-invites
+  /servers/me:
+    get:
+      description: |
+        ## Get User Server Flow
+
+        ### Overview
+        Retrieves a paginated list of servers that the authenticated user is a member of. Supports cursor-based pagination.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context
+        2. Parse query parameters: `limit` (default: system default), `cursor` (optional)
+        3. Validate `limit` (>= 0 and <= max limit)
+        4. If cursor provided, decode from base64 and unmarshal to `ServerUserCursor`
+        5. Query servers where user is a member (limit + 1 for cursor detection)
+        6. Build MinIO image URLs for server avatars
+        7. If results > limit, create next cursor from last item
+        8. Return paginated server list
+
+        ### Query Parameters
+        - `limit` — number of items per page (optional)
+        - `cursor` — base64-encoded cursor for next page (optional)
+
+        ### Error Cases
+        - Limit < 0 → `400` with "Limit must be greater or equal than 0"
+        - Limit > max → `400` with "Limit is exceeded max limit: {max}"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse Query Params → Validate Limit → Decode Cursor → Query User Servers (DB) → Build Image URLs → Build Next Cursor → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerUserListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Get servers the user belongs to
+      tags:
+      - servers
+  /users/avatar:
+    put:
+      consumes:
+      - multipart/form-data
+      description: |
+        ## Update Avatar Flow
+
+        ### Overview
+        Updates the authenticated user's avatar image. Accepts a multipart form file upload. The image is validated, converted to WebP, and stored in MinIO object storage.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context (set by auth middleware)
+        2. Read `avatar` field from multipart form data
+        3. Validate the image file (format, size)
+        4. Begin database transaction
+        5. Check if user already has an avatar image
+        6. If old avatar exists:
+           - Delete old avatar record from database
+           - Delete old avatar file from MinIO
+        7. Create new avatar image record in database (with new UUID, bucket, object key)
+        8. Upload new avatar file to MinIO (`user/avatar/{imageId}.webp`)
+        9. Commit transaction
+        10. Return success with no data
+
+        ### Error Cases
+        - No/invalid auth token → `404` (handled by auth middleware)
+        - Missing avatar file → `400` with "Avatar is required to not be empty"
+        - Invalid image format/size → `400` validation error
+        - MinIO upload failure → `500` internal server error
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Get Avatar File → Validate Image → Begin TX → Check Old Avatar → Delete Old (DB + MinIO) → Create New Record (DB) → Upload (MinIO) → Commit TX → Response
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Avatar image file
+        in: formData
+        name: avatar
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Update user avatar
+      tags:
+      - users
+  /users/bio:
+    put:
+      consumes:
+      - application/json
+      description: |
+        ## Update Bio Flow
+
+        ### Overview
+        Updates the authenticated user's bio. Sending an empty string will set the bio to NULL in the database.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context (set by auth middleware)
+        2. Parse request body for `bio` field
+        3. If bio is empty string, set to NULL in database; otherwise set to provided value
+        4. Update bio in database
+        5. Return success with no data
+
+        ### Error Cases
+        - No/invalid auth token → `404` (handled by auth middleware)
+        - Invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse Body → Update Bio (DB) → Response (no data)
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.BioUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Update user bio
+      tags:
+      - users
+  /users/fullname:
+    put:
+      consumes:
+      - application/json
+      description: |
+        ## Update Fullname Flow
+
+        ### Overview
+        Updates the authenticated user's display name (fullname).
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context (set by auth middleware)
+        2. Parse request body for `fullname` field
+        3. Validate fullname is not empty
+        4. Validate fullname length (4–40 characters)
+        5. Update fullname in database
+        6. Return success with no data
+
+        ### Error Cases
+        - No/invalid auth token → `404` (handled by auth middleware)
+        - Invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
+        - Fullname empty → `400` with "Fullname is required to not be empty"
+        - Fullname < 4 chars → `400` with "Fullname must be at least 4 characters"
+        - Fullname > 40 chars → `400` with "Fullname must be at most 40 characters"
+
+        ### Flow
+        ```
+        Request → Auth Middleware → Parse Body → Validate Fullname → Update (DB) → Response (no data)
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.FullnameUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Update user fullname
+      tags:
+      - users
+  /users/logout:
+    post:
+      description: |
+        ## Logout Flow
+
+        ### Overview
+        Logs out the authenticated user by removing their auth tokens from Redis cache.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token.
+
+        ### Business Logic
+        1. Get `userId` from context (set by auth middleware)
+        2. Remove access token and refresh token from Redis cache
+        3. Return success with no data
+
+        ### Error Cases
+        - No/invalid auth token → `404` (handled by auth middleware)
+        - Redis error → `500` internal server error
+
+        ### Flow
+        ```
+        Request → Auth Middleware (JWT) → Get UserId → Remove Tokens (Redis) → Response (no data)
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Logout user
+      tags:
+      - users
+  /users/me:
+    get:
+      description: |
+        ## Get User Info Flow
+
+        ### Overview
+        Retrieves the authenticated user's profile information including avatar URL.
+
+        ### Auth
+        Requires `Authorization` header with Bearer JWT access token. The `userId` is extracted from the token by the auth middleware.
+
+        ### Business Logic
+        1. Get `userId` from context (set by auth middleware)
+        2. Query user info from database by userId
+        3. If user has an avatar image, construct the full MinIO URL for the avatar
+        4. Return user profile data
+
+        ### Error Cases
+        - No/invalid auth token → `404` (handled by auth middleware)
+        - Token expired → `404` with "Authorization token is expired"
+        - User not found → `404` validation error
+
+        ### Flow
+        ```
+        Request → Auth Middleware (JWT) → Get UserId → Query User (DB) → Build Avatar URL (MinIO) → Response
+        ```
+
+        ### Response Fields
+        - `id` — user UUID
+        - `username` — unique username
+        - `fullname` — display name
+        - `email` — user email
+        - `avatarImage` — full URL to avatar image (nullable)
+        - `bio` — user bio (nullable)
+        - `createDatetime` — account creation timestamp
+        - `updateDatetime` — last update timestamp
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Get current user info
+      tags:
+      - users
+swagger: "2.0"

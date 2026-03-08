@@ -52,6 +52,17 @@ func NewUserController(userUsecase *usecase.UserUsecase, zap *zap.Logger, koanf 
 // 	return util.SendSuccessResponseWithData(ctx, response)
 // }
 
+// Login godoc
+// @Summary      Login user
+// @Description.markdown login
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param 		 body body model.UserLoginRequest true "Payload"
+// @Success      200   {object}  model.TokenResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /auth/login [post]
 func (controller UserController) Login(ctx fiber.Ctx) error {
 	var payload model.UserLoginRequest
 	err := util.ReadRequestBody(ctx, &payload)
@@ -76,6 +87,17 @@ func (controller UserController) Login(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// GetUserInfo godoc
+// @Summary      Get current user info
+// @Description.markdown get_user_info
+// @Tags         users
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Success      200   {object}  model.UserResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure      404   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /users/me [get]
 func (controller UserController) GetUserInfo(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -93,6 +115,16 @@ func (controller UserController) GetUserInfo(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// Logout godoc
+// @Summary      Logout user
+// @Description.markdown logout
+// @Tags         users
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Success      200
+// @Failure      404   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /users/logout [post]
 func (controller UserController) Logout(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -104,6 +136,19 @@ func (controller UserController) Logout(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
+// UpdateAvatar godoc
+// @Summary      Update user avatar
+// @Description.markdown update_avatar
+// @Tags         users
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        avatar formData file true "Avatar image file"
+// @Success      200
+// @Failure      400   {object}  model.ValidationError
+// @Failure      404   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /users/avatar [put]
 func (controller UserController) UpdateAvatar(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -121,6 +166,17 @@ func (controller UserController) UpdateAvatar(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
+// StartSignup godoc
+// @Summary      Start signup process
+// @Description.markdown start_signup
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param 		 body body model.UserSignupStartRequest true "Payload"
+// @Success      200   {object}  model.UserSignupStartResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /auth/signup/start [post]
 func (controller UserController) StartSignup(ctx fiber.Ctx) error {
 	var payload model.UserSignupStartRequest
 	err := util.ReadRequestBody(ctx, &payload)
@@ -144,6 +200,17 @@ func (controller UserController) StartSignup(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// VerifyOtp godoc
+// @Summary      Verify OTP code
+// @Description.markdown verify_otp
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param 		 body body model.UserVerifyOTPRequest true "Payload"
+// @Success      200
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /auth/signup/otp [post]
 func (controller UserController) VerifyOtp(ctx fiber.Ctx) error {
 	var payload model.UserVerifyOTPRequest
 	err := util.ReadRequestBody(ctx, &payload)
@@ -167,6 +234,17 @@ func (controller UserController) VerifyOtp(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
+// VerifyUsername godoc
+// @Summary      Verify and set username
+// @Description.markdown verify_username
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param 		 body body model.UserVerifyUsernameRequest true "Payload"
+// @Success      200
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /auth/signup/username [post]
 func (controller UserController) VerifyUsername(ctx fiber.Ctx) error {
 	var payload model.UserVerifyUsernameRequest
 	err := util.ReadRequestBody(ctx, &payload)
@@ -190,6 +268,16 @@ func (controller UserController) VerifyUsername(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
+// GetSignupStatus godoc
+// @Summary      Get signup session status
+// @Description.markdown get_signup_status
+// @Tags         auth
+// @Produce      json
+// @Param        sessionId path string true "Signup session UUID"
+// @Success      200   {object}  model.UserSignupStatus
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /auth/signup/{sessionId}/status [get]
 func (controller UserController) GetSignupStatus(ctx fiber.Ctx) error {
 	sessionId := ctx.Params("sessionId")
 
@@ -207,6 +295,17 @@ func (controller UserController) GetSignupStatus(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// VerifyPassword godoc
+// @Summary      Verify password and complete signup
+// @Description.markdown verify_password
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param 		 body body model.UserVerifyPasswordRequest true "Payload"
+// @Success      200   {object}  model.TokenResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /auth/signup/password [post]
 func (controller UserController) VerifyPassword(ctx fiber.Ctx) error {
 	var payload model.UserVerifyPasswordRequest
 	err := util.ReadRequestBody(ctx, &payload)
@@ -256,6 +355,19 @@ func (controller UserController) UpdateUsername(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
+// UpdateFullname godoc
+// @Summary      Update user fullname
+// @Description.markdown update_fullname
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param 		 body body model.FullnameUpdateRequest true "Payload"
+// @Success      200
+// @Failure      400   {object}  model.ValidationError
+// @Failure      404   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /users/fullname [put]
 func (controller UserController) UpdateFullname(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -282,6 +394,19 @@ func (controller UserController) UpdateFullname(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
+// UpdateBio godoc
+// @Summary      Update user bio
+// @Description.markdown update_bio
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param 		 body body model.BioUpdateRequest true "Payload"
+// @Success      200
+// @Failure      400   {object}  model.ValidationError
+// @Failure      404   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /users/bio [put]
 func (controller UserController) UpdateBio(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 

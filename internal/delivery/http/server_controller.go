@@ -61,6 +61,19 @@ func NewServerController(serverUsecase *usecase.ServerUsecase, zap *zap.Logger, 
 // 	return util.SendSuccessResponseWithData(ctx, response)
 // }
 
+// CreateInviteLink godoc
+// @Summary      Create server invite link
+// @Description.markdown create_invite_link
+// @Tags         server-invites
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
+// @Param        body body model.ServerInviteLinkRequest true "Payload"
+// @Success      200   {object}  model.ServerInviteLinkResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/{serverId}/invites [post]
 func (controller *ServerController) CreateInviteLink(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -87,6 +100,18 @@ func (controller *ServerController) CreateInviteLink(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// JoinServerFromInvite godoc
+// @Summary      Join server using invite code
+// @Description.markdown join_server_from_invite
+// @Tags         server-invites
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        body body model.ServerJoinRequest true "Payload"
+// @Success      200
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/join [post]
 func (controller *ServerController) JoinServerFromInvite(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -113,6 +138,16 @@ func (controller *ServerController) JoinServerFromInvite(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
+// GetServerInfoForInvite godoc
+// @Summary      Get server info for invite preview
+// @Description.markdown get_server_info_for_invite
+// @Tags         server-invites
+// @Produce      json
+// @Param        inviteCode path string true "Invite code (8 characters)"
+// @Success      200   {object}  model.ServerInfoForInviteResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/invites/{inviteCode} [get]
 func (controller *ServerController) GetServerInfoForInvite(ctx fiber.Ctx) error {
 	var validationErr *model.ValidationError
 
@@ -130,6 +165,18 @@ func (controller *ServerController) GetServerInfoForInvite(ctx fiber.Ctx) error 
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// CreateServer godoc
+// @Summary      Create a new server
+// @Description.markdown create_server
+// @Tags         servers
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        body body model.ServerCreateRequest true "Payload"
+// @Success      200   {object}  model.ServerCreateResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/create [post]
 func (controller *ServerController) CreateServer(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -156,6 +203,19 @@ func (controller *ServerController) CreateServer(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// GetDiscoveryServer godoc
+// @Summary      Get discoverable servers
+// @Description.markdown get_discovery_server
+// @Tags         servers
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        limit query int false "Items per page"
+// @Param        categoryId query int false "Filter by category ID"
+// @Param        cursor query string false "Pagination cursor"
+// @Success      200   {object}  model.DiscoveryServerResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/ [get]
 func (controller *ServerController) GetDiscoveryServer(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -173,6 +233,18 @@ func (controller *ServerController) GetDiscoveryServer(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// GetUserServer godoc
+// @Summary      Get servers the user belongs to
+// @Description.markdown get_user_server
+// @Tags         servers
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        limit query int false "Items per page"
+// @Param        cursor query string false "Pagination cursor"
+// @Success      200   {object}  model.ServerUserListResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/me [get]
 func (controller *ServerController) GetUserServer(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -190,6 +262,17 @@ func (controller *ServerController) GetUserServer(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// JoinServer godoc
+// @Summary      Join a public server
+// @Description.markdown join_server
+// @Tags         servers
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
+// @Success      200
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/{serverId}/join [post]
 func (controller *ServerController) JoinServer(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
@@ -224,6 +307,19 @@ func (controller *ServerController) JoinServer(ctx fiber.Ctx) error {
 // 	return util.SendSuccessResponseWithData(ctx, response)
 // }
 
+// UpdateServerName godoc
+// @Summary      Update server name
+// @Description.markdown update_server_name
+// @Tags         servers
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        id path string true "Server UUID"
+// @Param        body body model.ServerUpdateNameRequest true "Payload"
+// @Success      200   {object}  model.ServerUpdateResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/{id}/name [put]
 func (controller *ServerController) UpdateServerName(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 	serverIdParam := ctx.Params("id")
@@ -251,6 +347,19 @@ func (controller *ServerController) UpdateServerName(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// UpdateServerShortName godoc
+// @Summary      Update server short name
+// @Description.markdown update_server_short_name
+// @Tags         servers
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        id path string true "Server UUID"
+// @Param        body body model.ServerUpdateShortNameRequest true "Payload"
+// @Success      200   {object}  model.ServerUpdateResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/{id}/shortName [put]
 func (controller *ServerController) UpdateServerShortName(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 	serverIdParam := ctx.Params("id")
@@ -278,6 +387,19 @@ func (controller *ServerController) UpdateServerShortName(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// UpdateServerCategory godoc
+// @Summary      Update server category
+// @Description.markdown update_server_category
+// @Tags         servers
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        id path string true "Server UUID"
+// @Param        body body model.ServerUpdateCategoryRequest true "Payload"
+// @Success      200   {object}  model.ServerUpdateResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/{id}/category [put]
 func (controller *ServerController) UpdateServerCategory(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 	serverIdParam := ctx.Params("id")
@@ -305,6 +427,19 @@ func (controller *ServerController) UpdateServerCategory(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// UpdateServerDescription godoc
+// @Summary      Update server description
+// @Description.markdown update_server_description
+// @Tags         servers
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        id path string true "Server UUID"
+// @Param        body body model.ServerUpdateDescriptionRequest true "Payload"
+// @Success      200   {object}  model.ServerUpdateResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/{id}/description [put]
 func (controller *ServerController) UpdateServerDescription(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 	serverIdParam := ctx.Params("id")
@@ -332,6 +467,17 @@ func (controller *ServerController) UpdateServerDescription(ctx fiber.Ctx) error
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// DeleteServer godoc
+// @Summary      Delete a server
+// @Description.markdown delete_server
+// @Tags         servers
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        id path string true "Server UUID"
+// @Success      200
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/{id} [delete]
 func (controller *ServerController) DeleteServer(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 	serverIdParam := ctx.Params("id")
@@ -350,6 +496,19 @@ func (controller *ServerController) DeleteServer(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
+// UpdateServerAvatar godoc
+// @Summary      Update server avatar
+// @Description.markdown update_server_avatar
+// @Tags         servers
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        id path string true "Server UUID"
+// @Param        avatar formData file true "Avatar image file"
+// @Success      200
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/{id}/avatar [put]
 func (controller *ServerController) UpdateServerAvatar(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 	serverIdParam := ctx.Params("id")
@@ -368,6 +527,19 @@ func (controller *ServerController) UpdateServerAvatar(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
+// UpdateServerBanner godoc
+// @Summary      Update server banner
+// @Description.markdown update_server_banner
+// @Tags         servers
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        id path string true "Server UUID"
+// @Param        banner formData file true "Banner image file"
+// @Success      200
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/{id}/banner [put]
 func (controller *ServerController) UpdateServerBanner(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 	serverIdParam := ctx.Params("id")
@@ -386,6 +558,19 @@ func (controller *ServerController) UpdateServerBanner(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
+// UpdateServerSettings godoc
+// @Summary      Update server settings
+// @Description.markdown update_server_settings
+// @Tags         servers
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        id path string true "Server UUID"
+// @Param        body body model.ServerSettingsCreateRequest true "Payload"
+// @Success      200
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/{id}/settings [put]
 func (controller *ServerController) UpdateServerSettings(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 	serverIdParam := ctx.Params("id")
@@ -413,6 +598,18 @@ func (controller *ServerController) UpdateServerSettings(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
+// GetCategoryServer godoc
+// @Summary      Get server categories
+// @Description.markdown get_category_server
+// @Tags         servers
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        limit query int false "Items per page"
+// @Param        cursor query string false "Pagination cursor"
+// @Success      200   {object}  model.ServerCategoryListResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/categories [get]
 func (controller *ServerController) GetCategoryServer(ctx fiber.Ctx) error {
 	var validationErr *model.ValidationError
 
@@ -428,6 +625,17 @@ func (controller *ServerController) GetCategoryServer(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// GetServerById godoc
+// @Summary      Get server by ID
+// @Description.markdown get_server_by_id
+// @Tags         servers
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        id path string true "Server UUID"
+// @Success      200   {object}  model.ServerDetailResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/{id} [get]
 func (controller *ServerController) GetServerById(ctx fiber.Ctx) error {
 	var validationErr *model.ValidationError
 
