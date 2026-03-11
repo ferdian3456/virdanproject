@@ -56,6 +56,10 @@ type UserVerifyOTPRequest struct {
 	OTP       string `json:"otp"`
 }
 
+type UserResendOTPRequest struct {
+	SessionId string `json:"sessionId"`
+}
+
 type UserVerifyUsernameRequest struct {
 	SessionId string `json:"sessionId"`
 	Username  string `json:"username"`

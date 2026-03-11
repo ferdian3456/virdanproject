@@ -527,6 +527,32 @@ func (repository *UserRepository) GetOTPSignupSessionData(ctx context.Context, s
 
 	return vals, nil
 }
+
+func (repository *UserRepository) GetOtpDataForResend(ctx context.Context, sessionId uuid.UUID) ([]interface{}, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.GetOtpDataForResend")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "HMGET"),
+		attribute.String("signup.session_id", sessionId.String()),
+	)
+
+	key := fmt.Sprintf("signup:%s", sessionId)
+
+	vals, err := repository.DBCache.HMGet(ctx, key, "email", "otp_expires_at").Result()
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get OTP session data for resend", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return vals, err
+	}
+
+	return vals, nil
+}
+
 func (repository *UserRepository) GetSignupState(ctx context.Context, sessionId uuid.UUID) ([]interface{}, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	tr := otel.Tracer(serviceName + "-repository")
@@ -569,6 +595,35 @@ func (repository *UserRepository) DeleteOTPState(ctx context.Context, sessionId 
 	err := repository.DBCache.HDel(ctx, key, "otp", "otp_expires_at").Err()
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete OTP state from cache", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	return nil
+}
+
+func (repository *UserRepository) UpdateSessionForResendOtp(ctx context.Context, sessionId uuid.UUID, otp string, otpExpiresAt int64) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.UpdateSessionForResendOtp")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "HSET"),
+		attribute.String("signup.session_id", sessionId.String()),
+	)
+
+	key := fmt.Sprintf("signup:%s", sessionId)
+
+	err := repository.DBCache.HSet(ctx, key, map[string]interface{}{
+		"otp":            otp,
+		"otp_expires_at": otpExpiresAt,
+	}).Err()
+
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to update session for resend otp from cache", zap.Error(err))
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		return err

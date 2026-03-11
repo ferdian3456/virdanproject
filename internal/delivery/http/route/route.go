@@ -69,6 +69,7 @@ func (c *RouteConfig) SetupRoute() {
 	authGroup.Post("/signup/username", c.UserController.VerifyUsername)
 	authGroup.Post("/signup/password", c.UserController.VerifyPassword)
 	authGroup.Get("/signup/:sessionId/status", c.UserController.GetSignupStatus)
+	authGroup.Post("/signup/resend-otp", c.UserController.ResendOtp)
 	//authGroup.Post("/register", c.UserController.Register)
 	authGroup.Post("/login", c.UserController.Login)
 	//authGroup.Post("/refresh", c.UserController.Refresh)

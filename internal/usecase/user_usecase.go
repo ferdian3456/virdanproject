@@ -794,6 +794,128 @@ func (usecase *UserUsecase) VerifyOtp(ctx fiber.Ctx, payload model.UserVerifyOTP
 	return nil
 }
 
+func (usecase *UserUsecase) ResendOtp(ctx fiber.Ctx, payload model.UserResendOTPRequest) (model.UserSignupStartResponse, error) {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tracer := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tracer.Start(ctxContext, "usecase.ResendOtp")
+	defer span.End()
+
+	var response model.UserSignupStartResponse
+
+	sessionId, err := uuid.Parse(payload.SessionId)
+	if err != nil {
+		err := &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Invalid session id",
+			Param:   "sessionId",
+		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "ResendOtp")
+		return response, err
+	}
+
+	span.SetAttributes(attribute.String("signup.session_id", sessionId.String()))
+
+	data, err := usecase.UserRepository.GetOtpDataForResend(ctxContext, sessionId)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return response, err
+	}
+
+	emailRaw := data[0]
+	expiresRaw := data[1]
+
+	emailStr, ok := emailRaw.(string)
+	if !ok {
+		return response, fmt.Errorf("invalid email format")
+	}
+
+	otpExpiresAtStr, ok := expiresRaw.(string)
+	if !ok {
+		return response, fmt.Errorf("invalid OTP expiration format")
+	}
+
+	otpExpiresAt, err := strconv.ParseInt(otpExpiresAtStr, 10, 64)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return response, err
+	}
+
+	if time.Now().Unix() < otpExpiresAt {
+		remainingSeconds := otpExpiresAt - time.Now().Unix()
+
+		err := &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: fmt.Sprintf("Please wait %s before requesting another OTP", util.FormatRemainingTime(remainingSeconds)),
+			Param:   "otp",
+		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "ResendOtp")
+		return response, err
+	}
+
+	otp, err := util.GenerateOTP()
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate OTP", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return response, err
+	}
+
+	otpHash := util.HashSHA256(otp)
+	otpExpiresAt = time.Now().UTC().Add(5 * time.Minute).Unix()
+
+	response.SessionId = sessionId
+	response.OtpExpiresAt = otpExpiresAt
+
+	OtpTemplateData := model.OTPTemplateData{
+		OTP:       otp,
+		ExpiresIn: 5,
+	}
+
+	template, err := template.ParseFS(util.TemplateFS, "template/otp.html")
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to parse OTP template", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return response, err
+	}
+
+	var tmpl bytes.Buffer
+	err = template.Execute(&tmpl, OtpTemplateData)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to execute OTP template", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return response, err
+	}
+
+	smtpHost := usecase.Config.String("SMTP_HOST")
+	smtpPort := usecase.Config.Int("SMTP_PORT")
+	senderName := usecase.Config.String("SENDER_NAME")
+	senderEmail := usecase.Config.String("SENDER_EMAIL")
+	senderPassword := usecase.Config.String("SENDER_PASSWORD")
+
+	subject := "Register OTP Verification Code"
+	err = util.SendEmail(smtpHost, smtpPort, senderName, senderEmail, senderPassword, emailStr, subject, tmpl.String())
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to send OTP email", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return response, err
+	}
+
+	err = usecase.UserRepository.UpdateSessionForResendOtp(ctxContext, sessionId, otpHash, otpExpiresAt)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return response, err
+	}
+
+	return response, err
+}
+
 func (usecase *UserUsecase) VerifyUsername(ctx fiber.Ctx, payload model.UserVerifyUsernameRequest) error {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")

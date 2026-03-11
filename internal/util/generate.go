@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"strings"
 )
@@ -38,6 +39,18 @@ func GenerateShortName(name string) string {
 	}
 
 	return name
+}
+
+func FormatRemainingTime(seconds int64) string {
+	if seconds < 60 {
+		return fmt.Sprintf("%d seconds", seconds)
+	}
+	minutes := seconds / 60
+	remainingSecs := seconds % 60
+	if remainingSecs == 0 {
+		return fmt.Sprintf("%d minutes", minutes)
+	}
+	return fmt.Sprintf("%d minutes and %d seconds", minutes, remainingSecs)
 }
 
 func GenerateInviteCode() (string, error) {
