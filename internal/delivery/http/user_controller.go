@@ -234,6 +234,40 @@ func (controller UserController) VerifyOtp(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseNoData(ctx)
 }
 
+// ResendOtp godoc
+// @Summary      Resend OTP code
+// @Description.markdown resend_otp
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param 		 body body model.UserResendOTPRequest true "Payload"
+// @Success      200   {object}  model.UserSignupStartResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /auth/signup/resend-otp [post]
+func (controller UserController) ResendOtp(ctx fiber.Ctx) error {
+	var payload model.UserResendOTPRequest
+	err := util.ReadRequestBody(ctx, &payload)
+	if err != nil {
+		return util.SendErrorResponse(ctx, &model.ValidationError{
+			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
+			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
+		})
+	}
+	var validationErr *model.ValidationError
+
+	response, err := controller.UserUsecase.ResendOtp(ctx, payload)
+	if err != nil {
+		if errors.As(err, &validationErr) {
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "UserController.ResendOtp")
+		}
+
+		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	}
+
+	return util.SendSuccessResponseWithData(ctx, response)
+}
+
 // VerifyUsername godoc
 // @Summary      Verify and set username
 // @Description.markdown verify_username
