@@ -70,3 +70,7 @@ test-coverage:
 	@go test -short -coverprofile=coverage.out ./...
 	@go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
+
+.PHONY: generate-swagger
+generate-swagger:
+	@swag init -g cmd/main.go -o docs --outputTypes yaml -md docs/flow
