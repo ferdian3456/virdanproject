@@ -187,7 +187,7 @@ func (repository *UserRepository) GetUserInfo(ctx context.Context, id uuid.UUID)
 	err := repository.DB.QueryRow(ctx, query, id).Scan(&user.Id, &user.Username, &user.Fullname, &user.Email, &user.AvatarImage, &user.Bio, &user.CreateDatetime, &user.UpdateDatetime)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return user, &model.ValidationError{
+			return user, &model.NotFoundError{
 				Code:    constant.ERR_NOT_FOUND_ERROR,
 				Message: "User not found",
 				Param:   "userId",
@@ -203,10 +203,10 @@ func (repository *UserRepository) GetUserInfo(ctx context.Context, id uuid.UUID)
 }
 
 // Redis - Cache
-func (repository *UserRepository) SetAuthTokenInCache(ctx context.Context, accessToken string, refreeshToken string, userId uuid.UUID) error {
+func (repository *UserRepository) SetAccessTokenInCache(ctx context.Context, accessToken string, userId uuid.UUID) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.SetAuthTokenInCache")
+	ctx, span := tr.Start(ctx, "repository.SetAccessTokenInCache")
 	defer span.End()
 
 	span.SetAttributes(
@@ -215,24 +215,14 @@ func (repository *UserRepository) SetAuthTokenInCache(ctx context.Context, acces
 		attribute.String("user.id", userId.String()),
 	)
 
-	accessTokenKey := fmt.Sprintf("auth:acccessToken:%s", userId)
-	refreshTokenKey := fmt.Sprintf("auth:refreshToken:%s", userId)
+	accessTokenKey := fmt.Sprintf("auth:accessToken:%s", userId)
 
-	// Hash tokens before storing in Redis for security
+	// Hash token before storing in Redis for security
 	hashedAccessToken := util.HashToken(accessToken)
-	hashedRefreshToken := util.HashToken(refreeshToken)
 
 	err := repository.DBCache.Set(ctx, accessTokenKey, hashedAccessToken, 15*time.Minute).Err()
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to set access token in cache", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	err = repository.DBCache.Set(ctx, refreshTokenKey, hashedRefreshToken, 15*time.Minute).Err()
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to set refresh token in cache", zap.Error(err))
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		return err
@@ -253,11 +243,11 @@ func (repository *UserRepository) GetAccessTokenInCache(ctx context.Context, use
 		attribute.String("user.id", userId.String()),
 	)
 
-	accessTokenKey := fmt.Sprintf("auth:acccessToken:%s", userId)
+	accessTokenKey := fmt.Sprintf("auth:accessToken:%s", userId)
 	hashedToken, err := repository.DBCache.Get(ctx, accessTokenKey).Result()
 	if err == redis.Nil {
-		return hashedToken, &model.ValidationError{
-			Code:    constant.ERR_NOT_FOUND_ERROR,
+		return hashedToken, &model.UnauthorizedError{
+			Code:    constant.ERR_UNAUTHORIZED_ERROR,
 			Message: "Authorization token not found or expired",
 			Param:   "accessToken",
 		}
@@ -283,8 +273,7 @@ func (repository *UserRepository) RemoveAuthToken(ctx context.Context, userId uu
 		attribute.String("user.id", userId.String()),
 	)
 
-	accessTokenKey := fmt.Sprintf("auth:acccessToken:%s", userId)
-	refreshTokenKey := fmt.Sprintf("auth:refreshToken:%s", userId)
+	accessTokenKey := fmt.Sprintf("auth:accessToken:%s", userId)
 
 	err := repository.DBCache.Del(ctx, accessTokenKey).Err()
 	if err != nil {
@@ -294,9 +283,29 @@ func (repository *UserRepository) RemoveAuthToken(ctx context.Context, userId uu
 		return err
 	}
 
-	err = repository.DBCache.Del(ctx, refreshTokenKey).Err()
+	return nil
+}
+
+// RevokeAllRefreshTokensByUserId revokes all active refresh tokens for a user
+func (repository *UserRepository) RevokeAllRefreshTokensByUserId(ctx context.Context, userId uuid.UUID, revokedAt time.Time, updatedAt time.Time, updatedBy uuid.UUID) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.RevokeAllRefreshTokensByUserId")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("user.id", userId.String()),
+	)
+
+	query := `UPDATE refresh_tokens
+		SET revoked_at = $1, updated_at = $2, updated_by = $3
+		WHERE user_id = $4 AND revoked_at IS NULL`
+
+	_, err := repository.DB.Exec(ctx, query, revokedAt, updatedAt, updatedBy, userId)
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to remove refresh token from cache", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to revoke all refresh tokens for user", zap.Error(err))
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		return err
@@ -921,6 +930,274 @@ func (repository *UserRepository) UpdateBio(ctx context.Context, userId uuid.UUI
 		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
+
+	return nil
+}
+
+// RefreshToken Repository Functions
+
+// CreateRefreshToken creates a new refresh token in the database
+func (repository *UserRepository) CreateRefreshToken(ctx context.Context, tx pgx.Tx, refreshToken model.RefreshTokenCreate) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.CreateRefreshToken")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "INSERT"),
+		attribute.String("refreshToken.user_id", refreshToken.UserId.String()),
+		attribute.String("refreshToken.token_family", refreshToken.TokenFamily),
+	)
+
+	query := `INSERT INTO refresh_tokens
+		(id, user_id, token_hash, token_family, expires_at, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`
+
+	_, err := tx.Exec(ctx, query, refreshToken.Id, refreshToken.UserId, refreshToken.TokenHash, refreshToken.TokenFamily, refreshToken.ExpiresAt, refreshToken.CreatedAt, refreshToken.UpdatedAt, refreshToken.CreatedBy)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to create refresh token", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	return nil
+}
+
+// CreateRefreshTokenNoTx creates a new refresh token without transaction
+func (repository *UserRepository) CreateRefreshTokenNoTx(ctx context.Context, refreshToken model.RefreshTokenCreate) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.CreateRefreshTokenNoTx")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "INSERT"),
+		attribute.String("refreshToken.user_id", refreshToken.UserId.String()),
+		attribute.String("refreshToken.token_family", refreshToken.TokenFamily),
+	)
+
+	query := `INSERT INTO refresh_tokens
+		(id, user_id, token_hash, token_family, expires_at, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`
+
+	_, err := repository.DB.Exec(ctx, query, refreshToken.Id, refreshToken.UserId, refreshToken.TokenHash, refreshToken.TokenFamily, refreshToken.ExpiresAt, refreshToken.CreatedAt, refreshToken.UpdatedAt, refreshToken.CreatedBy)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to create refresh token without transaction", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	return nil
+}
+
+// GetRefreshTokenByHash retrieves a refresh token by its hash
+func (repository *UserRepository) GetRefreshTokenByHash(ctx context.Context, tokenHash string) (model.RefreshToken, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.GetRefreshTokenByHash")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "SELECT"),
+	)
+
+	query := `SELECT id, user_id, token_hash, token_family, expires_at, revoked_at, created_at, updated_at, created_by, updated_by
+		FROM refresh_tokens
+		WHERE token_hash = $1
+		LIMIT 1`
+
+	var token model.RefreshToken
+	err := repository.DB.QueryRow(ctx, query, tokenHash).Scan(
+		&token.Id, &token.UserId, &token.TokenHash, &token.TokenFamily, &token.ExpiresAt, &token.RevokedAt,
+		&token.CreatedAt, &token.UpdatedAt, &token.CreatedBy, &token.UpdatedBy,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return token, &model.NotFoundError{
+				Code:    constant.ERR_NOT_FOUND_ERROR,
+				Message: "Refresh token is not found",
+				Param:   "refreshToken",
+			}
+		}
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get refresh token by hash", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return token, err
+	}
+
+	return token, nil
+}
+
+// GetActiveRefreshTokenByUserIdAndFamily retrieves an active (non-revoked, non-expired) refresh token for a user
+func (repository *UserRepository) GetActiveRefreshTokenByUserIdAndFamily(ctx context.Context, userId uuid.UUID, tokenFamily string) (model.RefreshToken, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.GetActiveRefreshTokenByUserIdAndFamily")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("refreshToken.user_id", userId.String()),
+		attribute.String("refreshToken.token_family", tokenFamily),
+	)
+
+	query := `SELECT id, user_id, token_hash, token_family, expires_at, revoked_at, created_at, updated_at, created_by, updated_by
+		FROM refresh_tokens
+		WHERE user_id = $1 AND token_family = $2 AND revoked_at IS NULL AND expires_at > NOW()
+		LIMIT 1`
+
+	var token model.RefreshToken
+	err := repository.DB.QueryRow(ctx, query, userId, tokenFamily).Scan(
+		&token.Id, &token.UserId, &token.TokenHash, &token.TokenFamily, &token.ExpiresAt, &token.RevokedAt,
+		&token.CreatedAt, &token.UpdatedAt, &token.CreatedBy, &token.UpdatedBy,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return token, &model.NotFoundError{
+				Code:    constant.ERR_NOT_FOUND_ERROR,
+				Message: "Active refresh token is not found",
+				Param:   "refreshToken",
+			}
+		}
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get active refresh token by user and family", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return token, err
+	}
+
+	return token, nil
+}
+
+// RevokeRefreshTokensByFamily revokes all refresh tokens in a token family (for token rotation)
+func (repository *UserRepository) RevokeRefreshTokensByFamily(ctx context.Context, tx pgx.Tx, userId uuid.UUID, tokenFamily string, revokedAt time.Time, updatedAt time.Time, updatedBy uuid.UUID) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.RevokeRefreshTokensByFamily")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("refreshToken.user_id", userId.String()),
+		attribute.String("refreshToken.token_family", tokenFamily),
+	)
+
+	query := `UPDATE refresh_tokens
+		SET revoked_at = $1, updated_at = $2, updated_by = $3
+		WHERE user_id = $4 AND token_family = $5 AND revoked_at IS NULL`
+
+	result, err := tx.Exec(ctx, query, revokedAt, updatedAt, updatedBy, userId, tokenFamily)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to revoke refresh tokens by family", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	rowsAffected := result.RowsAffected()
+	span.SetAttributes(attribute.Int64("db.rows_affected", rowsAffected))
+
+	return nil
+}
+
+// RevokeRefreshTokensByFamilyNoTx revokes all refresh tokens in a token family without transaction
+func (repository *UserRepository) RevokeRefreshTokensByFamilyNoTx(ctx context.Context, userId uuid.UUID, tokenFamily string, revokedAt time.Time, updatedAt time.Time, updatedBy uuid.UUID) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.RevokeRefreshTokensByFamilyNoTx")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("refreshToken.user_id", userId.String()),
+		attribute.String("refreshToken.token_family", tokenFamily),
+	)
+
+	query := `UPDATE refresh_tokens
+		SET revoked_at = $1, updated_at = $2, updated_by = $3
+		WHERE user_id = $4 AND token_family = $5 AND revoked_at IS NULL`
+
+	result, err := repository.DB.Exec(ctx, query, revokedAt, updatedAt, updatedBy, userId, tokenFamily)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to revoke refresh tokens by family without transaction", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	rowsAffected := result.RowsAffected()
+	span.SetAttributes(attribute.Int64("db.rows_affected", rowsAffected))
+
+	return nil
+}
+
+// RevokeRefreshTokenById revokes a specific refresh token by ID
+func (repository *UserRepository) RevokeRefreshTokenById(ctx context.Context, tx pgx.Tx, tokenId uuid.UUID, revokedAt time.Time, updatedAt time.Time, updatedBy uuid.UUID) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.RevokeRefreshTokenById")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("refreshToken.id", tokenId.String()),
+	)
+
+	query := `UPDATE refresh_tokens
+		SET revoked_at = $1, updated_at = $2, updated_by = $3
+		WHERE id = $4 AND revoked_at IS NULL`
+
+	result, err := tx.Exec(ctx, query, revokedAt, updatedAt, updatedBy, tokenId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to revoke refresh token by ID", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	rowsAffected := result.RowsAffected()
+	span.SetAttributes(attribute.Int64("db.rows_affected", rowsAffected))
+
+	return nil
+}
+
+// RevokeRefreshTokenByIdNoTx revokes a specific refresh token by ID without transaction
+func (repository *UserRepository) RevokeRefreshTokenByIdNoTx(ctx context.Context, tokenId uuid.UUID, revokedAt time.Time, updatedAt time.Time, updatedBy uuid.UUID) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.RevokeRefreshTokenByIdNoTx")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("refreshToken.id", tokenId.String()),
+	)
+
+	query := `UPDATE refresh_tokens
+		SET revoked_at = $1, updated_at = $2, updated_by = $3
+		WHERE id = $4 AND revoked_at IS NULL`
+
+	result, err := repository.DB.Exec(ctx, query, revokedAt, updatedAt, updatedBy, tokenId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to revoke refresh token by ID without transaction", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	rowsAffected := result.RowsAffected()
+	span.SetAttributes(attribute.Int64("db.rows_affected", rowsAffected))
 
 	return nil
 }

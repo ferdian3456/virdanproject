@@ -41,6 +41,7 @@ type ServerPostResponse struct {
 	Caption        string    `json:"caption"`
 	CommentCount   int       `json:"commentCount"`
 	LikeCount      int       `json:"likeCount"`
+	IsLiked        bool      `json:"isLiked"`
 	CreateDatetime time.Time `json:"createDatetime"`
 	UpdateDatetime time.Time `json:"updateDatetime"`
 }

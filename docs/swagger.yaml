@@ -29,6 +29,11 @@ definitions:
       likeCount:
         type: integer
     type: object
+  model.RefreshTokenRefreshRequest:
+    properties:
+      refreshToken:
+        type: string
+    type: object
   model.ServerCategoryListResponse:
     properties:
       data:
@@ -63,7 +68,11 @@ definitions:
     type: object
   model.ServerCommentResponse:
     properties:
+      authorAvatar:
+        type: string
       authorId:
+        type: string
+      authorName:
         type: string
       content:
         type: string
@@ -201,6 +210,8 @@ definitions:
         type: integer
       createDatetime:
         type: string
+      isLiked:
+        type: boolean
       likeCount:
         type: integer
       ownerId:
@@ -308,6 +319,15 @@ definitions:
       tokenType:
         type: string
     type: object
+  model.UnauthorizedError:
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+      param:
+        type: string
+    type: object
   model.UserLoginRequest:
     properties:
       password:
@@ -399,11 +419,11 @@ paths:
     post:
       consumes:
       - application/json
-      description: |-
+      description: |
         ## Login Flow
 
         ### Overview
-        Authenticates a user with username and password, returns JWT token pair (access + refresh).
+        Authenticates a user with username and password, returns JWT token pair (access + refresh). Access token is cached in Redis, refresh token is stored in PostgreSQL with token rotation support.
 
         ### Auth
         No authentication required.
@@ -415,9 +435,11 @@ paths:
         4. Convert username to lowercase
         5. Look up user by username in database — return validation error if not found
         6. Compare password with bcrypt hash — return validation error if incorrect
-        7. Generate JWT access token & refresh token
-        8. Store hashed tokens in Redis cache
-        9. Return token pair to client
+        7. Generate JWT access token (15 minutes expiry)
+        8. Generate refresh token (UUID)
+        9. Create refresh token record in PostgreSQL with token family
+        10. Store access token hash in Redis cache
+        11. Return token pair to client
 
         ### Database Operations
 
@@ -429,35 +451,51 @@ paths:
         - **Columns read**: `id` (UUID), `password` (bcrypt hash)
         - **Filter**: `username` (case-insensitive, lowered before query)
 
-        #### Redis — Store Auth Tokens
+        #### PostgreSQL — Create Refresh Token
+        ```sql
+        INSERT INTO refresh_tokens
+        (id, user_id, token_hash, token_family, expires_at, created_at, updated_at, created_by, updated_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
         ```
-        SET auth:acccessToken:{userId} {sha256(accessToken)} EX 900
-        SET auth:refreshToken:{userId} {sha256(refreshToken)} EX 900
+        - **Table**: `refresh_tokens`
+        - **Columns**: `id` (UUID), `user_id`, `token_hash` (SHA-256), `token_family` (UUID), `expires_at` (7 days), timestamps, audit
+        - **Note**: `created_by` and `updated_by` use the same value (user ID)
+
+        #### Redis — Store Access Token
         ```
-        - **Keys**: `auth:acccessToken:{userId}`, `auth:refreshToken:{userId}`
+        SET auth:accessToken:{userId} {sha256(accessToken)} EX 900
+        ```
+        - **Key**: `auth:accessToken:{userId}`
         - **TTL**: 15 minutes (900 seconds)
-        - **Value**: SHA-256 hash of the raw JWT token
+        - **Value**: SHA-256 hash of the access token
 
         ### Error Cases
         - Missing/invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
         - Username empty → `400` with "Username is required to not be empty"
         - Username < 4 chars → `400` with "Username must be at least 4 characters"
-        - Username > 22 chars → `400` with "username must be at most 22 characters"
+        - Username > 22 chars → `400` with "Username must be at most 22 characters"
         - Password empty → `400` with "Password is required to not be empty"
         - Password < 5 chars → `400` with "Password must be at least 5 characters"
         - Password > 20 chars → `400` with "Password must be at most 20 characters"
         - Username not found in database → `400` validation error
         - Password incorrect → `400` with "Password is incorrect"
+        - Failed to create refresh token → `500` internal server error
+        - Failed to store access token → `500` internal server error
 
         ### Flow
         ```
-        Request → Validate Payload → Validate Username → Validate Password → Lookup User (DB) → Compare Password (bcrypt) → Generate JWT Pair → Store Tokens (Redis) → Response
+        Request → Validate Payload → Validate Username → Validate Password → Lookup User (DB) → Compare Password (bcrypt) → Generate Access Token → Generate Refresh Token → Store Refresh Token (PostgreSQL) → Store Access Token (Redis) → Response
         ```
 
         ### Token Info
-        - **Access Token** — short-lived, used for authenticating API requests
-        - **Refresh Token** — long-lived, used to generate new access tokens
+        - **Access Token** — JWT, short-lived (15 minutes), used for API authentication, cached in Redis
+        - **Refresh Token** — UUID, long-lived (7 days), used to get new access tokens, stored in PostgreSQL
+        - **Token Family** — UUID group identifier for token rotation security
         - **Token Type** — Bearer
+
+        ### Durations
+        - **Access Token**: 15 minutes (900 seconds)
+        - **Refresh Token**: 7 days (604800 seconds)
       parameters:
       - description: Payload
         in: body
@@ -481,6 +519,164 @@ paths:
           schema:
             $ref: '#/definitions/model.ValidationError'
       summary: Login user
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: |
+        Use refresh token to get new access token (with token rotation)
+        ## Refresh Token Flow
+
+        ### Overview
+        Uses a valid refresh token to obtain a new access token without requiring the user to log in again. Implements token rotation for security - each refresh invalidates all tokens from the same token family.
+
+        ### Auth
+        No authentication required.
+
+        ### Business Logic
+        1. Validate request payload — `refreshToken` is required
+        2. Hash the refresh token with SHA256 to look up in database
+        3. Look up refresh token by hash in database — return error if not found
+        4. Check if token is revoked (`revoked_at IS NULL`) — if revoked:
+           - **SECURITY ESCALATION**: Revoke ALL refresh tokens for this user (possible token theft)
+           - Return unauthorized error with message "Session expired. Please login again."
+        5. Check if token is expired (`expires_at > NOW()`) — return unauthorized error if expired
+        6. Begin database transaction
+        7. Revoke all refresh tokens with the same `token_family` (token rotation)
+        8. Generate new JWT access token (15 minutes expiry)
+        9. Generate new refresh token (UUID) with new `token_family`
+        10. Hash new refresh token and store to database
+        11. Commit transaction
+        12. Return new token pair to client
+
+        ### Database Operations
+
+        #### PostgreSQL — Get Refresh Token by Hash
+        ```sql
+        SELECT id, user_id, token_hash, token_family, expires_at, revoked_at, created_at, updated_at, created_by, updated_by
+        FROM refresh_tokens
+        WHERE token_hash = $1
+        LIMIT 1
+        ```
+        - **Table**: `refresh_tokens`
+        - **Columns read**: all columns except `id` for validation
+        - **Filter**: `token_hash` (SHA-256 hash of refresh token from client)
+
+        #### PostgreSQL — Revoke Tokens by Family
+        ```sql
+        UPDATE refresh_tokens
+        SET revoked_at = $1, updated_at = $2, updated_by = $3
+        WHERE user_id = $4 AND token_family = $5 AND revoked_at IS NULL
+        ```
+        - **Table**: `refresh_tokens`
+        - **Columns updated**: `revoked_at`, `updated_at`, `updated_by`
+        - **Filter**: `user_id`, `token_family`, `revoked_at IS NULL` (only active tokens)
+
+        #### PostgreSQL — Create New Refresh Token
+        ```sql
+        INSERT INTO refresh_tokens
+        (id, user_id, token_hash, token_family, expires_at, created_at, updated_at, created_by, updated_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
+        ```
+        - **Table**: `refresh_tokens`
+        - **Columns**: all columns
+        - **Note**: `created_by` and `updated_by` use the same value (user ID)
+
+        ### Error Cases
+        - Missing/invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
+        - Refresh token empty → `400` with "Refresh token is required to not be empty"
+        - Refresh token not found in database → `401` with "Refresh token is not found"
+        - Refresh token already revoked → `401` with "Session expired. Please login again." + **ALL user tokens revoked**
+        - Refresh token expired → `401` with "Refresh token is expired"
+        - Transaction commit failed → `500` with internal server error
+
+        ### Flow
+        ```
+        Request → Validate Payload → Hash Token → Lookup Token (DB) → Check Revoked → Check Expired → Begin TX → Revoke Family (DB) → Generate Access Token → Generate Refresh Token → Store New Token (DB) → Commit TX → Response
+        ```
+
+        ### Token Rotation (Security)
+
+        Token rotation prevents token theft by ensuring each refresh token can only be used once:
+
+        ```
+        Initial Login:
+        → Access Token-A (15 min)
+        → Refresh Token-A (family: "abc-123", 7 days)
+
+        Refresh (client uses Refresh Token-A):
+        → Revoke all tokens with family "abc-123"
+        → Access Token-B (15 min)
+        → Refresh Token-B (family: "xyz-789", 7 days)
+
+        If attacker stole Refresh Token-A:
+        → Attacker tries to use Refresh Token-A
+        → Server: "Token has been revoked" ❌
+        → User can still use Refresh Token-B ✅
+        ```
+
+        ### Security Escalation (Token Theft Detection)
+
+        When a revoked token is detected, the system assumes possible token theft:
+
+        ```
+        Normal Flow:
+        → User login → Token-A
+        → Attacker steals Token-A
+        → Attacker refreshes → Token-B, Token-A revoked
+        → User tries to refresh with Token-A (revoked)
+        → Server: DETECTS THEFT! Revokes ALL tokens (including Token-B)
+        → Both user and attacker must login again
+        ```
+
+        This prevents attackers from maintaining access after token theft is detected.
+
+        ### Token Info
+        - **Access Token** — JWT, short-lived (15 minutes), used for API authentication
+        - **Refresh Token** — UUID, long-lived (7 days), used to get new access tokens
+        - **Token Family** — UUID group identifier, all tokens in same family are revoked on refresh
+        - **Token Type** — Bearer
+
+        ### Durations
+        - **Access Token**: 15 minutes (900 seconds)
+        - **Refresh Token**: 7 days (604800 seconds)
+
+        ### Security Notes
+        - Refresh tokens are stored as SHA-256 hashes in the database
+        - Original refresh token string is never stored, only the hash
+        - Token rotation ensures stolen tokens become useless after first use
+        - **Security Escalation**: Attempt to use revoked token triggers full token revocation
+        - This detects token theft and forces re-authentication from all devices
+        - Transaction ensures atomicity — either all operations succeed or all fail
+      parameters:
+      - description: Refresh token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.RefreshTokenRefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.UnauthorizedError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Refresh access token
       tags:
       - auth
   /auth/signup/{sessionId}/status:
@@ -654,9 +850,11 @@ paths:
         10. Delete email→session mapping from Redis
         11. Hash password with bcrypt
         12. Create user record in database (username, fullname = titleCase(username), email, hashed password)
-        13. Generate JWT access token & refresh token
-        14. Store hashed tokens in Redis cache
-        15. Return token pair to client
+        13. Generate JWT access token (15 minutes expiry)
+        14. Generate refresh token (UUID)
+        15. Create refresh token record in PostgreSQL with token family
+        16. Store access token hash in Redis cache
+        17. Return token pair to client
 
         ### Database Operations
 
@@ -687,12 +885,23 @@ paths:
         - **Table**: `users`
         - **Columns**: `id` (UUID), `username`, `fullname` (titleCase of username), `bio` (NULL), `avatar_image_id` (NULL), `email`, `password` (bcrypt hash), `settings` (JSON), timestamps, audit user IDs
 
-        #### Redis — Store Auth Tokens
+        #### PostgreSQL — Create Refresh Token
+        ```sql
+        INSERT INTO refresh_tokens
+        (id, user_id, token_hash, token_family, expires_at, created_at, updated_at, created_by, updated_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
         ```
-        SET auth:acccessToken:{userId} {sha256(accessToken)} EX 900
-        SET auth:refreshToken:{userId} {sha256(refreshToken)} EX 900
+        - **Table**: `refresh_tokens`
+        - **Columns**: `id` (UUID), `user_id`, `token_hash` (SHA-256), `token_family` (UUID), `expires_at` (7 days), timestamps, audit
+        - **Note**: `created_by` and `updated_by` use the same value (user ID)
+
+        #### Redis — Store Access Token
         ```
-        - **TTL**: 15 minutes
+        SET auth:accessToken:{userId} {sha256(accessToken)} EX 900
+        ```
+        - **Key**: `auth:accessToken:{userId}`
+        - **TTL**: 15 minutes (900 seconds)
+        - **Value**: SHA-256 hash of the access token
 
         ### Error Cases
         - Invalid sessionId → `400` with "Invalid session id"
@@ -703,11 +912,23 @@ paths:
         - Wrong step (not username_set) → `400` with "Invalid signup step for this session"
         - Username already taken (race condition) → `400` with "Username is already exist"
         - Email already taken (race condition) → `400` with "Email is already exist"
+        - Failed to create refresh token → `500` internal server error
+        - Failed to store access token → `500` internal server error
 
         ### Flow
         ```
-        Request → Validate SessionId → Validate Password → Get Session (Redis) → Check Step = username_set → Check Unique (DB) → Delete Session (Redis) → Hash Password → Create User (DB) → Generate JWT → Store Tokens (Redis) → Response
+        Request → Validate SessionId → Validate Password → Get Session (Redis) → Check Step = username_set → Check Unique (DB) → Delete Session (Redis) → Hash Password → Create User (DB) → Generate Access Token → Generate Refresh Token → Store Refresh Token (PostgreSQL) → Store Access Token (Redis) → Response
         ```
+
+        ### Token Info
+        - **Access Token** — JWT, short-lived (15 minutes), used for API authentication, cached in Redis
+        - **Refresh Token** — UUID, long-lived (7 days), used to get new access tokens, stored in PostgreSQL
+        - **Token Family** — UUID group identifier for token rotation security
+        - **Token Type** — Bearer
+
+        ### Durations
+        - **Access Token**: 15 minutes (900 seconds)
+        - **Refresh Token**: 7 days (604800 seconds)
       parameters:
       - description: Payload
         in: body
@@ -1042,7 +1263,7 @@ paths:
         1. Get `userId` from context
         2. Parse `postId` from URL path — must be a valid UUID
         3. Check if user is a member of the server where the post belongs (via joined query)
-        4. Get post details from database
+        4. Get post details from database with like status for current user
         5. Build MinIO image URLs
         6. Return post data
 
@@ -1060,10 +1281,13 @@ paths:
 
         #### PostgreSQL — Get Post
         ```sql
-        SELECT sp.author_id, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
+        SELECT sp.author_id, us.username, uai.object_key, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
                COALESCE(comment_counts.comment_count, 0) as comment_count,
-               COALESCE(like_counts.like_count, 0) as like_count
+               COALESCE(like_counts.like_count, 0) as like_count,
+               user_likes.user_id is not null as is_liked
         FROM server_posts sp
+        INNER JOIN users us ON sp.author_id = us.id
+        LEFT JOIN user_avatar_images uai ON us.id = uai.user_id
         INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
         LEFT JOIN (
             SELECT post_id, COUNT(*) as comment_count FROM server_post_comments GROUP BY post_id
@@ -1071,9 +1295,29 @@ paths:
         LEFT JOIN (
             SELECT post_id, COUNT(*) as like_count FROM server_post_likes GROUP BY post_id
         ) like_counts ON sp.id = like_counts.post_id
+        LEFT JOIN server_post_likes user_likes ON sp.id = user_likes.post_id AND user_likes.user_id = $2
         WHERE sp.id = $1
         ```
-        - **Columns returned**: `author_id`, `id`, image `object_key`, `caption`, timestamps, `comment_count`, `like_count`
+        - **Tables**: `server_posts`, `users`, `user_avatar_images`, `server_post_images`, `server_post_comments` (aggregated), `server_post_likes` (aggregated + current user check)
+        - **Columns returned**: `author_id`, `username`, author avatar `object_key`, `id`, post image `object_key`, `caption`, timestamps, `comment_count`, `like_count`, `is_liked`
+        - **`is_liked`**: `true` if current user has liked the post, `false` otherwise
+
+        ### Response Format
+        ```json
+        {
+          "postId": "uuid",
+          "ownerId": "uuid",
+          "ownerName": "username",
+          "ownerImageUrl": "http://...",
+          "postImageUrl": "http://...",
+          "caption": "Post caption",
+          "commentCount": 5,
+          "likeCount": 42,
+          "isLiked": true,
+          "createDatetime": "2024-01-15T10:30:00Z",
+          "updateDatetime": "2024-01-15T10:30:00Z"
+        }
+        ```
 
         ### Error Cases
         - Invalid postId → `400` with "Invalid post id"
@@ -1081,7 +1325,7 @@ paths:
 
         ### Flow
         ```
-        Request → Auth Middleware → Parse PostId → Check Membership (DB) → Get Post (DB) → Build Image URL → Response
+        Request → Auth Middleware → Parse PostId → Check Membership (DB) → Get Post with is_liked (DB) → Build Image URL → Response
         ```
       parameters:
       - description: Bearer access token
@@ -1399,7 +1643,9 @@ paths:
         ## Unlike Post Flow
 
         ### Overview
-        Removes a like from a post. Requires membership in the server where the post belongs. User must have previously liked the post.
+        Removes a like from a post. Requires membership in the server where the post belongs.
+
+        **Idempotent**: If the user hasn't liked the post, the request succeeds and returns the current like count (no error).
 
         ### Auth
         Requires `Authorization` header with Bearer JWT access token.
@@ -1408,10 +1654,11 @@ paths:
         1. Get `userId` from context
         2. Parse `postId` from URL path — must be a valid UUID
         3. Check if user is a member of the server where the post belongs
-        4. Check if user has liked this post — return error if not liked
-        5. Delete like record from database
-        6. Fetch updated post to get new like count
-        7. Return updated like count
+        4. Check if user has liked this post
+           - If liked → delete like record
+           - If not liked → **skip delete**, proceed to get like count (idempotent)
+        5. Get updated like count
+        6. Return updated like count
 
         ### Database Operations
 
@@ -1427,26 +1674,36 @@ paths:
         ```sql
         SELECT 1 FROM server_post_likes WHERE post_id = $1 AND user_id = $2
         ```
-        - If no row → hasn't liked yet, return error
+        - If no row → hasn't liked yet (skip delete, return like count)
 
-        #### PostgreSQL — Delete Like
+        #### PostgreSQL — Delete Like (if already liked)
         ```sql
         DELETE FROM server_post_likes WHERE post_id = $1 AND user_id = $2
         ```
         - **Table**: `server_post_likes`
+        - Only executed if user has already liked
 
-        #### PostgreSQL — Get Updated Like Count (via GetPost)
-        Uses the same aggregated query as Get Post.
+        #### PostgreSQL — Get Updated Like Count
+        ```sql
+        SELECT COUNT(*) FROM server_post_likes WHERE post_id = $1
+        ```
+        - **Table**: `server_post_likes`
+        - Returns current like count after unlike operation
 
         ### Error Cases
         - Invalid postId → `400` with "Invalid post id"
         - Not a member → `400` with "You are not a member of this server"
-        - Not liked yet → `400` with "You haven't liked this post yet"
 
         ### Flow
         ```
-        Request → Auth Middleware → Parse PostId → Check Membership (DB) → Check Already Liked (DB) → Delete Like (DB) → Get Updated Count (DB) → Response
+        Request → Auth Middleware → Parse PostId → Check Membership (DB) → Check Already Liked (DB) → [if liked: Delete Like (DB)] → Get Updated Count (DB) → Response
         ```
+
+        ### Idempotency
+        - Calling this endpoint multiple times with the same user and post will:
+          - **First call** (when liked): Delete like record, return decremented like count
+          - **Subsequent calls**: Skip delete, return current like count (no error)
+        - This allows for optimistic UI updates on the frontend without worrying about duplicate unlike requests
       parameters:
       - description: Bearer access token
         in: header
@@ -1483,6 +1740,8 @@ paths:
         ### Overview
         Likes a post. Requires membership in the server where the post belongs. Each user can only like a post once.
 
+        **Idempotent**: If the user has already liked the post, the request succeeds and returns the current like count (no error).
+
         ### Auth
         Requires `Authorization` header with Bearer JWT access token.
 
@@ -1490,10 +1749,11 @@ paths:
         1. Get `userId` from context
         2. Parse `postId` from URL path — must be a valid UUID
         3. Check if user is a member of the server where the post belongs
-        4. Check if user already liked this post — return error if already liked
-        5. Create like record in database
-        6. Fetch updated post to get new like count
-        7. Return updated like count
+        4. Check if user already liked this post
+           - If already liked → **skip insert**, proceed to get like count (idempotent)
+           - If not liked → create like record
+        5. Get updated like count
+        6. Return updated like count
 
         ### Database Operations
 
@@ -1510,28 +1770,38 @@ paths:
         SELECT 1 FROM server_post_likes WHERE post_id = $1 AND user_id = $2
         ```
         - **Table**: `server_post_likes`
-        - If row exists → already liked
+        - If row exists → already liked (skip insert, return like count)
 
-        #### PostgreSQL — Create Like
+        #### PostgreSQL — Create Like (if not already liked)
         ```sql
         INSERT INTO server_post_likes (id, post_id, user_id, create_datetime, update_datetime, create_user_id, update_user_id)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
         ```
         - **Table**: `server_post_likes`
         - **Columns**: `id` (UUID), `post_id`, `user_id`, timestamps, audit IDs
+        - Only executed if user hasn't liked yet
 
-        #### PostgreSQL — Get Updated Like Count (via GetPost)
-        Uses the same aggregated query as Get Post to fetch the updated like count.
+        #### PostgreSQL — Get Updated Like Count
+        ```sql
+        SELECT COUNT(*) FROM server_post_likes WHERE post_id = $1
+        ```
+        - **Table**: `server_post_likes`
+        - Returns current like count after like operation
 
         ### Error Cases
         - Invalid postId → `400` with "Invalid post id"
         - Not a member → `400` with "You are not a member of this server"
-        - Already liked → `400` with "You already liked this post"
 
         ### Flow
         ```
-        Request → Auth Middleware → Parse PostId → Check Membership (DB) → Check Not Already Liked (DB) → Create Like (DB) → Get Updated Count (DB) → Response
+        Request → Auth Middleware → Parse PostId → Check Membership (DB) → Check Already Liked (DB) → [if not liked: Create Like (DB)] → Get Updated Count (DB) → Response
         ```
+
+        ### Idempotency
+        - Calling this endpoint multiple times with the same user and post will:
+          - **First call**: Create like record, return incremented like count
+          - **Subsequent calls**: Skip insert, return current like count (no error)
+        - This allows for optimistic UI updates on the frontend without worrying about duplicate like requests
       parameters:
       - description: Bearer access token
         in: header
@@ -2581,10 +2851,11 @@ paths:
         2. Parse `serverId` from URL path parameter — must be a valid UUID
         3. Check if server exists and is eligible to join (not private)
         4. Check if user is already a member — return error if already joined
-        5. Create a "member" role for the user in this server
-        6. Create server member record linking user to server
-        7. All operations wrapped in a database transaction
-        8. Return success with no data
+        5. **Check if "Member" role already exists for this server** (outside transaction)
+        6. If role exists, reuse the role ID; otherwise create a new "Member" role
+        7. Create server member record linking user to server with the role ID
+        8. All write operations wrapped in a database transaction
+        9. Return success with no data
 
         ### Database Operations
 
@@ -2602,13 +2873,23 @@ paths:
         - **Table**: `server_members`
         - **Filter**: `server_id`, `user_id`, `status = 1` (active)
 
-        #### PostgreSQL — Create Server Role (inside TX)
+        #### PostgreSQL — Get Role by Name (outside TX)
+        ```sql
+        SELECT id FROM server_roles WHERE server_id = $1 AND LOWER(name) = LOWER($2) LIMIT 1
+        ```
+        - **Table**: `server_roles`
+        - **Filter**: `server_id`, `LOWER(name) = LOWER('Member')`
+        - Returns `id` (UUID) or no rows if not found
+        - **Note**: Executed outside transaction to reduce lock time
+
+        #### PostgreSQL — Create Server Role (inside TX, only if not exists)
         ```sql
         INSERT INTO server_roles (id, server_id, name, permissions, create_datetime, update_datetime, create_user_id, update_user_id)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ```
         - **Table**: `server_roles`
-        - **Values**: `name` = "member", `permissions` = `{}`
+        - **Values**: `name` = "Member", `permissions` = `{}`
+        - **Note**: Only executed if "Member" role doesn't exist for this server
 
         #### PostgreSQL — Create Server Member (inside TX)
         ```sql
@@ -2616,7 +2897,7 @@ paths:
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         ```
         - **Table**: `server_members`
-        - **Values**: `status = 1` (active), `left_datetime = NULL`
+        - **Values**: `status = 1` (active), `left_datetime = NULL`, `server_role_id` = existing or new role ID
 
         ### Error Cases
         - Invalid serverId → `400` with "Invalid server id"
@@ -2625,8 +2906,13 @@ paths:
 
         ### Flow
         ```
-        Request → Auth Middleware → Parse ServerId → Check Server Eligible (DB) → Check Not Already Member (DB) → Begin TX → Create Role (DB) → Create Member (DB) → Commit TX → Response
+        Request → Auth Middleware → Parse ServerId → Check Server Eligible (DB) → Check Not Already Member (DB) → Get "Member" Role (DB, outside TX) → Begin TX → Create Role IF NOT EXISTS (DB) → Create Member (DB) → Commit TX → Response
         ```
+
+        ### Important Notes
+        - **Role Reuse**: The "Member" role is shared across all members of a server. It's created once when the first user joins, and subsequent users reuse the same role.
+        - **Unique Constraint**: The `idx_roles_uk_01` unique index on `(server_id, name)` ensures only one "Member" role per server.
+        - **Optimization**: Checking for existing role outside transaction reduces database lock time and improves concurrency.
       parameters:
       - description: Bearer access token
         in: header
@@ -2672,7 +2958,7 @@ paths:
         4. Validate `limit` (>= 0 and <= max limit)
         5. Check if user is a member of the server
         6. If cursor provided, decode and unmarshal
-        7. Query posts from database (limit + 1 for cursor detection) with author info and image URLs
+        7. Query posts from database (limit + 1 for cursor detection) with author info, image URLs, and like status for current user
         8. Build next cursor if more data exists
 
         ### Database Operations
@@ -2686,7 +2972,8 @@ paths:
         ```sql
         SELECT sp.author_id, us.username, uai.object_key, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
                COALESCE(comment_counts.comment_count, 0) as comment_count,
-               COALESCE(like_counts.like_count, 0) as like_count
+               COALESCE(like_counts.like_count, 0) as like_count,
+               user_likes.user_id is not null as is_liked
         FROM server_posts sp
         INNER JOIN users us ON sp.author_id = us.id
         LEFT JOIN user_avatar_images uai ON us.id = uai.user_id
@@ -2697,6 +2984,7 @@ paths:
         LEFT JOIN (
             SELECT post_id, COUNT(*) as like_count FROM server_post_likes GROUP BY post_id
         ) like_counts ON sp.id = like_counts.post_id
+        LEFT JOIN server_post_likes user_likes ON sp.id = user_likes.post_id AND user_likes.user_id = $3
         WHERE sp.server_id = $1
         ORDER BY sp.create_datetime DESC, sp.id DESC
         LIMIT $2
@@ -2710,9 +2998,10 @@ paths:
         ORDER BY sp.create_datetime DESC, sp.id DESC
         LIMIT $4
         ```
-        - **Tables**: `server_posts`, `users`, `user_avatar_images`, `server_post_images`, `server_post_comments` (aggregated), `server_post_likes` (aggregated)
+        - **Tables**: `server_posts`, `users`, `user_avatar_images`, `server_post_images`, `server_post_comments` (aggregated), `server_post_likes` (aggregated + current user check)
         - **Cursor**: keyset pagination on `(create_datetime, id)` DESC
-        - **Columns returned**: `author_id`, `username`, author avatar `object_key`, post `id`, post image `object_key`, `caption`, timestamps, `comment_count`, `like_count`
+        - **Columns returned**: `author_id`, `username`, author avatar `object_key`, post `id`, post image `object_key`, `caption`, timestamps, `comment_count`, `like_count`, `is_liked`
+        - **`is_liked`**: `true` if current user has liked the post, `false` otherwise
 
         #### MinIO — Image URL Construction
         ```
@@ -2724,6 +3013,30 @@ paths:
         - `limit` — number of items per page (optional)
         - `cursor` — base64-encoded cursor for next page (optional)
 
+        ### Response Format
+        ```json
+        {
+          "data": [
+            {
+              "postId": "uuid",
+              "ownerId": "uuid",
+              "ownerName": "username",
+              "ownerImageUrl": "http://...",
+              "postImageUrl": "http://...",
+              "caption": "Post caption",
+              "commentCount": 5,
+              "likeCount": 42,
+              "isLiked": true,
+              "createDatetime": "2024-01-15T10:30:00Z",
+              "updateDatetime": "2024-01-15T10:30:00Z"
+            }
+          ],
+          "page": {
+            "nextCursor": "base64_cursor_or_null"
+          }
+        }
+        ```
+
         ### Error Cases
         - Invalid serverId → `400` with "Invalid server id"
         - Limit < 0 → `400` with "Limit must be greater or equal than 0"
@@ -2732,7 +3045,7 @@ paths:
 
         ### Flow
         ```
-        Request → Auth Middleware → Parse Params → Validate Limit → Check Membership (DB) → Decode Cursor → Query Posts (DB) → Build Next Cursor → Response
+        Request → Auth Middleware → Parse Params → Validate Limit → Check Membership (DB) → Decode Cursor → Query Posts with is_liked (DB) → Build Next Cursor → Response
         ```
       parameters:
       - description: Bearer access token
@@ -3371,10 +3684,12 @@ paths:
         1. Get `userId` from context
         2. Validate `inviteCode` (required, exactly 8 characters)
         3. Verify invite code exists, is active, not expired, and not fully used — retrieve associated serverId
-        4. Check if user is already a member
-        5. Create "member" role for the user
-        6. Create server member record
-        7. All operations wrapped in a database transaction
+        4. Check if user is already a member — return error if already joined
+        5. **Check if "Member" role already exists for this server** (outside transaction)
+        6. If role exists, reuse the role ID; otherwise create a new "Member" role
+        7. Create server member record linking user to server with the role ID
+        8. All write operations wrapped in a database transaction
+        9. Return success with no data
 
         ### Database Operations
 
@@ -3393,19 +3708,31 @@ paths:
         - **Table**: `server_members`
         - Checks if user is already an active member
 
-        #### PostgreSQL — Create Server Role (inside TX)
+        #### PostgreSQL — Get Role by Name (outside TX)
+        ```sql
+        SELECT id FROM server_roles WHERE server_id = $1 AND LOWER(name) = LOWER($2) LIMIT 1
+        ```
+        - **Table**: `server_roles`
+        - **Filter**: `server_id`, `LOWER(name) = LOWER('Member')`
+        - Returns `id` (UUID) or no rows if not found
+        - **Note**: Executed outside transaction to reduce lock time
+
+        #### PostgreSQL — Create Server Role (inside TX, only if not exists)
         ```sql
         INSERT INTO server_roles (id, server_id, name, permissions, create_datetime, update_datetime, create_user_id, update_user_id)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ```
-        - **Values**: `name = "member"`, `permissions = {}`
+        - **Table**: `server_roles`
+        - **Values**: `name = "Member"`, `permissions = {}`
+        - **Note**: Only executed if "Member" role doesn't exist for this server
 
         #### PostgreSQL — Create Server Member (inside TX)
         ```sql
         INSERT INTO server_members (id, server_id, user_id, server_role_id, status, joined_datetime, left_datetime, create_datetime, update_datetime, create_user_id, update_user_id)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         ```
-        - **Values**: `status = 1` (active), `left_datetime = NULL`
+        - **Table**: `server_members`
+        - **Values**: `status = 1` (active), `left_datetime = NULL`, `server_role_id` = existing or new role ID
 
         ### Error Cases
         - Invite code empty → `400` with "Invite code is required to not be empty"
@@ -3415,8 +3742,13 @@ paths:
 
         ### Flow
         ```
-        Request → Auth Middleware → Validate InviteCode → Check Invite Valid (DB) → Get ServerId → Check Not Member (DB) → Begin TX → Create Role (DB) → Create Member (DB) → Commit TX → Response (no data)
+        Request → Auth Middleware → Validate InviteCode → Check Invite Valid (DB) → Get ServerId → Check Not Member (DB) → Get "Member" Role (DB, outside TX) → Begin TX → Create Role IF NOT EXISTS (DB) → Create Member (DB) → Commit TX → Response (no data)
         ```
+
+        ### Important Notes
+        - **Role Reuse**: The "Member" role is shared across all members of a server. It's created once when the first user joins (via any method), and subsequent users reuse the same role.
+        - **Unique Constraint**: The `idx_roles_uk_01` unique index on `(server_id, name)` ensures only one "Member" role per server.
+        - **Optimization**: Checking for existing role outside transaction reduces database lock time and improves concurrency.
       parameters:
       - description: Bearer access token
         in: header
@@ -3786,34 +4118,52 @@ paths:
         ## Logout Flow
 
         ### Overview
-        Logs out the authenticated user by removing their auth tokens from Redis cache.
+        Logs out the authenticated user by revoking all refresh tokens in PostgreSQL and removing the access token from Redis cache.
 
         ### Auth
         Requires `Authorization` header with Bearer JWT access token.
 
         ### Business Logic
         1. Get `userId` from context (set by auth middleware)
-        2. Remove access token and refresh token from Redis cache
-        3. Return success with no data
+        2. Revoke all active refresh tokens for this user in PostgreSQL
+        3. Remove access token from Redis cache
+        4. Return success with no data
 
         ### Database Operations
 
-        #### Redis — Remove Auth Tokens
+        #### PostgreSQL — Revoke All Refresh Tokens
+        ```sql
+        UPDATE refresh_tokens
+        SET revoked_at = $1, updated_at = $2, updated_by = $3
+        WHERE user_id = $4 AND revoked_at IS NULL
         ```
-        DEL auth:acccessToken:{userId}
-        DEL auth:refreshToken:{userId}
+        - **Table**: `refresh_tokens`
+        - **Columns updated**: `revoked_at`, `updated_at`, `updated_by`
+        - **Filter**: `user_id`, `revoked_at IS NULL` (only active tokens)
+        - **Effect**: All refresh tokens for this user become invalid
+
+        #### Redis — Remove Access Token
         ```
-        - Deletes both the access token hash and refresh token hash from Redis
-        - After deletion, the user's current JWT becomes invalid for future requests
+        DEL auth:accessToken:{userId}
+        ```
+        - Deletes the access token hash from Redis
+        - After deletion, the user's current access token becomes invalid for future requests
 
         ### Error Cases
         - No/invalid auth token → `404` (handled by auth middleware)
-        - Redis error → `500` internal server error
+        - Failed to revoke refresh tokens → `500` internal server error
+        - Failed to remove access token → `500` internal server error
 
         ### Flow
         ```
-        Request → Auth Middleware (JWT) → Get UserId → Remove Tokens (Redis) → Response (no data)
+        Request → Auth Middleware (JWT) → Get UserId → Revoke Refresh Tokens (PostgreSQL) → Remove Access Token (Redis) → Response (no data)
         ```
+
+        ### Security Notes
+        - All refresh tokens for the user are revoked on logout
+        - User must login again to get new tokens
+        - Access token is immediately invalidated
+        - Refresh token rotation prevents token reuse
       parameters:
       - description: Bearer access token
         in: header

@@ -185,7 +185,7 @@ func (usecase *PostUsecase) CreatePost(ctx fiber.Ctx, serverId uuid.UUID, userId
 
 	// Fetch full post object after creation
 	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
-	response, err = usecase.PostRepository.GetPost(ctxContext, postId, MINIO_FULL_URL)
+	response, err = usecase.PostRepository.GetPost(ctxContext, postId, userId, MINIO_FULL_URL)
 	if err != nil {
 		return response, err
 	}
@@ -276,7 +276,7 @@ func (usecase *PostUsecase) UpdatePostCaption(ctx fiber.Ctx, serverIdParam strin
 
 	// Fetch full post object after update
 	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
-	response, err = usecase.PostRepository.GetPost(ctxContext, postId, MINIO_FULL_URL)
+	response, err = usecase.PostRepository.GetPost(ctxContext, postId, userId, MINIO_FULL_URL)
 	if err != nil {
 		return response, err
 	}
@@ -483,7 +483,7 @@ func (usecase *PostUsecase) GetServerPosts(ctx fiber.Ctx, serverIdParam string, 
 	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
 
 	// Fetch limit + 1 untuk cek apakah ada data lagi
-	serverPosts, err := usecase.PostRepository.GetServerPosts(ctxContext, limit+1, serverId, &serverPostCursor, MINIO_FULL_URL)
+	serverPosts, err := usecase.PostRepository.GetServerPosts(ctxContext, limit+1, serverId, userId, &serverPostCursor, MINIO_FULL_URL)
 	if err != nil {
 		return response, err
 	}
@@ -561,7 +561,7 @@ func (usecase *PostUsecase) GetPost(ctx fiber.Ctx, postIdParam string, userId uu
 
 	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
 
-	response, err = usecase.PostRepository.GetPost(ctxContext, postId, MINIO_FULL_URL)
+	response, err = usecase.PostRepository.GetPost(ctxContext, postId, userId, MINIO_FULL_URL)
 	if err != nil {
 		return response, err
 	}
@@ -614,41 +614,33 @@ func (usecase *PostUsecase) LikePost(ctx fiber.Ctx, postIdParam string, userId u
 		return response, err
 	}
 
-	if likeExists == 1 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "You already liked this post",
-			Param:   "postId",
+	// Idempotent: only insert if not already liked
+	if likeExists != 1 {
+		now := time.Now().UTC()
+
+		postLike := model.ServerPostLikes{
+			Id:             uuid.New(),
+			PostId:         postId,
+			UserId:         userId,
+			CreateDatetime: now,
+			UpdateDatetime: now,
+			CreateUserId:   userId,
+			UpdateUserId:   userId,
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "LikePost")
-		return response, err
+
+		err = usecase.PostRepository.CreatePostLike(ctxContext, postLike)
+		if err != nil {
+			return response, err
+		}
 	}
 
-	now := time.Now().UTC()
-
-	postLike := model.ServerPostLikes{
-		Id:             uuid.New(),
-		PostId:         postId,
-		UserId:         userId,
-		CreateDatetime: now,
-		UpdateDatetime: now,
-		CreateUserId:   userId,
-		UpdateUserId:   userId,
-	}
-
-	err = usecase.PostRepository.CreatePostLike(ctxContext, postLike)
+	// Get like count (single query, no MinIO needed)
+	likeCount, err := usecase.PostRepository.GetPostLikeCount(ctxContext, postId)
 	if err != nil {
 		return response, err
 	}
 
-	// Fetch updated post to get new like count
-	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
-	post, err := usecase.PostRepository.GetPost(ctxContext, postId, MINIO_FULL_URL)
-	if err != nil {
-		return response, err
-	}
-
-	response.LikeCount = post.LikeCount
+	response.LikeCount = likeCount
 	return response, nil
 }
 
@@ -697,29 +689,21 @@ func (usecase *PostUsecase) UnlikePost(ctx fiber.Ctx, postIdParam string, userId
 		return response, err
 	}
 
-	if likeExists != 1 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "You haven't liked this post yet",
-			Param:   "postId",
+	// Idempotent: only delete if already liked
+	if likeExists == 1 {
+		err = usecase.PostRepository.DeletePostLike(ctxContext, postId, userId)
+		if err != nil {
+			return response, err
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UnlikePost")
-		return response, err
 	}
 
-	err = usecase.PostRepository.DeletePostLike(ctxContext, postId, userId)
+	// Get like count (single query, no MinIO needed)
+	likeCount, err := usecase.PostRepository.GetPostLikeCount(ctxContext, postId)
 	if err != nil {
 		return response, err
 	}
 
-	// Fetch updated post to get new like count
-	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
-	post, err := usecase.PostRepository.GetPost(ctxContext, postId, MINIO_FULL_URL)
-	if err != nil {
-		return response, err
-	}
-
-	response.LikeCount = post.LikeCount
+	response.LikeCount = likeCount
 	return response, nil
 }
 
@@ -835,10 +819,16 @@ func (usecase *PostUsecase) CreateComment(ctx fiber.Ctx, postIdParam string, use
 		return response, err
 	}
 
+	username, err := usecase.PostRepository.GetAuthorNameById(ctxContext, userId)
+	if err != nil {
+		return response, err
+	}
+
 	// Construct response from the created comment
 	response = model.ServerCommentResponse{
 		Id:             commentId,
 		AuthorId:       userId,
+		AuthorName:     username,
 		ParentId:       parentCommentId,
 		Content:        payload.Content,
 		CreateDatetime: now,
@@ -919,8 +909,10 @@ func (usecase *PostUsecase) GetComments(ctx fiber.Ctx, postIdParam string, userI
 		}
 	}
 
+	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
+
 	// Fetch limit + 1 to check if there's more data
-	comments, err := usecase.PostRepository.GetComments(ctxContext, limit+1, postId, &serverCommentCursor)
+	comments, err := usecase.PostRepository.GetComments(ctxContext, limit+1, postId, &serverCommentCursor, MINIO_FULL_URL)
 	if err != nil {
 		return response, err
 	}

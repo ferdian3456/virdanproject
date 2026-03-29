@@ -30,13 +30,16 @@ func NewAuthMiddleware(app *fiber.App, zap *zap.Logger, koanf *koanf.Koanf, user
 
 func (middleware *AuthMiddleware) ProtectedRoute() fiber.Handler {
 	return func(ctx fiber.Ctx) error {
-		var validationErr *model.ValidationError
 
 		accessToken := ctx.Get("Authorization")
 		tokenString, userId, err := util.ValidateAccessToken(accessToken, middleware.Log, middleware.Config.String("JWT_SECRET_KEY"))
 		if err != nil {
-			if errors.As(err, &validationErr) {
-				return util.SendErrorResponseNotFound(ctx, err)
+			var unauthorizedErr *model.UnauthorizedError
+			if errors.As(err, &unauthorizedErr) {
+				middleware.Log.Debug("unauthorized access attempt", zap.Error(err))
+				return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+					"error": unauthorizedErr,
+				})
 			}
 
 			return util.SendErrorResponseInternalServer(ctx, middleware.Log, err)
@@ -44,8 +47,12 @@ func (middleware *AuthMiddleware) ProtectedRoute() fiber.Handler {
 
 		err = middleware.UserUsecase.GetAccessToken(ctx, userId, tokenString)
 		if err != nil {
-			if errors.As(err, &validationErr) {
-				return util.SendErrorResponseNotFound(ctx, err)
+			var unauthorizedErr *model.UnauthorizedError
+			if errors.As(err, &unauthorizedErr) {
+				middleware.Log.Debug("unauthorized access attempt - token not in cache", zap.Error(err))
+				return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+					"error": unauthorizedErr,
+				})
 			}
 
 			return util.SendErrorResponseInternalServer(ctx, middleware.Log, err)

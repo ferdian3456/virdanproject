@@ -466,3 +466,46 @@ func (controller UserController) UpdateBio(ctx fiber.Ctx) error {
 
 	return util.SendSuccessResponseNoData(ctx)
 }
+
+// RefreshToken godoc
+// @Summary      Refresh access token
+// @Description  Use refresh token to get new access token (with token rotation)
+// @Description.markdown refresh_token
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body body model.RefreshTokenRefreshRequest true "Refresh token"
+// @Success      200   {object}  model.TokenResponse
+// @Failure      400   {object}  model.ValidationError
+// @Failure      401   {object}  model.UnauthorizedError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /auth/refresh [post]
+func (controller UserController) RefreshToken(ctx fiber.Ctx) error {
+	var payload model.RefreshTokenRefreshRequest
+	err := util.ReadRequestBody(ctx, &payload)
+	if err != nil {
+		return util.SendErrorResponse(ctx, &model.ValidationError{
+			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
+			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
+		})
+	}
+
+	var validationErr *model.ValidationError
+	var unauthorizedErr *model.UnauthorizedError
+
+	response, err := controller.UserUsecase.RefreshToken(ctx, payload)
+	if err != nil {
+		if errors.As(err, &validationErr) {
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "UserController.RefreshToken")
+		}
+		if errors.As(err, &unauthorizedErr) {
+			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": unauthorizedErr,
+			})
+		}
+
+		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	}
+
+	return util.SendSuccessResponseWithData(ctx, response)
+}
