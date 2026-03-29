@@ -279,7 +279,7 @@ func (usecase *UserUsecase) Login(ctx fiber.Ctx, payload model.UserLoginRequest)
 	} else if len(payload.Username) > 22 {
 		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "username must be at most 22 characters",
+			Message: "Username must be at most 22 characters",
 			Param:   "username",
 		}
 		util.RecordValidationError(ctxContext, usecase.Log, span, err, "Login")
@@ -338,9 +338,36 @@ func (usecase *UserUsecase) Login(ctx fiber.Ctx, payload model.UserLoginRequest)
 		return token, err
 	}
 
-	err = usecase.UserRepository.SetAuthTokenInCache(ctxContext, token.AccessToken, token.RefreshToken, userId)
+	now := time.Now().UTC()
+
+	// Create refresh token in database
+	refreshTokenHash := util.HashToken(token.RefreshToken)
+	refreshTokenExpiresAt := now.Add(util.RefreshTokenDuration)
+	tokenFamily := uuid.New().String()
+
+	refreshTokenCreate := model.RefreshTokenCreate{
+		Id:          uuid.New(),
+		UserId:      userId,
+		TokenHash:   refreshTokenHash,
+		TokenFamily: tokenFamily,
+		ExpiresAt:   refreshTokenExpiresAt,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		CreatedBy:   userId,
+	}
+
+	err = usecase.UserRepository.CreateRefreshTokenNoTx(ctxContext, refreshTokenCreate)
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to set auth token in cache", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to create refresh token", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return token, err
+	}
+
+	// Store access token in Redis cache only
+	err = usecase.UserRepository.SetAccessTokenInCache(ctxContext, token.AccessToken, userId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to set access token in cache", zap.Error(err))
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		return token, err
@@ -396,8 +423,8 @@ func (usecase *UserUsecase) GetAccessToken(ctx fiber.Ctx, userId uuid.UUID, acce
 	hashedTokenFromClient := util.HashToken(accessToken)
 
 	if hashedTokenFromClient != hashedTokenFromCache {
-		err := &model.ValidationError{
-			Code:    constant.ERR_NOT_FOUND_ERROR,
+		err := &model.UnauthorizedError{
+			Code:    constant.ERR_UNAUTHORIZED_ERROR,
 			Message: "Authorization token is expired",
 			Param:   "accessToken",
 		}
@@ -418,7 +445,19 @@ func (usecase *UserUsecase) Logout(ctx fiber.Ctx, userId uuid.UUID) error {
 
 	span.SetAttributes(attribute.String("user.id", userId.String()))
 
-	err := usecase.UserRepository.RemoveAuthToken(ctxContext, userId)
+	now := time.Now().UTC()
+
+	// Revoke all refresh tokens for this user
+	err := usecase.UserRepository.RevokeAllRefreshTokensByUserId(ctxContext, userId, now, now, userId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to revoke refresh tokens", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	// Remove access token from Redis cache
+	err = usecase.UserRepository.RemoveAuthToken(ctxContext, userId)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
@@ -756,20 +795,20 @@ func (usecase *UserUsecase) VerifyOtp(ctx fiber.Ctx, payload model.UserVerifyOTP
 		return err
 	}
 
-	if subtle.ConstantTimeCompare([]byte(otpHash), []byte(util.HashSHA256(payload.OTP))) != 1 {
+	if time.Now().Unix() > otpExpiresAt {
 		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Otp does not match",
+			Message: "Otp is expired",
 			Param:   "otp",
 		}
 		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyOtp")
 		return err
 	}
 
-	if time.Now().Unix() > otpExpiresAt {
+	if subtle.ConstantTimeCompare([]byte(otpHash), []byte(util.HashSHA256(payload.OTP))) != 1 {
 		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Otp is expired",
+			Message: "Otp does not match",
 			Param:   "otp",
 		}
 		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyOtp")
@@ -1205,9 +1244,34 @@ func (usecase *UserUsecase) VerifyPassword(ctx fiber.Ctx, payload model.UserVeri
 		return token, err
 	}
 
-	err = usecase.UserRepository.SetAuthTokenInCache(ctxContext, token.AccessToken, token.RefreshToken, userId)
+	// Create refresh token in database
+	refreshTokenHash := util.HashToken(token.RefreshToken)
+	refreshTokenExpiresAt := now.Add(util.RefreshTokenDuration)
+	tokenFamily := uuid.New().String()
+
+	refreshTokenCreate := model.RefreshTokenCreate{
+		Id:          uuid.New(),
+		UserId:      userId,
+		TokenHash:   refreshTokenHash,
+		TokenFamily: tokenFamily,
+		ExpiresAt:   refreshTokenExpiresAt,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		CreatedBy:   userId,
+	}
+
+	err = usecase.UserRepository.CreateRefreshTokenNoTx(ctxContext, refreshTokenCreate)
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to set auth token in cache", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to create refresh token", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return token, err
+	}
+
+	// Store access token in Redis cache only
+	err = usecase.UserRepository.SetAccessTokenInCache(ctxContext, token.AccessToken, userId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to set access token in cache", zap.Error(err))
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		return token, err
@@ -1414,4 +1478,164 @@ func (usecase *UserUsecase) UpdateBio(ctx fiber.Ctx, userId uuid.UUID, payload m
 	}
 
 	return nil
+}
+
+func (usecase *UserUsecase) RefreshToken(ctx fiber.Ctx, payload model.RefreshTokenRefreshRequest) (model.TokenResponse, error) {
+	ctxContext := ctx.Context()
+	response := model.TokenResponse{}
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	tracer := otel.Tracer(serviceName + "-usecase")
+	ctxContext, span := tracer.Start(ctxContext, "usecase.RefreshToken")
+	defer span.End()
+
+	// Validate refresh token
+	if payload.RefreshToken == "" {
+		err := &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Refresh token is required to not be empty",
+			Param:   "refreshToken",
+		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "RefreshToken")
+		return response, err
+	}
+
+	// Hash the refresh token to find it in database
+	tokenHash := util.HashToken(payload.RefreshToken)
+
+	// Get refresh token from database
+	refreshToken, err := usecase.UserRepository.GetRefreshTokenByHash(ctxContext, tokenHash)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to get refresh token by hash", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return response, err
+	}
+
+	// Check if token is revoked
+	// If revoked, this could indicate token theft - security escalation
+	if refreshToken.RevokedAt != nil {
+		// SECURITY ESCALATION: Revoke ALL refresh tokens for this user
+		// This kicks out any attacker who may have stolen a token
+		now := time.Now().UTC()
+		err := usecase.UserRepository.RevokeAllRefreshTokensByUserId(ctxContext, refreshToken.UserId, now, now, refreshToken.UserId)
+		if err != nil {
+			util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to revoke all tokens after revoked token detection", zap.Error(err))
+			// Log error but continue - still return unauthorized to client
+		}
+
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Warn("Possible token theft detected - attempt to use revoked refresh token",
+			zap.String("userId", refreshToken.UserId.String()),
+			zap.String("tokenFamily", refreshToken.TokenFamily),
+			zap.Time("revokedAt", *refreshToken.RevokedAt),
+		)
+
+		err = &model.UnauthorizedError{
+			Code:    constant.ERR_UNAUTHORIZED_ERROR,
+			Message: "Session expired. Please login again.",
+			Param:   "refreshToken",
+		}
+		return response, err
+	}
+
+	// Check if token is expired
+	if time.Now().UTC().After(refreshToken.ExpiresAt) {
+		err := &model.UnauthorizedError{
+			Code:    constant.ERR_UNAUTHORIZED_ERROR,
+			Message: "Refresh token is expired",
+			Param:   "refreshToken",
+		}
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Warn("Attempt to use expired refresh token",
+			zap.String("userId", refreshToken.UserId.String()),
+			zap.String("tokenFamily", refreshToken.TokenFamily),
+		)
+		return response, err
+	}
+
+	// Start transaction for atomic operations
+	tx, err := usecase.DB.Begin(ctxContext)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to begin transaction", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return response, err
+	}
+	defer func() {
+		_ = tx.Rollback(ctxContext)
+	}()
+
+	// Token rotation: revoke all tokens in the same family
+	now := time.Now().UTC()
+	err = usecase.UserRepository.RevokeRefreshTokensByFamily(ctxContext, tx, refreshToken.UserId, refreshToken.TokenFamily, now, now, refreshToken.UserId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to revoke old refresh tokens", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return response, err
+	}
+
+	// Generate new token family for security (new family = new session lineage)
+	newTokenFamily := uuid.New().String()
+
+	// Generate new access token
+	jwtSecretKey := usecase.Config.String("JWT_SECRET_KEY")
+	accessToken, err := util.GenerateAccessToken(refreshToken.UserId, jwtSecretKey)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate access token", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return response, err
+	}
+
+	// Generate new refresh token
+	newRefreshToken := uuid.New().String()
+	newRefreshTokenHash := util.HashToken(newRefreshToken)
+	newExpiresAt := now.Add(util.RefreshTokenDuration)
+
+	// Create refresh token record
+	refreshTokenCreate := model.RefreshTokenCreate{
+		Id:          uuid.New(),
+		UserId:      refreshToken.UserId,
+		TokenHash:   newRefreshTokenHash,
+		TokenFamily: newTokenFamily,
+		ExpiresAt:   newExpiresAt,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		CreatedBy:   refreshToken.UserId,
+	}
+
+	err = usecase.UserRepository.CreateRefreshToken(ctxContext, tx, refreshTokenCreate)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to create new refresh token", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return response, err
+	}
+
+	// Set new tokens in cache
+	err = usecase.UserRepository.SetAccessTokenInCache(ctxContext, accessToken, refreshToken.UserId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to set new tokens in cache", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return response, err
+	}
+
+	// Commit transaction
+	err = tx.Commit(ctxContext)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return response, err
+	}
+
+	response = model.TokenResponse{
+		AccessToken:           accessToken,
+		AccessTokenExpiresIn:  int(util.AccessTokenDuration.Seconds()),
+		RefreshToken:          newRefreshToken,
+		RefreshTokenExpiresIn: int(util.RefreshTokenDuration.Seconds()),
+		TokenType:             "Bearer",
+	}
+
+	return response, nil
 }

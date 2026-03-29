@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	BearerPrefix            = "Bearer "
+	BearerPrefix = "Bearer "
 	// #nosec G101 -- TokenIssuer is a public identifier, not a credential
 	TokenIssuer             = "github.com/ferdian3456/virdanproject"
 	AccessTokenDuration     = 15 * time.Minute
@@ -58,12 +58,6 @@ func GenerateAccessToken(userId uuid.UUID, jwtSecretKey string) (string, error) 
 	return signedToken, nil
 }
 
-// GenerateRefreshToken creates a unique refresh token
-// Note: This should be stored server-side with expiration time and user association
-func GenerateRefreshToken() string {
-	return uuid.New().String()
-}
-
 // GenerateTokenPair creates both access and refresh tokens for a user
 func GenerateTokenPair(userId uuid.UUID, jwtSecretKey string) (model.TokenResponse, error) {
 	accessToken, err := GenerateAccessToken(userId, jwtSecretKey)
@@ -71,7 +65,7 @@ func GenerateTokenPair(userId uuid.UUID, jwtSecretKey string) (model.TokenRespon
 		return model.TokenResponse{}, err
 	}
 
-	refreshToken := GenerateRefreshToken()
+	refreshToken := uuid.New().String()
 
 	return model.TokenResponse{
 		AccessToken:           accessToken,
@@ -82,10 +76,11 @@ func GenerateTokenPair(userId uuid.UUID, jwtSecretKey string) (model.TokenRespon
 	}, nil
 }
 
-// ValidateAccessToken validates a JWT access token and returns the user ID
+// ValidateAccessToken validates a JWT access token and returns the token string and user ID
 func ValidateAccessToken(accessToken string, log *zap.Logger, jwtSecretKey string) (string, uuid.UUID, error) {
 	if jwtSecretKey == "" {
-		return "", uuid.Nil, errors.New("jwt secret key is not configured")
+		log.Error("JWT secret key is not configured")
+		return "", uuid.Nil, errors.New("JWT secret key is not configured")
 	}
 
 	// Extract token from Authorization header
@@ -95,7 +90,7 @@ func ValidateAccessToken(accessToken string, log *zap.Logger, jwtSecretKey strin
 	}
 
 	// Don't log the full token - security risk
-	log.Debug("validating access token", zap.String("accessToken", accessToken[:20]))
+	log.Debug("validating access token", zap.String("accessToken", accessToken[:10]))
 
 	// Parse token with custom claims
 	token, err := jwt.ParseWithClaims(tokenString, &model.Claims{}, func(token *jwt.Token) (interface{}, error) {
@@ -107,16 +102,16 @@ func ValidateAccessToken(accessToken string, log *zap.Logger, jwtSecretKey strin
 	})
 
 	if err != nil {
-		return "", uuid.Nil, handleParseError(err)
+		return "", uuid.Nil, handleAuthParseError(err)
 	}
 
 	// Extract and validate claims
 	claims, ok := token.Claims.(*model.Claims)
 	if !ok || !token.Valid {
-		return "", uuid.Nil, &model.ValidationError{
-			Code:    constant.ERR_UNATHORIZED_ERROR,
+		return "", uuid.Nil, &model.UnauthorizedError{
+			Code:    constant.ERR_UNAUTHORIZED_ERROR,
 			Message: "Authentication token is invalid",
-			Param:   "accessToken",
+			Param:   tokenString,
 		}
 	}
 
@@ -126,63 +121,63 @@ func ValidateAccessToken(accessToken string, log *zap.Logger, jwtSecretKey strin
 // extractBearerToken extracts the token from "Bearer <token>" format
 func extractBearerToken(authHeader string) (string, error) {
 	if authHeader == "" {
-		return "", &model.ValidationError{
-			Code:    constant.ERR_UNATHORIZED_ERROR,
+		return "", &model.UnauthorizedError{
+			Code:    constant.ERR_UNAUTHORIZED_ERROR,
 			Message: "No authentication token is provided",
-			Param:   "accessToken",
+			Param:   "authorization",
 		}
 	}
 
 	if !strings.HasPrefix(authHeader, BearerPrefix) {
-		return "", &model.ValidationError{
-			Code:    constant.ERR_UNATHORIZED_ERROR,
+		return "", &model.UnauthorizedError{
+			Code:    constant.ERR_UNAUTHORIZED_ERROR,
 			Message: "Authentication token format is not match",
-			Param:   "accessToken",
+			Param:   "authorization",
 		}
 	}
 
 	token := strings.TrimPrefix(authHeader, BearerPrefix)
 	if token == "" {
-		return "", &model.ValidationError{
-			Code:    constant.ERR_UNATHORIZED_ERROR,
+		return "", &model.UnauthorizedError{
+			Code:    constant.ERR_UNAUTHORIZED_ERROR,
 			Message: "Authentication token is empty",
-			Param:   "accessToken",
+			Param:   "authorization",
 		}
 	}
 
 	return token, nil
 }
 
-// handleParseError converts JWT parsing errors to ValidationError
-func handleParseError(err error) error {
+// handleAuthParseError converts JWT parsing errors to UnauthorizedError
+func handleAuthParseError(err error) error {
 	switch {
 	case errors.Is(err, jwt.ErrTokenMalformed):
-		return &model.ValidationError{
-			Code:    constant.ERR_UNATHORIZED_ERROR,
+		return &model.UnauthorizedError{
+			Code:    constant.ERR_UNAUTHORIZED_ERROR,
 			Message: "Authentication token is malformed",
 			Param:   "accessToken",
 		}
 	case errors.Is(err, jwt.ErrTokenExpired):
-		return &model.ValidationError{
-			Code:    constant.ERR_UNATHORIZED_ERROR,
+		return &model.UnauthorizedError{
+			Code:    constant.ERR_UNAUTHORIZED_ERROR,
 			Message: "Authentication token is expired",
 			Param:   "accessToken",
 		}
 	case errors.Is(err, jwt.ErrTokenNotValidYet):
-		return &model.ValidationError{
-			Code:    constant.ERR_UNATHORIZED_ERROR,
+		return &model.UnauthorizedError{
+			Code:    constant.ERR_UNAUTHORIZED_ERROR,
 			Message: "Authentication token is not valid yet",
 			Param:   "accessToken",
 		}
 	case errors.Is(err, ErrInvalidSigningMethod):
-		return &model.ValidationError{
-			Code:    constant.ERR_UNATHORIZED_ERROR,
+		return &model.UnauthorizedError{
+			Code:    constant.ERR_UNAUTHORIZED_ERROR,
 			Message: "Authentication token has invalid signing method",
 			Param:   "accessToken",
 		}
 	default:
-		return &model.ValidationError{
-			Code:    constant.ERR_UNATHORIZED_ERROR,
+		return &model.UnauthorizedError{
+			Code:    constant.ERR_UNAUTHORIZED_ERROR,
 			Message: "Authentication token is invalid",
 			Param:   "accessToken",
 		}

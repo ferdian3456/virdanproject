@@ -175,6 +175,35 @@ func (repository *PostRepository) CheckPostOwnership(ctx context.Context, postId
 	return exists, nil
 }
 
+func (repository *PostRepository) GetAuthorNameById(ctx context.Context, userId uuid.UUID) (string, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.GetAuthorNameById")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("user.id", userId.String()),
+	)
+
+	query := "SELECT username FROM users WHERE id = $1"
+
+	var username string
+	err := repository.DB.QueryRow(ctx, query, userId).Scan(&username)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return username, nil
+		}
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get author name", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return username, err
+	}
+
+	return username, nil
+}
+
 func (repository *PostRepository) UpdatePostCaption(ctx context.Context, postId uuid.UUID, caption string, updateUserId uuid.UUID, updateDatetime time.Time) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	tr := otel.Tracer(serviceName + "-repository")
@@ -309,7 +338,7 @@ func (repository *PostRepository) DeletePostObject(ctx context.Context, bucketNa
 	return nil
 }
 
-func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int, serverId uuid.UUID, cursor *model.ServerPostCursor, minioFullUrl string) ([]model.ServerPostResponse, error) {
+func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int, serverId uuid.UUID, userId uuid.UUID, cursor *model.ServerPostCursor, minioFullUrl string) ([]model.ServerPostResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	tr := otel.Tracer(serviceName + "-repository")
 	ctx, span := tr.Start(ctx, "repository.GetServerPosts")
@@ -319,6 +348,7 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
 		attribute.String("db.operation", "SELECT"),
 		attribute.String("server.id", serverId.String()),
+		attribute.String("user.id", userId.String()),
 	)
 
 	var rows pgx.Rows
@@ -328,12 +358,13 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 	if cursor.Id != uuid.Nil && !cursor.CreateDatetime.IsZero() {
 		// Query with cursor for pagination
 		queryWithCursor := `
-			SELECT sp.author_id, us.username,uai.object_key,sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
+			SELECT sp.author_id, us.username, uai.object_key, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
 			       COALESCE(comment_counts.comment_count, 0) as comment_count,
-			       COALESCE(like_counts.like_count, 0) as like_count
+			       COALESCE(like_counts.like_count, 0) as like_count,
+			       user_likes.user_id is not null as is_liked
 			FROM server_posts sp
 			INNER JOIN users us ON sp.author_id = us.id
-			LEFT JOIN user_avatar_images uai ON us.id= uai.user_id
+			LEFT JOIN user_avatar_images uai ON us.id = uai.user_id
 			INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
 			LEFT JOIN (
 				SELECT post_id, COUNT(*) as comment_count
@@ -345,21 +376,23 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 				FROM server_post_likes
 				GROUP BY post_id
 			) like_counts ON sp.id = like_counts.post_id
+			LEFT JOIN server_post_likes user_likes ON sp.id = user_likes.post_id AND user_likes.user_id = $5
 			WHERE sp.server_id = $1
 			AND (sp.create_datetime < $2 OR (sp.create_datetime = $2 AND sp.id < $3))
 			ORDER BY sp.create_datetime DESC, sp.id DESC
 			LIMIT $4
 		`
-		rows, err = repository.DB.Query(ctx, queryWithCursor, serverId, cursor.CreateDatetime, cursor.Id, limit)
+		rows, err = repository.DB.Query(ctx, queryWithCursor, serverId, cursor.CreateDatetime, cursor.Id, limit, userId)
 	} else {
 		// Query without cursor for first page
 		query := `
-			SELECT sp.author_id, us.username,uai.object_key,sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
+			SELECT sp.author_id, us.username, uai.object_key, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
 			       COALESCE(comment_counts.comment_count, 0) as comment_count,
-			       COALESCE(like_counts.like_count, 0) as like_count
+			       COALESCE(like_counts.like_count, 0) as like_count,
+			       user_likes.user_id is not null as is_liked
 			FROM server_posts sp
 			INNER JOIN users us ON sp.author_id = us.id
-			LEFT JOIN user_avatar_images uai ON us.id= uai.user_id
+			LEFT JOIN user_avatar_images uai ON us.id = uai.user_id
 			INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
 			LEFT JOIN (
 				SELECT post_id, COUNT(*) as comment_count
@@ -371,11 +404,12 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 				FROM server_post_likes
 				GROUP BY post_id
 			) like_counts ON sp.id = like_counts.post_id
+			LEFT JOIN server_post_likes user_likes ON sp.id = user_likes.post_id AND user_likes.user_id = $3
 			WHERE sp.server_id = $1
 			ORDER BY sp.create_datetime DESC, sp.id DESC
 			LIMIT $2
 		`
-		rows, err = repository.DB.Query(ctx, query, serverId, limit)
+		rows, err = repository.DB.Query(ctx, query, serverId, limit, userId)
 	}
 
 	if err != nil {
@@ -390,7 +424,7 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 
 	for rows.Next() {
 		var post model.ServerPostResponse
-		err := rows.Scan(&post.OwnerId, &post.OwnerName, &post.OwnerImageUrl, &post.PostId, &post.PostImageUrl, &post.Caption, &post.CreateDatetime, &post.UpdateDatetime, &post.CommentCount, &post.LikeCount)
+		err := rows.Scan(&post.OwnerId, &post.OwnerName, &post.OwnerImageUrl, &post.PostId, &post.PostImageUrl, &post.Caption, &post.CreateDatetime, &post.UpdateDatetime, &post.CommentCount, &post.LikeCount, &post.IsLiked)
 		if err != nil {
 			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan server post row", zap.Error(err))
 			span.RecordError(err)
@@ -409,7 +443,7 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 	return posts, nil
 }
 
-func (repository *PostRepository) GetPost(ctx context.Context, postId uuid.UUID, minioFullUrl string) (model.ServerPostResponse, error) {
+func (repository *PostRepository) GetPost(ctx context.Context, postId uuid.UUID, userId uuid.UUID, minioFullUrl string) (model.ServerPostResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	tr := otel.Tracer(serviceName + "-repository")
 	ctx, span := tr.Start(ctx, "repository.GetPost")
@@ -419,13 +453,17 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId uuid.UUID,
 		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
 		attribute.String("db.operation", "SELECT"),
 		attribute.String("post.id", postId.String()),
+		attribute.String("user.id", userId.String()),
 	)
 
 	query := `
-		SELECT sp.author_id, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
+		SELECT sp.author_id, us.username, uai.object_key, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
 		       COALESCE(comment_counts.comment_count, 0) as comment_count,
-		       COALESCE(like_counts.like_count, 0) as like_count
+		       COALESCE(like_counts.like_count, 0) as like_count,
+		       user_likes.user_id is not null as is_liked
 		FROM server_posts sp
+		INNER JOIN users us ON sp.author_id = us.id
+		LEFT JOIN user_avatar_images uai ON us.id = uai.user_id
 		INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
 		LEFT JOIN (
 			SELECT post_id, COUNT(*) as comment_count
@@ -437,13 +475,14 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId uuid.UUID,
 			FROM server_post_likes
 			GROUP BY post_id
 		) like_counts ON sp.id = like_counts.post_id
+		LEFT JOIN server_post_likes user_likes ON sp.id = user_likes.post_id AND user_likes.user_id = $2
 		WHERE sp.id = $1
 	`
 
 	var post model.ServerPostResponse
-	err := repository.DB.QueryRow(ctx, query, postId).Scan(
-		&post.OwnerId, &post.PostId, &post.PostImageUrl, &post.Caption,
-		&post.CreateDatetime, &post.UpdateDatetime, &post.CommentCount, &post.LikeCount,
+	err := repository.DB.QueryRow(ctx, query, postId, userId).Scan(
+		&post.OwnerId, &post.OwnerName, &post.OwnerImageUrl, &post.PostId, &post.PostImageUrl, &post.Caption,
+		&post.CreateDatetime, &post.UpdateDatetime, &post.CommentCount, &post.LikeCount, &post.IsLiked,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -456,6 +495,9 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId uuid.UUID,
 	}
 
 	post.PostImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, post.PostImageUrl)
+	if post.OwnerImageUrl != nil {
+		*post.OwnerImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *post.OwnerImageUrl)
+	}
 
 	return post, nil
 }
@@ -488,6 +530,32 @@ func (repository *PostRepository) CheckPostLike(ctx context.Context, postId uuid
 	}
 
 	return exists, nil
+}
+
+func (repository *PostRepository) GetPostLikeCount(ctx context.Context, postId uuid.UUID) (int, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.GetPostLikeCount")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("post.id", postId.String()),
+	)
+
+	query := `SELECT COUNT(*) FROM server_post_likes WHERE post_id = $1`
+
+	var count int
+	err := repository.DB.QueryRow(ctx, query, postId).Scan(&count)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get post like count", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return count, err
+	}
+
+	return count, nil
 }
 
 func (repository *PostRepository) CreatePostLike(ctx context.Context, postLike model.ServerPostLikes) error {
@@ -662,7 +730,7 @@ func (repository *PostRepository) CreateComment(ctx context.Context, comment mod
 	return nil
 }
 
-func (repository *PostRepository) GetComments(ctx context.Context, limit int, postId uuid.UUID, cursor *model.ServerCommentCursor) ([]model.ServerCommentResponse, error) {
+func (repository *PostRepository) GetComments(ctx context.Context, limit int, postId uuid.UUID, cursor *model.ServerCommentCursor, minioFullUrl string) ([]model.ServerCommentResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	tr := otel.Tracer(serviceName + "-repository")
 	ctx, span := tr.Start(ctx, "repository.GetComments")
@@ -679,23 +747,33 @@ func (repository *PostRepository) GetComments(ctx context.Context, limit int, po
 
 	// Check if cursor is provided (not first page)
 	if cursor.Id != uuid.Nil && !cursor.CreateDatetime.IsZero() {
-		// Query with cursor for pagination
+		// Query with cursor for pagination - JOIN with users and user_avatar_images table
 		queryWithCursor := `
-			SELECT id, author_id, parent_id, content, create_datetime, update_datetime
-			FROM server_post_comments
-			WHERE post_id = $1
-			AND (create_datetime < $2 OR (create_datetime = $2 AND id < $3))
-			ORDER BY create_datetime DESC, id DESC
+			SELECT
+				c.id, c.author_id, c.parent_id, c.content, c.create_datetime, c.update_datetime,
+				u.username as author_name,
+				avatar.object_key as author_avatar
+			FROM server_post_comments c
+			INNER JOIN users u ON c.author_id = u.id
+			LEFT JOIN user_avatar_images avatar ON u.id = avatar.user_id
+			WHERE c.post_id = $1
+			AND (c.create_datetime < $2 OR (c.create_datetime = $2 AND c.id < $3))
+			ORDER BY c.create_datetime DESC, c.id DESC
 			LIMIT $4
 		`
 		rows, err = repository.DB.Query(ctx, queryWithCursor, postId, cursor.CreateDatetime, cursor.Id, limit)
 	} else {
-		// Query without cursor for first page
+		// Query without cursor for first page - JOIN with users and user_avatar_images table
 		query := `
-			SELECT id, author_id, parent_id, content, create_datetime, update_datetime
-			FROM server_post_comments
-			WHERE post_id = $1
-			ORDER BY create_datetime DESC, id DESC
+			SELECT
+				c.id, c.author_id, c.parent_id, c.content, c.create_datetime, c.update_datetime,
+				u.username as author_name,
+				avatar.object_key as author_avatar
+			FROM server_post_comments c
+			INNER JOIN users u ON c.author_id = u.id
+			LEFT JOIN user_avatar_images avatar ON u.id = avatar.user_id
+			WHERE c.post_id = $1
+			ORDER BY c.create_datetime DESC, c.id DESC
 			LIMIT $2
 		`
 		rows, err = repository.DB.Query(ctx, query, postId, limit)
@@ -713,12 +791,25 @@ func (repository *PostRepository) GetComments(ctx context.Context, limit int, po
 
 	for rows.Next() {
 		var comment model.ServerCommentResponse
-		err := rows.Scan(&comment.Id, &comment.AuthorId, &comment.ParentId, &comment.Content, &comment.CreateDatetime, &comment.UpdateDatetime)
+		err := rows.Scan(
+			&comment.Id,
+			&comment.AuthorId,
+			&comment.ParentId,
+			&comment.Content,
+			&comment.CreateDatetime,
+			&comment.UpdateDatetime,
+			&comment.AuthorName,
+			&comment.AuthorAvatar,
+		)
 		if err != nil {
 			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan comment row", zap.Error(err))
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
 			return nil, err
+		}
+
+		if comment.AuthorAvatar != nil {
+			*comment.AuthorAvatar = fmt.Sprintf("%s/%s", minioFullUrl, *comment.AuthorAvatar)
 		}
 
 		comments = append(comments, comment)

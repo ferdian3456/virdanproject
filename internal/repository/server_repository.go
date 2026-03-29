@@ -59,6 +59,24 @@ func (repository *ServerRepository) CreateServerRole(ctx context.Context, tx pgx
 	return nil
 }
 
+// GetRoleByName retrieves a role ID by server ID and role name (case-insensitive).
+// Returns uuid.Nil if role is not found.
+func (repository *ServerRepository) GetRoleByName(ctx context.Context, serverId uuid.UUID, roleName string) (uuid.UUID, error) {
+	query := "SELECT id FROM server_roles WHERE server_id = $1 AND LOWER(name) = LOWER($2) LIMIT 1"
+
+	var roleId uuid.UUID
+	err := repository.DB.QueryRow(ctx, query, serverId, roleName).Scan(&roleId)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return uuid.Nil, nil
+		}
+		repository.Log.Error("Failed to get role by name", zap.Error(err))
+		return uuid.Nil, err
+	}
+
+	return roleId, nil
+}
+
 func (repository *ServerRepository) CreateServerMember(ctx context.Context, tx pgx.Tx, serverMember model.ServerMember) error {
 	query := "INSERT INTO server_members (id, server_id, user_id, server_role_id, status, joined_datetime, left_datetime, create_datetime, update_datetime, create_user_id, update_user_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)"
 

@@ -231,14 +231,6 @@ jobs:
             coverage.html
           retention-days: 30
 
-      - name: Cleanup Docker containers
-        if: always()
-        run: |
-          echo "Cleaning up Docker containers..."
-          docker ps -q | xargs -r docker stop
-          docker ps -aq | xargs -r docker rm
-          echo "Docker cleanup completed"
-
       - name: Check test results
         if: always()
         run: |

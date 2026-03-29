@@ -14,15 +14,15 @@ import (
 func RunMigration(pgURL string, t *testing.T) error {
 	t.Log("Running database migrations...")
 
-	// Get current working directory
+	// Get current working directory (changes to test package dir during test execution)
 	wd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	// Go up 2 levels from integration folder to project root
-	// integration -> tests -> virdanproject (2 levels)
-	projectRoot := filepath.Join(wd, "..", "..")
+	// Go up 3 levels to reach project root
+	// tests/integration/auth -> tests/integration -> tests -> virdanproject (3 levels)
+	projectRoot := filepath.Join(wd, "..", "..", "..")
 	migrationPath := filepath.Join(projectRoot, "db", "migrations")
 
 	// Convert to absolute path

@@ -201,36 +201,12 @@ func (usecase *ServerUsecase) JoinServerFromInvite(ctx fiber.Ctx, userId uuid.UU
 
 	now := time.Now().UTC()
 
-	serverRoleId := uuid.New()
-
-	serverRole := model.ServerRole{
-		Id:             serverRoleId,
-		ServerId:       serverId,
-		Name:           model.MemberRole,
-		Permissions:    sonic.NoCopyRawMessage("{}"),
-		CreateDatetime: now,
-		UpdateDatetime: now,
-		CreateUserId:   userId,
-		UpdateUserId:   userId,
+	// Check if "Member" role already exists for this server (outside transaction)
+	// If exists, reuse the role ID; otherwise create a new one inside transaction
+	serverRoleId, err := usecase.ServerRepository.GetRoleByName(ctxContext, serverId, model.MemberRole)
+	if err != nil {
+		return err
 	}
-
-	serverMemberId := uuid.New()
-
-	serverMember := model.ServerMember{
-		Id:             serverMemberId,
-		ServerId:       serverId,
-		UserId:         userId,
-		ServerRoleId:   uuid.Nil,
-		Status:         model.MemberStatusActive,
-		JoinedDatetime: now,
-		LeftDatetime:   nil,
-		CreateDatetime: now,
-		UpdateDatetime: now,
-		CreateUserId:   userId,
-		UpdateUserId:   userId,
-	}
-
-	serverMember.ServerRoleId = serverRoleId
 
 	commited := false
 
@@ -249,9 +225,41 @@ func (usecase *ServerUsecase) JoinServerFromInvite(ctx fiber.Ctx, userId uuid.UU
 		}
 	}()
 
-	err = usecase.ServerRepository.CreateServerRole(ctxContext, tx, serverRole)
-	if err != nil {
-		return err
+	// If role doesn't exist, create it
+	if serverRoleId == uuid.Nil {
+		serverRoleId = uuid.New()
+
+		serverRole := model.ServerRole{
+			Id:             serverRoleId,
+			ServerId:       serverId,
+			Name:           model.MemberRole,
+			Permissions:    sonic.NoCopyRawMessage("{}"),
+			CreateDatetime: now,
+			UpdateDatetime: now,
+			CreateUserId:   userId,
+			UpdateUserId:   userId,
+		}
+
+		err = usecase.ServerRepository.CreateServerRole(ctxContext, tx, serverRole)
+		if err != nil {
+			return err
+		}
+	}
+
+	serverMemberId := uuid.New()
+
+	serverMember := model.ServerMember{
+		Id:             serverMemberId,
+		ServerId:       serverId,
+		UserId:         userId,
+		ServerRoleId:   serverRoleId,
+		Status:         model.MemberStatusActive,
+		JoinedDatetime: now,
+		LeftDatetime:   nil,
+		CreateDatetime: now,
+		UpdateDatetime: now,
+		CreateUserId:   userId,
+		UpdateUserId:   userId,
 	}
 
 	err = usecase.ServerRepository.CreateServerMember(ctxContext, tx, serverMember)
@@ -977,33 +985,12 @@ func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId uuid.UUID) error 
 	}
 
 	now := time.Now().UTC()
-	serverRoleId := uuid.New()
 
-	serverRole := model.ServerRole{
-		Id:             serverRoleId,
-		ServerId:       serverId,
-		Name:           model.MemberRole,
-		Permissions:    sonic.NoCopyRawMessage("{}"),
-		CreateDatetime: now,
-		UpdateDatetime: now,
-		CreateUserId:   userId,
-		UpdateUserId:   userId,
-	}
-
-	serverMemberId := uuid.New()
-
-	serverMember := model.ServerMember{
-		Id:             serverMemberId,
-		ServerId:       serverId,
-		UserId:         userId,
-		ServerRoleId:   serverRoleId,
-		Status:         model.MemberStatusActive,
-		JoinedDatetime: now,
-		LeftDatetime:   nil,
-		CreateDatetime: now,
-		UpdateDatetime: now,
-		CreateUserId:   userId,
-		UpdateUserId:   userId,
+	// Check if "Member" role already exists for this server (outside transaction)
+	// If exists, reuse the role ID; otherwise create a new one inside transaction
+	serverRoleId, err := usecase.ServerRepository.GetRoleByName(ctxContext, serverId, model.MemberRole)
+	if err != nil {
+		return err
 	}
 
 	commited := false
@@ -1021,9 +1008,41 @@ func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId uuid.UUID) error 
 		}
 	}()
 
-	err = usecase.ServerRepository.CreateServerRole(ctxContext, tx, serverRole)
-	if err != nil {
-		return err
+	// If role doesn't exist, create it
+	if serverRoleId == uuid.Nil {
+		serverRoleId = uuid.New()
+
+		serverRole := model.ServerRole{
+			Id:             serverRoleId,
+			ServerId:       serverId,
+			Name:           model.MemberRole,
+			Permissions:    sonic.NoCopyRawMessage("{}"),
+			CreateDatetime: now,
+			UpdateDatetime: now,
+			CreateUserId:   userId,
+			UpdateUserId:   userId,
+		}
+
+		err = usecase.ServerRepository.CreateServerRole(ctxContext, tx, serverRole)
+		if err != nil {
+			return err
+		}
+	}
+
+	serverMemberId := uuid.New()
+
+	serverMember := model.ServerMember{
+		Id:             serverMemberId,
+		ServerId:       serverId,
+		UserId:         userId,
+		ServerRoleId:   serverRoleId,
+		Status:         model.MemberStatusActive,
+		JoinedDatetime: now,
+		LeftDatetime:   nil,
+		CreateDatetime: now,
+		UpdateDatetime: now,
+		CreateUserId:   userId,
+		UpdateUserId:   userId,
 	}
 
 	err = usecase.ServerRepository.CreateServerMember(ctxContext, tx, serverMember)

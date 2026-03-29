@@ -36,6 +36,8 @@ type ServerCommentListResponse struct {
 type ServerCommentResponse struct {
 	Id             uuid.UUID  `json:"id"`
 	AuthorId       uuid.UUID  `json:"authorId"`
+	AuthorName     string     `json:"authorName"`
+	AuthorAvatar   *string    `json:"authorAvatar"`
 	ParentId       *uuid.UUID `json:"parentId"`
 	Content        string     `json:"content"`
 	CreateDatetime time.Time  `json:"createDatetime"`

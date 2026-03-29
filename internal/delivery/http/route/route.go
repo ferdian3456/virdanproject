@@ -72,7 +72,7 @@ func (c *RouteConfig) SetupRoute() {
 	authGroup.Post("/signup/resend-otp", c.UserController.ResendOtp)
 	//authGroup.Post("/register", c.UserController.Register)
 	authGroup.Post("/login", c.UserController.Login)
-	//authGroup.Post("/refresh", c.UserController.Refresh)
+	authGroup.Post("/refresh", c.UserController.RefreshToken)
 	//authGroup.Post("/forgot-password", c.UserController.ForgotPassword)
 	//authGroup.Post("/reset-password", c.UserController.ResetPassword)
 
@@ -86,6 +86,12 @@ func (c *RouteConfig) SetupRoute() {
 	//userGroup.Patch("/password", c.UserController.ChangePassword)
 	//userGroup.Delete("/account", c.UserController.DeleteAccount)
 
+	// Public server routes (NO AUTH) - must be defined BEFORE protected routes
+	// to ensure Fiber matches these routes first
+	serverPublicGroup := api.Group("/servers")
+	serverPublicGroup.Get("/invites/:inviteCode", c.ServerController.GetServerInfoForInvite)
+
+	// Protected server routes (require auth)
 	serverGroup := api.Group("/servers", c.AuthMiddleware.ProtectedRoute())
 
 	// Post routes (must be FIRST to avoid conflicts with /:id routes)
@@ -124,7 +130,4 @@ func (c *RouteConfig) SetupRoute() {
 	postGroup.Post("/:postId/comments", c.PostController.CreateComment)
 	postGroup.Get("/:postId/comments", c.PostController.GetComments)
 	postGroup.Delete("/:postId/comments/:commentId", c.PostController.DeleteComment)
-
-	serverPublicGroup := api.Group("/servers")
-	serverPublicGroup.Get("/invites/:inviteCode", c.ServerController.GetServerInfoForInvite)
 }
