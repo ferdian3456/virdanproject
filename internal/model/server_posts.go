@@ -50,3 +50,14 @@ type ServerPostResponse struct {
 type PostLikeResponse struct {
 	LikeCount int `json:"likeCount"`
 }
+
+type ServerPostForMeResponse struct {
+	Data []ServerPostForMe `json:"data"`
+	Page Page              `json:"page"`
+}
+
+type ServerPostForMe struct {
+	PostId         uuid.UUID `json:"postId"`
+	PostImageUrl   string    `json:"postImageUrl"`
+	CreateDatetime time.Time `json:"createDatetime"`
+}

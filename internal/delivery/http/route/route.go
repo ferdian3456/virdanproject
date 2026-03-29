@@ -121,6 +121,7 @@ func (c *RouteConfig) SetupRoute() {
 	serverGroup.Put("/:id/description", c.ServerController.UpdateServerDescription)
 	serverGroup.Put("/:id/settings", c.ServerController.UpdateServerSettings)
 	serverGroup.Delete("/:id", c.ServerController.DeleteServer)
+	serverGroup.Get("/:serverId/posts/me", c.PostController.GetServerPostForMe)
 
 	postGroup := api.Group("/posts", c.AuthMiddleware.ProtectedRoute())
 	postGroup.Get("/:postId", c.PostController.GetPost)

@@ -74,7 +74,7 @@ func (controller *PostController) CreatePost(ctx fiber.Ctx) error {
 // @Description.markdown update_post
 // @Tags         posts
 // @Accept       json
-// @Produce      json
+// @Produce      jsonParam
 // @Param        Authorization header string true "Bearer access token"
 // @Param        serverId path string true "Server UUID"
 // @Param        postId path string true "Post UUID"
@@ -105,6 +105,37 @@ func (controller *PostController) UpdatePost(ctx fiber.Ctx) error {
 	if err != nil {
 		if errors.As(err, &validationErr) {
 			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "PostController.UpdatePost")
+		}
+
+		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	}
+
+	return util.SendSuccessResponseWithData(ctx, response)
+}
+
+// GetServerPostForMe godoc
+// @Summary      Get server post for me
+// @Description.markdown get_server_post_for_me
+// @Tags         posts
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
+// @Success      200   {object}  model.ServerPostForMe
+// @Failure      400   {object}  model.ValidationError
+// @Failure 	 500   {object}  model.ValidationError
+// @Router       /servers/{serverId}/posts/me [get]
+func (controller *PostController) GetServerPostForMe(ctx fiber.Ctx) error {
+	userId := ctx.Locals("userId").(uuid.UUID)
+
+	serverIdParam := ctx.Params("serverId")
+
+	var validationErr *model.ValidationError
+
+	response, err := controller.PostUsecase.GetServerPostForMe(ctx, serverIdParam, userId)
+	if err != nil {
+		if errors.As(err, &validationErr) {
+			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "PostController.GetServerPostForMe")
 		}
 
 		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
