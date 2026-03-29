@@ -338,6 +338,76 @@ func (repository *PostRepository) DeletePostObject(ctx context.Context, bucketNa
 	return nil
 }
 
+func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit int, serverId uuid.UUID, userId uuid.UUID, cursor *model.ServerPostCursor, minioFullUrl string) ([]model.ServerPostForMe, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	tr := otel.Tracer(serviceName + "-repository")
+	ctx, span := tr.Start(ctx, "repository.GetServerPostForMe")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("server.id", serverId.String()),
+		attribute.String("user.id", userId.String()),
+	)
+
+	var rows pgx.Rows
+	var err error
+
+	// Check if cursor is provided (not first page)
+	if cursor.Id != uuid.Nil && !cursor.CreateDatetime.IsZero() {
+		// Query with cursor for pagination
+		queryWithCursor := `
+			SELECT A.id, B.object_key, A.create_datetime
+			FROM server_posts A
+			INNER JOIN server_post_images B ON A.post_image_id = B.id  
+			WHERE A.server_id = $1 AND A.author_id = $2 
+			AND (A.create_datetime < $3 OR (A.create_datetime = $3 AND A.id < $4))
+			ORDER BY A.create_datetime DESC, A.id DESC
+			LIMIT $5
+		`
+		rows, err = repository.DB.Query(ctx, queryWithCursor, serverId, userId, cursor.CreateDatetime, cursor.Id, limit)
+	} else {
+		// Query without cursor for first page
+		query := `
+			SELECT A.id, B.object_key, A.create_datetime
+			FROM server_posts A
+			INNER JOIN server_post_images B ON A.post_image_id = B.id  
+			WHERE A.server_id = $1 AND A.author_id = $2 
+			ORDER BY A.create_datetime DESC, A.id DESC
+			LIMIT $3
+		`
+		rows, err = repository.DB.Query(ctx, query, serverId, userId, limit)
+	}
+
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to query server posts for me", zap.Error(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return nil, err
+	}
+	defer rows.Close()
+
+	posts := []model.ServerPostForMe{}
+
+	for rows.Next() {
+		var post model.ServerPostForMe
+		err := rows.Scan(&post.PostId, &post.PostImageUrl, &post.CreateDatetime)
+		if err != nil {
+			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan server post for me row", zap.Error(err))
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+			return nil, err
+		}
+
+		post.PostImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, post.PostImageUrl)
+
+		posts = append(posts, post)
+	}
+
+	return posts, nil
+}
+
 func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int, serverId uuid.UUID, userId uuid.UUID, cursor *model.ServerPostCursor, minioFullUrl string) ([]model.ServerPostResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	tr := otel.Tracer(serviceName + "-repository")
