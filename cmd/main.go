@@ -49,6 +49,7 @@ func main() {
 	initCtx, initCancel := context.WithTimeout(context.Background(), 30*time.Second)
 
 	fiber := config.NewFiber()
+	fiber.Use(middleware.CORSMiddleware())
 	bootstrapZap := config.NewBootstrapZap()
 	koanf := config.NewKoanf(bootstrapZap)
 	zap := config.NewZap(initCtx, koanf, bootstrapZap)
@@ -78,8 +79,6 @@ func main() {
 	fiber.Use(middleware.TracingMiddleware(koanf))
 
 	fiber.Use(middleware.LoggingMiddleware(koanf, meterProvider, zap))
-
-	fiber.Use(middleware.CORSMiddleware())
 
 	config.Server(&config.ServerConfig{
 		Router:  fiber,
