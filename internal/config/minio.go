@@ -10,7 +10,7 @@ import (
 )
 
 func NewMinIO(ctx context.Context, config *koanf.Koanf, log *zap.Logger) *minio.Client {
-	minioClient, err := minio.New(config.String("MINIO_URL"), &minio.Options{
+	minioClient, err := minio.New(config.String("MINIO_INTERNAL_URL"), &minio.Options{
 		Creds:  credentials.NewStaticV4(config.String("MINIO_USER"), config.String("MINIO_PASSWORD"), ""),
 		Secure: false,
 	})
