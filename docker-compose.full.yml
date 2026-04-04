@@ -161,9 +161,11 @@ services:
       - ./dashboard/virdan-dashboard.json:/etc/grafana/dashboards/virdan-dashboard.json
       - ./dashboard/virdan-production-unified.json:/etc/grafana/dashboards/virdan-production-unified.json
     environment:
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
-      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_SERVER_DOMAIN=virdan.cloud
+      - GF_SERVER_ROOT_URL=https://virdan.cloud/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
     networks:
       - observability
     depends_on:
