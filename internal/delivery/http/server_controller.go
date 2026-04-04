@@ -180,18 +180,9 @@ func (controller *ServerController) GetServerInfoForInvite(ctx fiber.Ctx) error 
 func (controller *ServerController) CreateServer(ctx fiber.Ctx) error {
 	userId := ctx.Locals("userId").(uuid.UUID)
 
-	var payload model.ServerCreateRequest
-	err := util.ReadRequestBody(ctx, &payload)
-	if err != nil {
-		return util.RecordAndSendValidationError(ctx, controller.Log, &model.ValidationError{
-			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
-			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
-		}, "ServerController.CreateServer")
-	}
-
 	var validationErr *model.ValidationError
 
-	response, err := controller.ServerUsecase.CreateServer(ctx, userId, payload)
+	response, err := controller.ServerUsecase.CreateServer(ctx, userId)
 	if err != nil {
 		if errors.As(err, &validationErr) {
 			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "ServerController.CreateServer")

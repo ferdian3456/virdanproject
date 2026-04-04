@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -575,49 +576,8 @@ func (usecase *ServerUsecase) GetServerInfoForInvite(ctx fiber.Ctx, inviteCode s
 // 	return nil
 // }
 
-func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId uuid.UUID, payload model.ServerCreateRequest) (model.ServerCreateResponse, error) {
+func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId uuid.UUID) (model.ServerCreateResponse, error) {
 	response := model.ServerCreateResponse{}
-
-	if payload.Name == "" {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Name is required to not be empty",
-			Param:   "name",
-		}
-	} else if len(payload.Name) < 5 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Name must be at least 4 characters",
-			Param:   "name",
-		}
-	} else if len(payload.Name) > 40 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Name must be at most 40 characters",
-			Param:   "name",
-		}
-	}
-
-	if payload.ShortName == "" {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Short name is required to not be empty",
-			Param:   "shortName",
-		}
-	} else if len(payload.ShortName) < 5 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Short name must be at least 5 characters",
-			Param:   "shortName",
-		}
-	} else if len(payload.ShortName) > 10 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Short name must be at most 10 characters",
-			Param:   "shortName",
-		}
-	}
-
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
 	tr := otel.Tracer(serviceName + "-usecase")
@@ -626,11 +586,101 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId uuid.UUID, payl
 
 	span.SetAttributes(
 		attribute.String("user.id", userId.String()),
-		attribute.String("server.name", payload.Name),
 	)
 
-	if payload.CategoryId != nil {
-		exists, err := usecase.ServerRepository.CheckServerCategories(ctxContext, *payload.CategoryId)
+	fieldName := "avatar"
+	fileHeader, err := ctx.FormFile(fieldName)
+	if err != nil {
+		if err.Error() != "there is no uploaded file associated with the given key" {
+			usecase.Log.Debug("check error: ", zap.Error(err))
+			return response, err
+		}
+		// Reset error since file is optional
+		err = nil
+		fileHeader = nil
+	}
+
+	var imageFile *bytes.Reader
+	var imageSize int64
+	var avatarImageId *uuid.UUID
+
+	if fileHeader != nil && fileHeader.Size != 0 {
+		imageFile, imageSize, err = util.ValidateImage(fileHeader, fieldName)
+		if err != nil {
+			if validationErr, ok := err.(*model.ValidationError); ok {
+				util.RecordValidationError(ctxContext, usecase.Log, span, validationErr, "CreateServer")
+			}
+			return response, err
+		}
+
+		id := uuid.New()
+		avatarImageId = &id
+	}
+
+	name := ctx.FormValue("name")
+	shortName := ctx.FormValue("shortName")
+	description := ctx.FormValue("description")
+	categoryId := ctx.FormValue("categoryId")
+	isPrivate := ctx.FormValue("isPrivate")
+	isPrivateBool, err := strconv.ParseBool(isPrivate)
+	if err != nil {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Is private is invalid",
+			Param:   "isPrivate",
+		}
+	}
+
+	if name == "" {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Name is required to not be empty",
+			Param:   "name",
+		}
+	} else if len(name) < 5 {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Name must be at least 4 characters",
+			Param:   "name",
+		}
+	} else if len(name) > 40 {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Name must be at most 40 characters",
+			Param:   "name",
+		}
+	}
+
+	if shortName == "" {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Short name is required to not be empty",
+			Param:   "shortName",
+		}
+	} else if len(shortName) < 5 {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Short name must be at least 5 characters",
+			Param:   "shortName",
+		}
+	} else if len(shortName) > 10 {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Short name must be at most 10 characters",
+			Param:   "shortName",
+		}
+	}
+	categoryIdInt, err := strconv.Atoi(categoryId)
+	if err != nil {
+		return response, &model.ValidationError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Category id is invalid",
+			Param:   "categoryId",
+		}
+	}
+
+	if categoryIdInt != 0 {
+		exists, err := usecase.ServerRepository.CheckServerCategories(ctxContext, categoryIdInt)
 		if err != nil {
 			return response, err
 		}
@@ -650,7 +700,7 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId uuid.UUID, payl
 	now := time.Now().UTC()
 
 	settings := model.ServerSettingsCreateRequest{
-		IsPrivate: payload.Settings.IsPrivate,
+		IsPrivate: isPrivateBool,
 	}
 
 	settingsBytes, err := json.Marshal(settings)
@@ -661,15 +711,32 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId uuid.UUID, payl
 		return response, err
 	}
 
+	serverAvatarImage := model.ServerAvatarImage{}
+	bucketName := usecase.Config.String("MINIO_BUCKET_NAME")
+
+	if avatarImageId != nil {
+		serverAvatarImage = model.ServerAvatarImage{
+			Id:             *avatarImageId,
+			Bucket:         bucketName,
+			ObjectKey:      fmt.Sprintf("server/avatar/%s.webp", *avatarImageId),
+			MimeType:       "webp",
+			Size:           imageSize,
+			CreateDatetime: now,
+			UpdateDatetime: now,
+			CreateUserId:   userId,
+			UpdateUserId:   userId,
+		}
+	}
+
 	server := model.Server{
 		Id:             serverId,
 		OwnerId:        userId,
-		Name:           payload.Name,
-		ShortName:      payload.ShortName,
-		CategoryId:     payload.CategoryId,
-		AvatarImageId:  nil,
+		Name:           name,
+		ShortName:      shortName,
+		CategoryId:     &categoryIdInt,
+		AvatarImageId:  avatarImageId,
 		BannerImageId:  nil,
-		Description:    payload.Description,
+		Description:    &description,
 		Settings:       sonic.NoCopyRawMessage(settingsBytes),
 		CreateDatetime: now,
 		UpdateDatetime: now,
@@ -708,10 +775,10 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId uuid.UUID, payl
 
 	response.Id = serverId
 	response.OwnerId = userId
-	response.Name = payload.Name
-	response.ShortName = payload.ShortName
-	response.Description = payload.Description
-	response.CategoryId = payload.CategoryId
+	response.Name = name
+	response.ShortName = shortName
+	response.Description = &description
+	response.CategoryId = &categoryIdInt
 	response.Settings = settingsBytes
 	response.CreateDatetime = now
 	response.UpdateDatetime = now
@@ -733,6 +800,18 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId uuid.UUID, payl
 			_ = tx.Rollback(ctxContext)
 		}
 	}()
+
+	if avatarImageId != nil {
+		err = usecase.ServerRepository.CreateServerAvatarImage(ctxContext, tx, serverAvatarImage)
+		if err != nil {
+			return response, err
+		}
+
+		err = usecase.ServerRepository.UploadObject(ctxContext, bucketName, serverAvatarImage.ObjectKey, imageFile, imageSize)
+		if err != nil {
+			return response, err
+		}
+	}
 
 	err = usecase.ServerRepository.CreateServer(ctxContext, tx, server)
 	if err != nil {
