@@ -30,7 +30,7 @@ func RecordValidationError(ctx context.Context, logger *zap.Logger, span trace.S
 		span = trace.SpanFromContext(ctx)
 	}
 
-	GetLoggerWithTraceContext(ctx, logger).Warn(action+" validation failed",
+	GetLoggerWithTraceContext(ctx, logger).WithOptions(zap.AddCallerSkip(1)).Warn(action+" validation failed",
 		zap.String("code", err.Code),
 		zap.String("param", err.Param),
 		zap.String("message", err.Message),
@@ -47,7 +47,7 @@ func RecordValidationError(ctx context.Context, logger *zap.Logger, span trace.S
 
 // RecordAndSendValidationError records a validation error and sends it as a 400 response
 func RecordAndSendValidationError(ctx fiber.Ctx, logger *zap.Logger, err *model.ValidationError, action string) error {
-	RecordValidationError(ctx.Context(), logger, nil, err, action)
+	RecordValidationError(ctx.Context(), logger.WithOptions(zap.AddCallerSkip(1)), nil, err, action)
 	return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 		"error": err,
 	})
@@ -55,7 +55,7 @@ func RecordAndSendValidationError(ctx fiber.Ctx, logger *zap.Logger, err *model.
 
 // RecordAndSendValidationErrorNotFound records a validation error and sends it as a 404 response
 func RecordAndSendValidationErrorNotFound(ctx fiber.Ctx, logger *zap.Logger, err *model.ValidationError, action string) error {
-	RecordValidationError(ctx.Context(), logger, nil, err, action)
+	RecordValidationError(ctx.Context(), logger.WithOptions(zap.AddCallerSkip(1)), nil, err, action)
 	return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
 		"error": err,
 	})

@@ -323,11 +323,13 @@ func (usecase *UserUsecase) Login(ctx fiber.Ctx, payload model.UserLoginRequest)
 
 	err = bcrypt.CompareHashAndPassword([]byte(password), []byte(payload.Password))
 	if err != nil {
-		return token, &model.ValidationError{
+		err := &model.ValidationError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Password is incorrect",
 			Param:   "password",
 		}
+		util.RecordValidationError(ctxContext, usecase.Log, span, err, "Login")
+		return token, err
 	}
 
 	token, err = util.GenerateTokenPair(userId, usecase.Config.String("JWT_SECRET_KEY"))
