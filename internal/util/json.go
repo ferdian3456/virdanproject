@@ -2,9 +2,8 @@ package util
 
 import (
 	"github.com/ferdian3456/virdanproject/internal/constant"
-
+	"github.com/ferdian3456/virdanproject/internal/model"
 	"github.com/gofiber/fiber/v3"
-	"go.uber.org/zap"
 )
 
 func ReadRequestBody(ctx fiber.Ctx, result interface{}) error {
@@ -34,41 +33,44 @@ func SendSuccessResponseWithData(ctx fiber.Ctx, data interface{}) error {
 	return nil
 }
 
-func SendErrorResponse(ctx fiber.Ctx, error error) error {
-	err := ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-		"error": error,
-	})
-	if err != nil {
-		return err
+func SendError(ctx fiber.Ctx, err error) error {
+	statusCode := fiber.StatusInternalServerError
+	errCode := constant.ERR_INTERNAL_SERVER_ERROR_CODE
+	param := ""
+
+	if apiErr, ok := err.(model.ApiError); ok {
+		statusCode = apiErr.StatusCode()
+		errCode = apiErr.GetCode()
+		param = apiErr.GetParam()
 	}
 
-	return nil
-}
-
-func SendErrorResponseNotFound(ctx fiber.Ctx, error error) error {
-	err := ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
-		"error": error,
-	})
-	if err != nil {
-		return err
+	if statusCode >= 400 && statusCode < 500 {
+		RecordErrorTelemetry(ctx.Context(), nil, err)
 	}
 
-	return nil
-}
-
-func SendErrorResponseInternalServer(ctx fiber.Ctx, log *zap.Logger, error error) error {
-	log.Error("internal server error occurred", zap.Error(error))
-
-	err := ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	return ctx.Status(statusCode).JSON(fiber.Map{
 		"error": fiber.Map{
-			"code":    constant.ERR_INTERNAL_SERVER_ERROR_CODE,
-			"message": constant.ERR_INTENRAL_SERVER_ERROR_MESSAGE,
+			"code":    errCode,
+			"message": err.Error(),
+			"param":   param,
 		},
 	})
+}
 
-	if err != nil {
-		return err
+func ReadMultipartBody(ctx fiber.Ctx, payload any) error {
+	if len(ctx.Get("Content-Type")) < 19 || ctx.Get("Content-Type")[:19] != "multipart/form-data" {
+		return &model.BadRequestError{
+			Code:    constant.ERR_BAD_REQUEST_CODE,
+			Message: constant.ERR_INVALID_CONTENT_TYPE_MESSAGE,
+			Param:   "Content-Type",
+		}
 	}
 
-	return err
+	if err := ctx.Bind().Body(payload); err != nil {
+		return &model.BadRequestError{
+			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
+			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
+		}
+	}
+	return nil
 }
