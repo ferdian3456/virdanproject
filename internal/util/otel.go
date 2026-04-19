@@ -4,12 +4,10 @@ import (
 	"context"
 
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
 	"github.com/ferdian3456/virdanproject/internal/model"
-	"github.com/gofiber/fiber/v3"
 )
 
 // GetLoggerWithTraceContext returns logger with trace context fields for OTel correlation
@@ -24,39 +22,22 @@ func GetLoggerWithTraceContext(ctx context.Context, logger *zap.Logger) *zap.Log
 	return logger
 }
 
-// RecordValidationError logs a validation error and records it on the span
-func RecordValidationError(ctx context.Context, logger *zap.Logger, span trace.Span, err *model.ValidationError, action string) {
+// RecordErrorTelemetry memproses dan menstempel spesifik Atribut error ke dalam Span yang sudah direkam
+func RecordErrorTelemetry(ctx context.Context, span trace.Span, err error) {
 	if span == nil {
 		span = trace.SpanFromContext(ctx)
 	}
 
-	GetLoggerWithTraceContext(ctx, logger).WithOptions(zap.AddCallerSkip(1)).Warn(action+" validation failed",
-		zap.String("code", err.Code),
-		zap.String("param", err.Param),
-		zap.String("message", err.Message),
-	)
+	var errCode, errParam string
 
-	if span.SpanContext().IsValid() {
-		span.RecordError(err, trace.WithAttributes(
-			attribute.String("error.code", err.Code),
-			attribute.String("error.param", err.Param),
-		))
-		span.SetStatus(codes.Error, err.Message)
+	if apiErr, ok := err.(model.ApiError); ok {
+		errCode = apiErr.GetCode()
+		errParam = apiErr.GetParam()
 	}
-}
-
-// RecordAndSendValidationError records a validation error and sends it as a 400 response
-func RecordAndSendValidationError(ctx fiber.Ctx, logger *zap.Logger, err *model.ValidationError, action string) error {
-	RecordValidationError(ctx.Context(), logger.WithOptions(zap.AddCallerSkip(1)), nil, err, action)
-	return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-		"error": err,
-	})
-}
-
-// RecordAndSendValidationErrorNotFound records a validation error and sends it as a 404 response
-func RecordAndSendValidationErrorNotFound(ctx fiber.Ctx, logger *zap.Logger, err *model.ValidationError, action string) error {
-	RecordValidationError(ctx.Context(), logger.WithOptions(zap.AddCallerSkip(1)), nil, err, action)
-	return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
-		"error": err,
-	})
+	if span != nil && span.SpanContext().IsValid() {
+		span.RecordError(err, trace.WithAttributes(
+			attribute.String("error.code", errCode),
+			attribute.String("error.param", errParam),
+		))
+	}
 }
