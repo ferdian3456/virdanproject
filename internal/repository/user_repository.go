@@ -128,9 +128,16 @@ func (repository *UserRepository) CheckUsernameOrEmailUnique(ctx context.Context
 func (repository *UserRepository) GetUserAuth(ctx context.Context, username string) (uuid.UUID, string, error) {
 	// 1. Start Tracing Span
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.GetUserAuth")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetUserAuth")
+	var err error
+
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	query := "SELECT id,password FROM users WHERE username=$1 LIMIT 1"
 
@@ -146,10 +153,10 @@ func (repository *UserRepository) GetUserAuth(ctx context.Context, username stri
 	var id uuid.UUID
 	var passwordHash string
 
-	err := repository.DB.QueryRow(ctx, query, username).Scan(&id, &passwordHash)
+	err = repository.DB.QueryRow(ctx, query, username).Scan(&id, &passwordHash)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return id, passwordHash, &model.ValidationError{
+			return id, passwordHash, &model.BadRequestError{
 				Code:    constant.ERR_VALIDATION_CODE,
 				Message: "Username is not found",
 				Param:   "username",
@@ -157,8 +164,6 @@ func (repository *UserRepository) GetUserAuth(ctx context.Context, username stri
 		}
 		// 3. Log with Trace Correlation and Record Error
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get user auth by username", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return id, passwordHash, err
 	}
 
@@ -205,9 +210,16 @@ func (repository *UserRepository) GetUserInfo(ctx context.Context, id uuid.UUID)
 // Redis - Cache
 func (repository *UserRepository) SetAccessTokenInCache(ctx context.Context, accessToken string, userId uuid.UUID) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.SetAccessTokenInCache")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.SetAccessTokenInCache")
+	var err error
+
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
 		attribute.String("db.system", "redis"),
@@ -220,11 +232,9 @@ func (repository *UserRepository) SetAccessTokenInCache(ctx context.Context, acc
 	// Hash token before storing in Redis for security
 	hashedAccessToken := util.HashToken(accessToken)
 
-	err := repository.DBCache.Set(ctx, accessTokenKey, hashedAccessToken, 15*time.Minute).Err()
+	err = repository.DBCache.Set(ctx, accessTokenKey, hashedAccessToken, 15*time.Minute).Err()
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to set access token in cache", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -478,7 +488,7 @@ func (repository *UserRepository) SetSignupSession(ctx context.Context, sessionI
 		"otp":            otp,
 		"otp_expires_at": otpExpiresAt,
 		"step":           model.SignupStepStart,
-		"create_at":      time.Now().Unix(),
+		"created_at":     time.Now().Unix(),
 	}).Err()
 
 	if err != nil {
@@ -1002,16 +1012,23 @@ func (repository *UserRepository) CreateRefreshToken(ctx context.Context, tx pgx
 }
 
 // CreateRefreshTokenNoTx creates a new refresh token without transaction
-func (repository *UserRepository) CreateRefreshTokenNoTx(ctx context.Context, refreshToken model.RefreshTokenCreate) error {
+func (repository *UserRepository) CreateRefreshTokenNoTx(ctx context.Context, refreshToken model.RefreshToken) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.CreateRefreshTokenNoTx")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CreateRefreshTokenNoTx")
+	var err error
+
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
 		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
 		attribute.String("db.operation", "INSERT"),
-		attribute.String("refreshToken.user_id", refreshToken.UserId.String()),
+		attribute.String("refreshToken.user_id", refreshToken.UserId),
 		attribute.String("refreshToken.token_family", refreshToken.TokenFamily),
 	)
 
@@ -1019,11 +1036,9 @@ func (repository *UserRepository) CreateRefreshTokenNoTx(ctx context.Context, re
 		(id, user_id, token_hash, token_family, expires_at, created_at, updated_at, created_by, updated_by)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`
 
-	_, err := repository.DB.Exec(ctx, query, refreshToken.Id, refreshToken.UserId, refreshToken.TokenHash, refreshToken.TokenFamily, refreshToken.ExpiresAt, refreshToken.CreatedAt, refreshToken.UpdatedAt, refreshToken.CreatedBy)
+	_, err = repository.DB.Exec(ctx, query, refreshToken.Id, refreshToken.UserId, refreshToken.TokenHash, refreshToken.TokenFamily, refreshToken.ExpiresAt, refreshToken.CreatedAt, refreshToken.UpdatedAt, refreshToken.CreatedBy)
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to create refresh token without transaction", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 

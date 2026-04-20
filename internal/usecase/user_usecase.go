@@ -256,59 +256,23 @@ func (usecase *UserUsecase) Login(ctx fiber.Ctx, payload model.UserLoginRequest)
 	ctxContext := ctx.Context()
 	token := model.TokenResponse{}
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tracer := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tracer.Start(ctxContext, "usecase.Login")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.Login")
 
-	if payload.Username == "" {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Username is required to not be empty",
-			Param:   "username",
+	var err error
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "Login")
-		return token, err
-	} else if len(payload.Username) < 4 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Username must be at least 4 characters",
-			Param:   "username",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "Login")
-		return token, err
-	} else if len(payload.Username) > 22 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Username must be at most 22 characters",
-			Param:   "username",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "Login")
-		return token, err
-	}
+		span.End()
+	}()
 
-	if payload.Password == "" {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Password is required to not be empty",
-			Param:   "password",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "Login")
-		return token, err
-	} else if len(payload.Password) < 5 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Password must be at least 5 characters",
-			Param:   "password",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "Login")
-		return token, err
-	} else if len(payload.Password) > 20 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Password must be at most 20 characters",
-			Param:   "password",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "Login")
+	validator := util.NewValidator()
+	validator.String("username", payload.Username).Required().MinLen(4).MaxLen(22)
+	validator.String("password", payload.Password).Required().MinLen(5).MaxLen(20)
+
+	err = validator.Err()
+	if err != nil {
 		return token, err
 	}
 
@@ -316,62 +280,55 @@ func (usecase *UserUsecase) Login(ctx fiber.Ctx, payload model.UserLoginRequest)
 
 	userId, password, err := usecase.UserRepository.GetUserAuth(ctxContext, payload.Username)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return token, err
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(password), []byte(payload.Password))
 	if err != nil {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
+		err := &model.BadRequestError{
+			Code:    constant.ERR_BAD_REQUEST_CODE,
 			Message: "Password is incorrect",
 			Param:   "password",
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "Login")
 		return token, err
 	}
 
 	token, err = util.GenerateTokenPair(userId, usecase.Config.String("JWT_SECRET_KEY"))
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate token pair", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return token, err
 	}
 
 	now := time.Now().UTC()
 
-	// Create refresh token in database
 	refreshTokenHash := util.HashToken(token.RefreshToken)
 	refreshTokenExpiresAt := now.Add(util.RefreshTokenDuration)
 	tokenFamily := uuid.New().String()
 
-	refreshTokenCreate := model.RefreshTokenCreate{
-		Id:          uuid.New(),
-		UserId:      userId,
+	userIdStr := userId.String()
+
+	refreshToken := model.RefreshToken{
+		Id:          uuid.New().String(),
+		UserId:      userIdStr,
 		TokenHash:   refreshTokenHash,
 		TokenFamily: tokenFamily,
 		ExpiresAt:   refreshTokenExpiresAt,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		CreatedBy:   userId,
+		Audit: model.Audit{
+			CreatedAt: now,
+			UpdatedAt: now,
+			CreatedBy: userIdStr,
+			UpdatedBy: userIdStr,
+		},
 	}
 
-	err = usecase.UserRepository.CreateRefreshTokenNoTx(ctxContext, refreshTokenCreate)
+	err = usecase.UserRepository.CreateRefreshTokenNoTx(ctxContext, refreshToken)
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to create refresh token", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return token, err
 	}
 
 	// Store access token in Redis cache only
 	err = usecase.UserRepository.SetAccessTokenInCache(ctxContext, token.AccessToken, userId)
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to set access token in cache", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return token, err
 	}
 
