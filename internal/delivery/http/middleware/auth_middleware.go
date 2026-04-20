@@ -1,9 +1,6 @@
 package middleware
 
 import (
-	"errors"
-
-	"github.com/ferdian3456/virdanproject/internal/model"
 	"github.com/ferdian3456/virdanproject/internal/usecase"
 	"github.com/ferdian3456/virdanproject/internal/util"
 
@@ -34,28 +31,12 @@ func (middleware *AuthMiddleware) ProtectedRoute() fiber.Handler {
 		accessToken := ctx.Get("Authorization")
 		tokenString, userId, err := util.ValidateAccessToken(accessToken, middleware.Log, middleware.Config.String("JWT_SECRET_KEY"))
 		if err != nil {
-			var unauthorizedErr *model.UnauthorizedError
-			if errors.As(err, &unauthorizedErr) {
-				middleware.Log.Debug("unauthorized access attempt", zap.Error(err))
-				return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-					"error": unauthorizedErr,
-				})
-			}
-
-			return util.SendErrorResponseInternalServer(ctx, middleware.Log, err)
+			return util.SendError(ctx, err)
 		}
 
 		err = middleware.UserUsecase.GetAccessToken(ctx, userId, tokenString)
 		if err != nil {
-			var unauthorizedErr *model.UnauthorizedError
-			if errors.As(err, &unauthorizedErr) {
-				middleware.Log.Debug("unauthorized access attempt - token not in cache", zap.Error(err))
-				return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-					"error": unauthorizedErr,
-				})
-			}
-
-			return util.SendErrorResponseInternalServer(ctx, middleware.Log, err)
+			return util.SendError(ctx, err)
 		}
 
 		ctx.Locals("userId", userId)

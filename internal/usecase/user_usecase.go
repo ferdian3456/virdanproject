@@ -408,16 +408,21 @@ func (usecase *UserUsecase) GetUserInfo(ctx fiber.Ctx, userId uuid.UUID) (model.
 func (usecase *UserUsecase) GetAccessToken(ctx fiber.Ctx, userId uuid.UUID, accessToken string) error {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tracer := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tracer.Start(ctxContext, "usecase.GetAccessToken")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctx, "usecase.GetAccessToken")
+	var err error
+
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(attribute.String("user.id", userId.String()))
 
 	hashedTokenFromCache, err := usecase.UserRepository.GetAccessTokenInCache(ctxContext, userId)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -425,13 +430,11 @@ func (usecase *UserUsecase) GetAccessToken(ctx fiber.Ctx, userId uuid.UUID, acce
 	hashedTokenFromClient := util.HashToken(accessToken)
 
 	if hashedTokenFromClient != hashedTokenFromCache {
-		err := &model.UnauthorizedError{
+		err = &model.UnauthorizedError{
 			Code:    constant.ERR_UNAUTHORIZED_ERROR,
 			Message: "Authorization token is expired",
 			Param:   "accessToken",
 		}
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Message)
 		return err
 	}
 
@@ -578,77 +581,58 @@ func (usecase *UserUsecase) UpdateAvatar(ctx fiber.Ctx, userId uuid.UUID) error 
 func (usecase *UserUsecase) StartSignup(ctx fiber.Ctx, payload model.UserSignupStartRequest) (model.UserSignupStartResponse, error) {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tracer := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tracer.Start(ctxContext, "usecase.StartSignup")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.StartSignup")
+
+	var err error
+
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	response := model.UserSignupStartResponse{}
 
-	if payload.Email == "" {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Email is required to not be empty",
-			Param:   "email",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "StartSignup")
-		return response, err
-	} else if len(payload.Email) < 16 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "email must be at least 16 characters",
-			Param:   "email",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "StartSignup")
-		return response, err
-	} else if len(payload.Email) > 80 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Email must be at most 80 characters",
-			Param:   "email",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "StartSignup")
+	validator := util.NewValidator()
+	validator.String("email", payload.Email).Required().MinLen(16).MaxLen(80).Email()
+
+	err = validator.Err()
+	if err != nil {
 		return response, err
 	}
 
 	payload.Email = strings.ToLower(payload.Email)
 	span.SetAttributes(attribute.String("user.email", payload.Email))
 
-	exists1, err := usecase.UserRepository.CheckEmailUnique(ctxContext, payload.Email)
+	exists, err := usecase.UserRepository.CheckEmailUnique(ctxContext, payload.Email)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
-	if exists1 == 1 {
-		err := &model.ValidationError{
+	if exists {
+		err := &model.BadRequestError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Email is already exists",
 			Param:   "email",
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "StartSignup")
 		return response, err
 	}
 
 	exists, emailSessionId, err := usecase.UserRepository.CheckSignupEmailSession(ctxContext, payload.Email)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
 	if exists {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Debug("email session exists, deleting previous session", zap.String("email", payload.Email))
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Debug("Email session exists, deleting previous session", zap.String("email", payload.Email))
 		err = usecase.UserRepository.DeleteEmailSignupSession(ctxContext, emailSessionId)
 		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
 			return response, err
 		}
 		err = usecase.UserRepository.DeleteSignupSession(ctxContext, emailSessionId)
 		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
 			return response, err
 		}
 	}
@@ -656,8 +640,6 @@ func (usecase *UserUsecase) StartSignup(ctx fiber.Ctx, payload model.UserSignupS
 	otp, err := util.GenerateOTP()
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate OTP", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
@@ -676,8 +658,6 @@ func (usecase *UserUsecase) StartSignup(ctx fiber.Ctx, payload model.UserSignupS
 	template, err := template.ParseFS(util.TemplateFS, "template/otp.html")
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to parse OTP template", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
@@ -685,8 +665,6 @@ func (usecase *UserUsecase) StartSignup(ctx fiber.Ctx, payload model.UserSignupS
 	err = template.Execute(&tmpl, OtpTemplateData)
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to execute OTP template", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
@@ -700,22 +678,18 @@ func (usecase *UserUsecase) StartSignup(ctx fiber.Ctx, payload model.UserSignupS
 	err = util.SendEmail(smtpHost, smtpPort, senderName, senderEmail, senderPassword, payload.Email, subject, tmpl.String())
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to send OTP email", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
 	err = usecase.UserRepository.SetSignupSession(ctxContext, sessionId, payload.Email, otpHash, otpExpiresAt)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to set signup session in cache", zap.Error(err))
 		return response, err
 	}
 
 	err = usecase.UserRepository.SetSignupEmailSession(ctxContext, sessionId.String(), payload.Email)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to set signup email session in cache", zap.Error(err))
 		return response, err
 	}
 

@@ -233,9 +233,16 @@ func (repository *UserRepository) SetAccessTokenInCache(ctx context.Context, acc
 
 func (repository *UserRepository) GetAccessTokenInCache(ctx context.Context, userId uuid.UUID) (string, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.GetAccessTokenInCache")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetAccessTokenInCache")
+	var err error
+
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
 		attribute.String("db.system", "redis"),
@@ -253,8 +260,6 @@ func (repository *UserRepository) GetAccessTokenInCache(ctx context.Context, use
 		}
 	} else if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get access token from cache", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return hashedToken, err
 	}
 
@@ -449,9 +454,16 @@ func (repository *UserRepository) AddUserAvatar(ctx context.Context, tx pgx.Tx, 
 
 func (repository *UserRepository) SetSignupSession(ctx context.Context, sessionId uuid.UUID, email string, otp string, otpExpiresAt int64) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.SetSignupSession")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.SetSignupSession")
+	var err error
+
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
 		attribute.String("db.system", "redis"),
@@ -461,7 +473,7 @@ func (repository *UserRepository) SetSignupSession(ctx context.Context, sessionI
 
 	key := fmt.Sprintf("signup:%s", sessionId)
 
-	err := repository.DBCache.HSet(ctx, key, map[string]interface{}{
+	err = repository.DBCache.HSet(ctx, key, map[string]interface{}{
 		"email":          email,
 		"otp":            otp,
 		"otp_expires_at": otpExpiresAt,
@@ -471,16 +483,12 @@ func (repository *UserRepository) SetSignupSession(ctx context.Context, sessionI
 
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to set signup session in cache", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	err = repository.DBCache.Expire(ctx, key, 30*time.Minute).Err()
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to set expiration for signup session", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -489,9 +497,16 @@ func (repository *UserRepository) SetSignupSession(ctx context.Context, sessionI
 
 func (repository *UserRepository) SetSignupEmailSession(ctx context.Context, sessionId string, email string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.SetSignupEmailSession")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.SetSignupEmailSession")
+	var err error
+
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
 		attribute.String("db.system", "redis"),
@@ -501,11 +516,9 @@ func (repository *UserRepository) SetSignupEmailSession(ctx context.Context, ses
 
 	key := fmt.Sprintf("signup_email:%s", email)
 
-	err := repository.DBCache.Set(ctx, key, sessionId, 30*time.Minute).Err()
+	err = repository.DBCache.Set(ctx, key, sessionId, 30*time.Minute).Err()
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to set signup email session in cache", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -699,11 +712,19 @@ func (repository *UserRepository) CheckUsernameUnique(ctx context.Context, usern
 	return exists, nil
 }
 
-func (repository *UserRepository) CheckEmailUnique(ctx context.Context, email string) (int, error) {
+func (repository *UserRepository) CheckEmailUnique(ctx context.Context, email string) (bool, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.CheckEmailUnique")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CheckEmailUnique")
+
+	var err error
+
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
 		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
@@ -714,18 +735,16 @@ func (repository *UserRepository) CheckEmailUnique(ctx context.Context, email st
 	query := "SELECT 1 FROM users WHERE email=$1 LIMIT 1"
 
 	var exists int
-	err := repository.DB.QueryRow(ctx, query, email).Scan(&exists)
+	err = repository.DB.QueryRow(ctx, query, email).Scan(&exists)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return exists, nil
+			return false, nil
 		}
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to check email uniqueness", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return exists, err
+		return false, err
 	}
 
-	return exists, nil
+	return true, nil
 }
 
 func (repository *UserRepository) SetVerificationUsernameState(ctx context.Context, sessionId uuid.UUID, username string) error {
@@ -784,9 +803,16 @@ func (repository *UserRepository) GetAllSessionData(ctx context.Context, session
 
 func (repository *UserRepository) CheckSignupEmailSession(ctx context.Context, email string) (bool, string, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.CheckSignupEmailSession")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CheckSignupEmailSession")
+	var err error
+
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
 		attribute.String("db.system", "redis"),
@@ -800,8 +826,6 @@ func (repository *UserRepository) CheckSignupEmailSession(ctx context.Context, e
 		return false, sessionId, nil
 	} else if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to check signup email session", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return false, sessionId, err
 	}
 
@@ -810,9 +834,16 @@ func (repository *UserRepository) CheckSignupEmailSession(ctx context.Context, e
 
 func (repository *UserRepository) DeleteSignupSession(ctx context.Context, sessionId string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.DeleteSignupSession")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.DeleteSignupSession")
+	var err error
+
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
 		attribute.String("db.system", "redis"),
@@ -822,7 +853,7 @@ func (repository *UserRepository) DeleteSignupSession(ctx context.Context, sessi
 
 	key := fmt.Sprintf("signup:%s", sessionId)
 
-	err := repository.DBCache.Del(ctx, key).Err()
+	err = repository.DBCache.Del(ctx, key).Err()
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete signup session", zap.Error(err))
 		span.RecordError(err)
@@ -835,9 +866,16 @@ func (repository *UserRepository) DeleteSignupSession(ctx context.Context, sessi
 
 func (repository *UserRepository) DeleteEmailSignupSession(ctx context.Context, sesisonId string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.DeleteEmailSignupSession")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.DeleteEmailSignupSession")
+	var err error
+
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
 		attribute.String("db.system", "redis"),
@@ -846,11 +884,9 @@ func (repository *UserRepository) DeleteEmailSignupSession(ctx context.Context, 
 
 	key := fmt.Sprintf("signup_email:%s", sesisonId)
 
-	err := repository.DBCache.Del(ctx, key).Err()
+	err = repository.DBCache.Del(ctx, key).Err()
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete email signup session", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
