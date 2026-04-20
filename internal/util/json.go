@@ -9,7 +9,10 @@ import (
 func ReadRequestBody(ctx fiber.Ctx, result interface{}) error {
 	err := ctx.Bind().Body(result)
 	if err != nil {
-		return err
+		return &model.BadRequestError{
+			Code:    constant.ERR_BAD_REQUEST_CODE,
+			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
+		}
 	}
 	return nil
 }
@@ -68,7 +71,7 @@ func ReadMultipartBody(ctx fiber.Ctx, payload any) error {
 
 	if err := ctx.Bind().Body(payload); err != nil {
 		return &model.BadRequestError{
-			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
+			Code:    constant.ERR_BAD_REQUEST_CODE,
 			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
 		}
 	}

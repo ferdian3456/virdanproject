@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,6 +24,8 @@ var (
 	ErrInvalidImage    = errors.New("invalid image parameters")
 	ErrImageProcessing = errors.New("failed to process image")
 )
+
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 
 // =============================================================================
 // Resource Pools
@@ -197,6 +200,17 @@ func (c *StringChain) MaxLen(n int) *StringChain {
 	}
 	if utf8.RuneCountInString(c.value) > n {
 		c.v.failMaxLen(c.field, n)
+	}
+	return c
+}
+
+// Email ensures the string value is a valid email address.
+func (c *StringChain) Email() *StringChain {
+	if c.v.err != nil {
+		return c
+	}
+	if !emailRegex.MatchString(c.value) {
+		c.v.setError(constant.ERR_VALIDATION_CODE, c.field+" must be a valid email address", c.field)
 	}
 	return c
 }
