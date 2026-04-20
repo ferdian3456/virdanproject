@@ -2,13 +2,11 @@ package model
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type RefreshToken struct {
-	Id          uuid.UUID
-	UserId      uuid.UUID
+	Id          string
+	UserId      string
 	TokenHash   string
 	TokenFamily string
 	ExpiresAt   time.Time

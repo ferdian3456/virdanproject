@@ -67,21 +67,12 @@ func (controller UserController) Login(ctx fiber.Ctx) error {
 	var payload model.UserLoginRequest
 	err := util.ReadRequestBody(ctx, &payload)
 	if err != nil {
-		return util.SendErrorResponse(ctx, &model.ValidationError{
-			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
-			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
-		})
+		return util.SendError(ctx, err)
 	}
-
-	var validationErr *model.ValidationError
 
 	response, err := controller.UserUsecase.Login(ctx, payload)
 	if err != nil {
-		if errors.As(err, &validationErr) {
-			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "UserController.Login")
-		}
-
-		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+		return util.SendError(ctx, err)
 	}
 
 	return util.SendSuccessResponseWithData(ctx, response)
