@@ -2,8 +2,6 @@ package model
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type Status int16
@@ -15,15 +13,12 @@ const (
 )
 
 type ServerMember struct {
-	Id             uuid.UUID
-	ServerId       uuid.UUID
-	UserId         uuid.UUID
-	ServerRoleId   uuid.UUID
-	Status         Status
-	JoinedDatetime time.Time
-	LeftDatetime   *time.Time
-	CreateDatetime time.Time
-	UpdateDatetime time.Time
-	CreateUserId   uuid.UUID
-	UpdateUserId   uuid.UUID
+	Id           string
+	ServerId     string
+	UserId       string
+	ServerRoleId string
+	Status       Status
+	JoinedAt     time.Time
+	LeftAt       *time.Time
+	Audit
 }

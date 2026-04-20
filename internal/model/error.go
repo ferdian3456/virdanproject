@@ -31,28 +31,6 @@ func (e *BadRequestError) GetParam() string {
 	return e.Param
 }
 
-type NotFoundError struct {
-	Code    string
-	Message string
-	Param   string
-}
-
-func (e *NotFoundError) Error() string {
-	return e.Message
-}
-
-func (e *NotFoundError) StatusCode() int {
-	return http.StatusNotFound
-}
-
-func (e *NotFoundError) GetCode() string {
-	return e.Code
-}
-
-func (e *NotFoundError) GetParam() string {
-	return e.Param
-}
-
 type UnauthorizedError struct {
 	Code    string
 	Message string

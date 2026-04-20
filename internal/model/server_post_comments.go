@@ -3,19 +3,15 @@ package model
 import (
 	"time"
 
-	"github.com/google/uuid"
 )
 
 type ServerPostComments struct {
-	Id             uuid.UUID
-	PostId         uuid.UUID
-	AuthorId       uuid.UUID
-	ParentId       *uuid.UUID
+	Id             string
+	PostId         string
+	AuthorId       string
+	ParentId       *string
 	Content        string
-	CreateDatetime time.Time
-	UpdateDatetime time.Time
-	CreateUserId   uuid.UUID
-	UpdateUserId   uuid.UUID
+	Audit
 }
 
 type ServerCommentCreateRequest struct {
@@ -24,8 +20,8 @@ type ServerCommentCreateRequest struct {
 }
 
 type ServerCommentCursor struct {
-	Id             uuid.UUID `json:"id"`
-	CreateDatetime time.Time `json:"createDatetime"`
+	Id        string    `json:"id"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 type ServerCommentListResponse struct {
@@ -34,12 +30,11 @@ type ServerCommentListResponse struct {
 }
 
 type ServerCommentResponse struct {
-	Id             uuid.UUID  `json:"id"`
-	AuthorId       uuid.UUID  `json:"authorId"`
+	Id             string  `json:"id"`
+	AuthorId       string  `json:"authorId"`
 	AuthorName     string     `json:"authorName"`
 	AuthorAvatar   *string    `json:"authorAvatar"`
-	ParentId       *uuid.UUID `json:"parentId"`
-	Content        string     `json:"content"`
-	CreateDatetime time.Time  `json:"createDatetime"`
-	UpdateDatetime time.Time  `json:"updateDatetime"`
+	ParentId       *string `json:"parentId"`
+	Content  string `json:"content"`
+	Audit
 }

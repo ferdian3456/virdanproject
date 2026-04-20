@@ -4,23 +4,19 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
-	"github.com/google/uuid"
 )
 
 type Server struct {
-	Id             uuid.UUID
-	OwnerId        uuid.UUID
-	Name           string
-	ShortName      string
-	CategoryId     *int
-	AvatarImageId  *uuid.UUID
-	BannerImageId  *uuid.UUID
-	Description    *string
-	Settings       sonic.NoCopyRawMessage
-	CreateDatetime time.Time
-	UpdateDatetime time.Time
-	CreateUserId   uuid.UUID
-	UpdateUserId   uuid.UUID
+	Id            string
+	OwnerId       string
+	Name          string
+	ShortName     string
+	CategoryId    *int
+	AvatarImageId *string
+	BannerImageId *string
+	Description   *string
+	Settings      sonic.NoCopyRawMessage
+	Audit
 }
 
 type ServerCreateRequest struct {
@@ -32,8 +28,8 @@ type ServerCreateRequest struct {
 }
 
 type ServerCreateResponse struct {
-	Id             uuid.UUID              `json:"id"`
-	OwnerId        uuid.UUID              `json:"ownerId"`
+	Id             string              `json:"id"`
+	OwnerId        string              `json:"ownerId"`
 	Name           string                 `json:"name"`
 	ShortName      string                 `json:"shortName"`
 	CategoryId     *int                   `json:"categoryId"`
@@ -41,24 +37,24 @@ type ServerCreateResponse struct {
 	Settings       sonic.NoCopyRawMessage `json:"settings" swaggertype:"object"`
 	CreateDatetime time.Time              `json:"createDatetime"`
 	UpdateDatetime time.Time              `json:"updateDatetime"`
-	CreateUserId   uuid.UUID              `json:"createUserId"`
-	UpdateUserId   uuid.UUID              `json:"updateUserId"`
+	CreateUserId   string              `json:"createUserId"`
+	UpdateUserId   string              `json:"updateUserId"`
 }
 
 type ServerUpdateResponse struct {
-	Id             uuid.UUID              `json:"id"`
-	OwnerId        uuid.UUID              `json:"ownerId"`
+	Id             string              `json:"id"`
+	OwnerId        string              `json:"ownerId"`
 	Name           string                 `json:"name"`
 	ShortName      string                 `json:"shortName"`
 	CategoryId     *int                   `json:"categoryId"`
-	AvatarImageId  *uuid.UUID             `json:"avatarImageId"`
-	BannerImageId  *uuid.UUID             `json:"bannerImageId"`
+	AvatarImageId  *string             `json:"avatarImageId"`
+	BannerImageId  *string             `json:"bannerImageId"`
 	Description    *string                `json:"description"`
 	Settings       sonic.NoCopyRawMessage `json:"settings" swaggertype:"object"`
 	CreateDatetime time.Time              `json:"createDatetime"`
 	UpdateDatetime time.Time              `json:"updateDatetime"`
-	CreateUserId   uuid.UUID              `json:"createUserId"`
-	UpdateUserId   uuid.UUID              `json:"updateUserId"`
+	CreateUserId   string              `json:"createUserId"`
+	UpdateUserId   string              `json:"updateUserId"`
 }
 
 type ServerSettingsCreateRequest struct {
@@ -76,7 +72,7 @@ type ServerDiscoveryCursor struct {
 }
 
 type ServerInfoResponse struct {
-	Id             uuid.UUID `json:"id"`
+	Id             string `json:"id"`
 	Name           string    `json:"name"`
 	ShortName      string    `json:"shortName"`
 	CategoryName   string    `json:"categoryName"`
@@ -97,7 +93,7 @@ type ServerUserCursor struct {
 }
 
 type ServerUserResponse struct {
-	Id             uuid.UUID `json:"id"`
+	Id             string `json:"id"`
 	Name           string    `json:"name"`
 	ShortName      string    `json:"shortName"`
 	AvatarImageUrl *string   `json:"avatarImageUrl"`
@@ -105,7 +101,7 @@ type ServerUserResponse struct {
 }
 
 type ServerResponse struct {
-	Id             uuid.UUID `json:"id"`
+	Id             string `json:"id"`
 	OwnerName      string    `json:"ownerName"`
 	Name           string    `json:"name"`
 	ShortName      string    `json:"shortName"`
@@ -146,14 +142,14 @@ type ServerCategoryCursor struct {
 }
 
 type ServerDetailResponse struct {
-	Id             uuid.UUID  `json:"id"`
-	Name           string     `json:"name"`
-	ShortName      string     `json:"shortName"`
-	CategoryName   string     `json:"categoryName"`
-	AvatarImageUrl *string    `json:"avatarImageUrl"`
-	BannerImageUrl *string    `json:"bannerImageUrl"`
-	Description    *string    `json:"description"`
-	CreateDatetime time.Time  `json:"createDatetime"`
-	CreatedBy      string     `json:"createdBy"`
-	IsPrivate      *bool      `json:"-"` // Internal use only, not exposed to API response
+	Id             string `json:"id"`
+	Name           string    `json:"name"`
+	ShortName      string    `json:"shortName"`
+	CategoryName   string    `json:"categoryName"`
+	AvatarImageUrl *string   `json:"avatarImageUrl"`
+	BannerImageUrl *string   `json:"bannerImageUrl"`
+	Description    *string   `json:"description"`
+	CreateDatetime time.Time `json:"createDatetime"`
+	CreatedBy      string    `json:"createdBy"`
+	IsPrivate      *bool     `json:"-"` // Internal use only, not exposed to API response
 }

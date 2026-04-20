@@ -3,19 +3,15 @@ package model
 import (
 	"time"
 
-	"github.com/google/uuid"
 )
 
 type ServerPosts struct {
-	Id             uuid.UUID
-	ServerId       uuid.UUID
-	AuthorId       uuid.UUID
-	PostImageId    uuid.UUID
-	Caption        string
-	CreateDatetime time.Time
-	UpdateDatetime time.Time
-	CreateUserId   uuid.UUID
-	UpdateUserId   uuid.UUID
+	Id          string
+	ServerId    string
+	AuthorId    string
+	PostImageId string
+	Caption     string
+	Audit
 }
 
 type ServerPostUpdateCaptionRequest struct {
@@ -23,7 +19,7 @@ type ServerPostUpdateCaptionRequest struct {
 }
 
 type ServerPostCursor struct {
-	Id             uuid.UUID `json:"id"`
+	Id             string `json:"id"`
 	CreateDatetime time.Time `json:"createDatetime"`
 }
 
@@ -33,10 +29,10 @@ type ServerPostListResponse struct {
 }
 
 type ServerPostResponse struct {
-	OwnerId        uuid.UUID `json:"ownerId"`
+	OwnerId        string `json:"ownerId"`
 	OwnerName      string    `json:"ownerName"`
 	OwnerImageUrl  *string   `json:"ownerImageUrl"`
-	PostId         uuid.UUID `json:"postId"`
+	PostId         string `json:"postId"`
 	PostImageUrl   string    `json:"postImageUrl"`
 	Caption        string    `json:"caption"`
 	CommentCount   int       `json:"commentCount"`
@@ -57,7 +53,7 @@ type ServerPostForMeResponse struct {
 }
 
 type ServerPostForMe struct {
-	PostId         uuid.UUID `json:"postId"`
+	PostId         string `json:"postId"`
 	PostImageUrl   string    `json:"postImageUrl"`
 	CreateDatetime time.Time `json:"createDatetime"`
 }

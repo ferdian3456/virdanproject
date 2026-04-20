@@ -3,10 +3,10 @@ CREATE TABLE IF NOT EXISTS server_roles (
    server_id UUID NOT NULL,
    name VARCHAR(30) NOT NULL,
    permissions JSONB NOT NULL DEFAULT '{}',
-   create_datetime timestamptz NOT NULL,
-   update_datetime timestamptz NOT NULL,
-   create_user_id UUID NOT NULL,
-   update_user_id UUID NOT NULL,
+   created_at timestamptz NOT NULL,
+   updated_at timestamptz NOT NULL,
+   created_by uuid NOT NULL,
+   updated_by uuid NOT NULL,
    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
 );
 

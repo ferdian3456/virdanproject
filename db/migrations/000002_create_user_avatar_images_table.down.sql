@@ -1,1 +1,0 @@
-DROP TABLE IF EXISTS user_avatar_images;
