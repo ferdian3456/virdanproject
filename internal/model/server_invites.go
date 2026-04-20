@@ -3,21 +3,17 @@ package model
 import (
 	"time"
 
-	"github.com/google/uuid"
 )
 
 type ServerInvites struct {
-	Id              uuid.UUID
-	ServerId        uuid.UUID
+	Id              string
+	ServerId        string
 	Code            string
 	MaxUses         int
 	UsedCount       int
 	ExpiresDatetime time.Time
 	IsActive        bool
-	CreateDatetime  time.Time
-	UpdateDatetime  time.Time
-	CreateUserId    uuid.UUID
-	UpdateUserId    uuid.UUID
+	Audit
 }
 
 type ServerInviteLinkRequest struct {
@@ -26,7 +22,10 @@ type ServerInviteLinkRequest struct {
 }
 
 type ServerJoinRequest struct {
-	InviteCode string `json:"inviteCode"`
+	InviteCode    string     `json:"inviteCode"`
+	Nickname      string     `json:"nickname"`
+	Bio           *string    `json:"bio"`
+	AvatarImageId *string `json:"avatarImageId"`
 }
 
 type ServerInviteLinkResponse struct {

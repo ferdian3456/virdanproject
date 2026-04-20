@@ -5,8 +5,8 @@ CREATE TABLE IF NOT EXISTS server_post_images(
     mime_type varchar(50) NOT NULL,
     size bigint NOT NULL,
     -- Audit Columns
-    create_datetime timestamptz NOT NULL,
-    update_datetime timestamptz NOT NULL,
-    create_user_id uuid NOT NULL,
-    update_user_id uuid NOT NULL
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
+    created_by uuid NOT NULL,
+    updated_by uuid NOT NULL
 );

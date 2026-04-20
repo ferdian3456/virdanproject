@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS server_banner_images(
+CREATE TABLE IF NOT EXISTS server_member_profile_avatar_images(
     id uuid PRIMARY KEY,
     bucket varchar(50) NOT NULL,
     object_key varchar(255) NOT NULL,
@@ -8,6 +8,5 @@ CREATE TABLE IF NOT EXISTS server_banner_images(
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL,
     created_by uuid NOT NULL,
-    updated_by uuid NOT NULL,
-    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
+    updated_by uuid NOT NULL
 );
