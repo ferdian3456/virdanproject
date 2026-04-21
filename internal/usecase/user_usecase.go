@@ -401,28 +401,30 @@ func (usecase *UserUsecase) GetAccessToken(ctx fiber.Ctx, userId uuid.UUID, acce
 func (usecase *UserUsecase) Logout(ctx fiber.Ctx, userId uuid.UUID) error {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tracer := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tracer.Start(ctxContext, "usecase.Logout")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.Logout")
+
+	var err error
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(attribute.String("user.id", userId.String()))
 
 	now := time.Now().UTC()
 
 	// Revoke all refresh tokens for this user
-	err := usecase.UserRepository.RevokeAllRefreshTokensByUserId(ctxContext, userId, now, now, userId)
+	err = usecase.UserRepository.RevokeAllRefreshTokensByUserId(ctxContext, userId, now, now, userId)
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to revoke refresh tokens", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	// Remove access token from Redis cache
 	err = usecase.UserRepository.RemoveAuthToken(ctxContext, userId)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 

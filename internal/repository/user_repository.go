@@ -278,9 +278,16 @@ func (repository *UserRepository) GetAccessTokenInCache(ctx context.Context, use
 
 func (repository *UserRepository) RemoveAuthToken(ctx context.Context, userId uuid.UUID) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.RemoveAuthToken")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.RemoveAuthToken")
+
+	var err error
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
 		attribute.String("db.system", "redis"),
@@ -290,11 +297,9 @@ func (repository *UserRepository) RemoveAuthToken(ctx context.Context, userId uu
 
 	accessTokenKey := fmt.Sprintf("auth:accessToken:%s", userId)
 
-	err := repository.DBCache.Del(ctx, accessTokenKey).Err()
+	err = repository.DBCache.Del(ctx, accessTokenKey).Err()
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to remove access token from cache", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -304,9 +309,16 @@ func (repository *UserRepository) RemoveAuthToken(ctx context.Context, userId uu
 // RevokeAllRefreshTokensByUserId revokes all active refresh tokens for a user
 func (repository *UserRepository) RevokeAllRefreshTokensByUserId(ctx context.Context, userId uuid.UUID, revokedAt time.Time, updatedAt time.Time, updatedBy uuid.UUID) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.RevokeAllRefreshTokensByUserId")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.RevokeAllRefreshTokensByUserId")
+
+	var err error
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
 		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
@@ -318,11 +330,9 @@ func (repository *UserRepository) RevokeAllRefreshTokensByUserId(ctx context.Con
 		SET revoked_at = $1, updated_at = $2, updated_by = $3
 		WHERE user_id = $4 AND revoked_at IS NULL`
 
-	_, err := repository.DB.Exec(ctx, query, revokedAt, updatedAt, updatedBy, userId)
+	_, err = repository.DB.Exec(ctx, query, revokedAt, updatedAt, updatedBy, userId)
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to revoke all refresh tokens for user", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 

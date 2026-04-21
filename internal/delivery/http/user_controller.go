@@ -121,7 +121,7 @@ func (controller UserController) Logout(ctx fiber.Ctx) error {
 
 	err := controller.UserUsecase.Logout(ctx, userId)
 	if err != nil {
-		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+		return util.SendError(ctx, err)
 	}
 
 	return util.SendSuccessResponseNoData(ctx)
