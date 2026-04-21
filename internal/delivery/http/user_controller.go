@@ -198,20 +198,12 @@ func (controller UserController) VerifyOtp(ctx fiber.Ctx) error {
 	var payload model.UserVerifyOTPRequest
 	err := util.ReadRequestBody(ctx, &payload)
 	if err != nil {
-		return util.SendErrorResponse(ctx, &model.ValidationError{
-			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
-			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
-		})
+		return err
 	}
-	var validationErr *model.ValidationError
 
 	err = controller.UserUsecase.VerifyOtp(ctx, payload)
 	if err != nil {
-		if errors.As(err, &validationErr) {
-			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "UserController.VerifyOtp")
-		}
-
-		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+		return util.SendError(ctx, err)
 	}
 
 	return util.SendSuccessResponseNoData(ctx)

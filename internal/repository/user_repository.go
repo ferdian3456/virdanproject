@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/ferdian3456/virdanproject/internal/constant"
@@ -545,16 +546,24 @@ func (repository *UserRepository) SetSignupEmailSession(ctx context.Context, ses
 	return nil
 }
 
-func (repository *UserRepository) GetOTPSignupSessionData(ctx context.Context, sessionId uuid.UUID) ([]interface{}, error) {
+func (repository *UserRepository) GetOTPSignupSessionData(ctx context.Context, sessionId string) (model.OTPSignupData, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.GetOTPSignupSessionData")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetOTPSignupSessionData")
+	var err error
+	var otp model.OTPSignupData
+
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
 		attribute.String("db.system", "redis"),
 		attribute.String("db.operation", "HMGET"),
-		attribute.String("signup.session_id", sessionId.String()),
+		attribute.String("signup.session_id", sessionId),
 	)
 
 	key := fmt.Sprintf("signup:%s", sessionId)
@@ -562,12 +571,22 @@ func (repository *UserRepository) GetOTPSignupSessionData(ctx context.Context, s
 	vals, err := repository.DBCache.HMGet(ctx, key, "otp", "otp_expires_at").Result()
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get OTP signup session data", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return vals, err
+		return otp, err
 	}
 
-	return vals, nil
+	if vals[0] == nil || vals[1] == nil {
+		return otp, nil
+	}
+
+	otp.OTP = vals[0].(string)
+	expiresAt, err := strconv.ParseInt(vals[1].(string), 10, 64)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to parse otp expires at", zap.Error(err))
+		return otp, err
+	}
+	otp.ExpiresAt = expiresAt
+
+	return otp, nil
 }
 
 func (repository *UserRepository) GetOtpDataForResend(ctx context.Context, sessionId uuid.UUID) ([]interface{}, error) {
@@ -599,7 +618,15 @@ func (repository *UserRepository) GetSignupState(ctx context.Context, sessionId 
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	tr := otel.Tracer(serviceName + "-repository")
 	ctx, span := tr.Start(ctx, "repository.GetSignupState")
-	defer span.End()
+
+	var err error
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
 		attribute.String("db.system", "redis"),
@@ -612,24 +639,21 @@ func (repository *UserRepository) GetSignupState(ctx context.Context, sessionId 
 	vals, err := repository.DBCache.HMGet(ctx, key, "step").Result()
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get signup state from cache", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return vals, err
 	}
 
 	return vals, nil
 }
 
-func (repository *UserRepository) DeleteOTPState(ctx context.Context, sessionId uuid.UUID) error {
+func (repository *UserRepository) DeleteOTPState(ctx context.Context, sessionId string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.DeleteOTPState")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.DeleteOTPState")
 	defer span.End()
 
 	span.SetAttributes(
 		attribute.String("db.system", "redis"),
 		attribute.String("db.operation", "HDEL"),
-		attribute.String("signup.session_id", sessionId.String()),
+		attribute.String("signup.session_id", sessionId),
 	)
 
 	key := fmt.Sprintf("signup:%s", sessionId)
@@ -674,29 +698,34 @@ func (repository *UserRepository) UpdateSessionForResendOtp(ctx context.Context,
 	return nil
 }
 
-func (repository *UserRepository) SetVerificationOTPState(ctx context.Context, sessionId uuid.UUID, verifiedAt int64) error {
+func (repository *UserRepository) SetVerificationOTPState(ctx context.Context, sessionId string, verifiedAt int64) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.SetVerificationOTPState")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.SetVerificationOTPState")
+	var err error
+
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
 		attribute.String("db.system", "redis"),
 		attribute.String("db.operation", "HSET"),
-		attribute.String("signup.session_id", sessionId.String()),
+		attribute.String("signup.session_id", sessionId),
 	)
 
 	key := fmt.Sprintf("signup:%s", sessionId)
 
-	err := repository.DBCache.HSet(ctx, key, map[string]interface{}{
+	err = repository.DBCache.HSet(ctx, key, map[string]interface{}{
 		"step":            model.SignupStepOTPVerified,
 		"otp_verified_at": verifiedAt,
 	}).Err()
 
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to set verification OTP state in cache", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 

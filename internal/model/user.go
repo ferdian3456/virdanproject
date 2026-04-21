@@ -66,7 +66,7 @@ type UserVerifyUsernameRequest struct {
 
 type UserSignupStartResponse struct {
 	SessionId    string `json:"sessionId"`
-	OtpExpiresAt int64     `json:"otpExpiresAt"`
+	OtpExpiresAt int64  `json:"otpExpiresAt"`
 }
 type UserResponse struct {
 	Id        string    `json:"id"`
@@ -78,7 +78,7 @@ type UserResponse struct {
 
 type UserSignupStatus struct {
 	SessionId string `json:"sessionId"`
-	Step      string    `json:"step"`
+	Step      string `json:"step"`
 }
 
 type User struct {
@@ -88,4 +88,9 @@ type User struct {
 	Password string
 	Settings sonic.NoCopyRawMessage
 	Audit
+}
+
+type OTPSignupData struct {
+	OTP       string `json:"otp"`
+	ExpiresAt int64  `json:"expiresAt"`
 }
