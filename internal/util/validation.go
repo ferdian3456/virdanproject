@@ -112,6 +112,10 @@ func (v *Validator) failMaxLen(field string, n int) {
 	v.setError(constant.ERR_VALIDATION_CODE, field+" must be at most "+strconv.Itoa(n)+" characters", field)
 }
 
+func (v *Validator) failExactLen(field string, n int) {
+	v.setError(constant.ERR_VALIDATION_CODE, field+" must be exactly "+strconv.Itoa(n)+" characters", field)
+}
+
 func (v *Validator) failEqual(field, targetName string) {
 	v.setError(constant.ERR_VALIDATION_CODE, field+" must be equal to "+targetName, field)
 }
@@ -200,6 +204,17 @@ func (c *StringChain) MaxLen(n int) *StringChain {
 	}
 	if utf8.RuneCountInString(c.value) > n {
 		c.v.failMaxLen(c.field, n)
+	}
+	return c
+}
+
+// Len ensures the string has exactly n characters (Unicode aware).
+func (c *StringChain) Len(n int) *StringChain {
+	if c.v.err != nil {
+		return c
+	}
+	if utf8.RuneCountInString(c.value) != n {
+		c.v.failExactLen(c.field, n)
 	}
 	return c
 }

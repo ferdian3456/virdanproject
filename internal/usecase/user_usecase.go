@@ -658,110 +658,68 @@ func (usecase *UserUsecase) StartSignup(ctx fiber.Ctx, payload model.UserSignupS
 func (usecase *UserUsecase) VerifyOtp(ctx fiber.Ctx, payload model.UserVerifyOTPRequest) error {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tracer := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tracer.Start(ctxContext, "usecase.VerifyOtp")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.VerifyOtp")
 
-	sessionId, err := uuid.Parse(payload.SessionId)
+	var err error
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
+
+	validator := util.NewValidator()
+	validator.String("sessionId", payload.SessionId).Len(36).Required()
+	validator.String("otp", payload.OTP).Len(6).Required()
+
+	err = validator.Err()
 	if err != nil {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid session id",
-			Param:   "sessionId",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyOtp")
 		return err
 	}
 
-	span.SetAttributes(attribute.String("signup.session_id", sessionId.String()))
+	span.SetAttributes(attribute.String("signup.session_id", payload.SessionId))
 
-	if payload.OTP == "" {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "OTP is required to not be empty",
-			Param:   "otp",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyOtp")
-		return err
-	} else if len(payload.OTP) < 6 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "OTP must be at least 6 characters",
-			Param:   "otp",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyOtp")
-		return err
-	}
-
-	data, err := usecase.UserRepository.GetOTPSignupSessionData(ctxContext, sessionId)
+	otp, err := usecase.UserRepository.GetOTPSignupSessionData(ctxContext, payload.SessionId)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
-	otpRaw := data[0]
-	expiresRaw := data[1]
-
-	if otpRaw == nil || expiresRaw == nil {
-		err := &model.ValidationError{
+	if otp.OTP == "" {
+		err := &model.BadRequestError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "OTP does not exists or expired",
 			Param:   "otp",
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyOtp")
 		return err
 	}
 
-	otpHash, ok := otpRaw.(string)
-	if !ok {
-		return fmt.Errorf("invalid OTP hash format")
-	}
-
-	otpExpiresAtStr, ok := expiresRaw.(string)
-	if !ok {
-		return fmt.Errorf("invalid OTP expiration format")
-	}
-
-	otpExpiresAt, err := strconv.ParseInt(otpExpiresAtStr, 10, 64)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	if time.Now().Unix() > otpExpiresAt {
-		err := &model.ValidationError{
+	if time.Now().Unix() > otp.ExpiresAt {
+		err := &model.BadRequestError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: "Otp is expired",
 			Param:   "otp",
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyOtp")
 		return err
 	}
 
-	if subtle.ConstantTimeCompare([]byte(otpHash), []byte(util.HashSHA256(payload.OTP))) != 1 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
+	if subtle.ConstantTimeCompare([]byte(otp.OTP), []byte(util.HashSHA256(payload.OTP))) != 1 {
+		err := &model.BadRequestError{
+			Code:    constant.ERR_BAD_REQUEST_CODE,
 			Message: "Otp does not match",
 			Param:   "otp",
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyOtp")
 		return err
 	}
 
-	err = usecase.UserRepository.DeleteOTPState(ctxContext, sessionId)
+	err = usecase.UserRepository.DeleteOTPState(ctxContext, payload.SessionId)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	verifiedAt := time.Now().UTC().Unix()
-	err = usecase.UserRepository.SetVerificationOTPState(ctxContext, sessionId, verifiedAt)
+	err = usecase.UserRepository.SetVerificationOTPState(ctxContext, payload.SessionId, verifiedAt)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
