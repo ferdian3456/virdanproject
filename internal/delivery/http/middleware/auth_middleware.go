@@ -1,35 +1,70 @@
 package middleware
 
 import (
+	"strings"
+
+	"github.com/ferdian3456/virdanproject/internal/constant"
+	"github.com/ferdian3456/virdanproject/internal/model"
 	"github.com/ferdian3456/virdanproject/internal/usecase"
 	"github.com/ferdian3456/virdanproject/internal/util"
-
 	"github.com/gofiber/fiber/v3"
 	"github.com/knadh/koanf/v2"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
 
 type AuthMiddleware struct {
-	App         *fiber.App
-	Log         *zap.Logger
 	Config      *koanf.Koanf
+	Log         *zap.Logger
 	UserUsecase *usecase.UserUsecase
 }
 
-func NewAuthMiddleware(app *fiber.App, zap *zap.Logger, koanf *koanf.Koanf, userUsecase *usecase.UserUsecase) *AuthMiddleware {
+func NewAuthMiddleware(config *koanf.Koanf, log *zap.Logger, userUsecase *usecase.UserUsecase) *AuthMiddleware {
 	return &AuthMiddleware{
-		App:         app,
-		Log:         zap,
-		Config:      koanf,
+		Config:      config,
+		Log:         log,
 		UserUsecase: userUsecase,
 	}
 }
 
 func (middleware *AuthMiddleware) ProtectedRoute() fiber.Handler {
 	return func(ctx fiber.Ctx) error {
+		ctxContext := ctx.Context()
+		serviceName := middleware.Config.String("OTEL_SERVICE_NAME")
+		ctxContext, span := otel.Tracer(serviceName+"-middleware").Start(ctxContext, "middleware.ProtectedRoute")
+		ctx.SetContext(ctxContext)
+		var err error
 
-		accessToken := ctx.Get("Authorization")
-		tokenString, userId, err := util.ValidateAccessToken(accessToken, middleware.Log, middleware.Config.String("JWT_SECRET_KEY"))
+		defer func() {
+			if err != nil {
+				util.RecordErrorTelemetry(ctxContext, span, err)
+			}
+			span.End()
+		}()
+
+		authHeader := ctx.Get("Authorization")
+		if authHeader == "" {
+			err = &model.UnauthorizedError{
+				Code:    constant.ERR_UNAUTHORIZED_ERROR,
+				Message: "Authorization header is missing",
+				Param:   "authorization",
+			}
+			return util.SendError(ctx, err)
+		}
+
+		if !strings.HasPrefix(authHeader, util.BearerPrefix) {
+			err = &model.UnauthorizedError{
+				Code:    constant.ERR_UNAUTHORIZED_ERROR,
+				Message: "Invalid authorization scheme",
+				Param:   "authorization",
+			}
+			return util.SendError(ctx, err)
+		}
+
+		tokenString := strings.TrimPrefix(authHeader, util.BearerPrefix)
+
+		var userId string
+		tokenString, userId, err = util.ValidateAccessToken(tokenString, middleware.Config.String("JWT_SECRET_KEY"))
 		if err != nil {
 			return util.SendError(ctx, err)
 		}
@@ -41,8 +76,9 @@ func (middleware *AuthMiddleware) ProtectedRoute() fiber.Handler {
 
 		ctx.Locals("userId", userId)
 
-		middleware.Log.Debug("middleware here", zap.String("userId", userId.String()))
+		middleware.Log.Debug("auth success", zap.String("userId", userId))
 
-		return ctx.Next()
+		err = ctx.Next()
+		return err
 	}
 }

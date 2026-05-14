@@ -26,7 +26,8 @@ type ServerConfig struct {
 
 func Server(config *ServerConfig) {
 	serverRepository := repository.NewServerRepository(config.Log, config.Config, config.DB, config.DBCache, config.MinIO)
-	serverUsecase := usecase.NewServerUsecase(serverRepository, config.DB, config.Log, config.Config)
+	profileRepository := repository.NewProfileRepository(config.Log, config.Config, config.DB, config.MinIO)
+	serverUsecase := usecase.NewServerUsecase(serverRepository, profileRepository, config.DB, config.Log, config.Config)
 	serverController := http.NewServerController(serverUsecase, config.Log, config.Config)
 
 	userRepository := repository.NewUserRepository(config.Log, config.Config, config.DB, config.DBCache, config.MinIO)
@@ -34,20 +35,24 @@ func Server(config *ServerConfig) {
 	userController := http.NewUserController(userUsecase, config.Log, config.Config)
 
 	postRepository := repository.NewPostRepository(config.Log, config.Config, config.DB, config.DBCache, config.MinIO)
-	postUsecase := usecase.NewPostUsecase(postRepository, config.DB, config.Log, config.Config)
+	postUsecase := usecase.NewPostUsecase(postRepository, serverRepository, config.DB, config.Log, config.Config)
 	postController := http.NewPostController(postUsecase, config.Log, config.Config)
 
-	authMiddleware := middleware.NewAuthMiddleware(config.Router, config.Log, config.Config, userUsecase)
+	profileUsecase := usecase.NewProfileUsecase(profileRepository, serverRepository, config.DB, config.Log, config.Config)
+	profileController := http.NewProfileController(profileUsecase, config.Log, config.Config)
+
+	authMiddleware := middleware.NewAuthMiddleware(config.Config, config.Log, userUsecase)
 
 	routeConfig := route.RouteConfig{
-		App:              config.Router,
-		UserController:   userController,
-		ServerController: serverController,
-		PostController:   postController,
-		AuthMiddleware:   authMiddleware,
-		DB:               config.DB,
-		DBCache:          config.DBCache,
-		MinIO:            config.MinIO,
+		App:               config.Router,
+		UserController:    userController,
+		ServerController:  serverController,
+		PostController:    postController,
+		ProfileController: profileController,
+		AuthMiddleware:    authMiddleware,
+		DB:                config.DB,
+		DBCache:           config.DBCache,
+		MinIO:             config.MinIO,
 	}
 
 	routeConfig.SetupRoute()

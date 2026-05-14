@@ -29,15 +29,15 @@ func NewRedisClient(ctx context.Context, config *koanf.Koanf, log *zap.Logger) *
 	})
 
 	if err := redisotel.InstrumentTracing(rdb); err != nil {
-		log.Fatal("failed to instrument Redis tracing", zap.Error(err))
+		log.Fatal("Failed to instrument Redis tracing", zap.Error(err))
 	}
 	if err := redisotel.InstrumentMetrics(rdb); err != nil {
-		log.Fatal("failed to instrument Redis metrics", zap.Error(err))
+		log.Fatal("Failed to instrument Redis metrics", zap.Error(err))
 	}
 
 	err := rdb.Ping(ctx).Err()
 	if err != nil {
-		log.Fatal("failed to connect redis", zap.Error(err))
+		log.Fatal("Failed to connect redis", zap.Error(err))
 	}
 
 	log.Info("Redis client initialized",

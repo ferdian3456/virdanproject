@@ -2,8 +2,6 @@ package usecase
 
 import (
 	"bytes"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -15,268 +13,533 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/util"
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/knadh/koanf/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.uber.org/zap"
 )
 
 type ServerUsecase struct {
-	ServerRepository *repository.ServerRepository
-	DB               *pgxpool.Pool
-	Log              *zap.Logger
-	Config           *koanf.Koanf
+	ServerRepository  *repository.ServerRepository
+	ProfileRepository *repository.ProfileRepository
+	DB                *pgxpool.Pool
+	Log               *zap.Logger
+	Config            *koanf.Koanf
 }
 
-func NewServerUsecase(serverRepository *repository.ServerRepository, db *pgxpool.Pool, zap *zap.Logger, koanf *koanf.Koanf) *ServerUsecase {
+func NewServerUsecase(
+	serverRepository *repository.ServerRepository,
+	profileRepository *repository.ProfileRepository,
+	db *pgxpool.Pool,
+	log *zap.Logger,
+	config *koanf.Koanf,
+) *ServerUsecase {
 	return &ServerUsecase{
-		ServerRepository: serverRepository,
-		DB:               db,
-		Log:              zap,
-		Config:           koanf,
+		ServerRepository:  serverRepository,
+		ProfileRepository: profileRepository,
+		DB:                db,
+		Log:               log,
+		Config:            config,
 	}
 }
 
-func (usecase *ServerUsecase) CreateInviteLink(ctx fiber.Ctx, userId uuid.UUID, payload model.ServerInviteLinkRequest) (model.ServerInviteLinkResponse, error) {
-	response := model.ServerInviteLinkResponse{}
-	serverIdParams := ctx.Params("serverId")
-
-	serverId, err := uuid.Parse(serverIdParams)
-	if err != nil {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid server id",
-			Param:   "serverId",
-		}
-	}
-
-	if payload.ExpiresInMinutes <= 0 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Expires in minutes must be greater than 0",
-			Param:   "expiresInMinutes",
-		}
-	} else if payload.ExpiresInMinutes > 10080 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Expires in minutes must be lower or equal than 10080 or one week",
-			Param:   "expiresInMinute",
-		}
-	}
-
-	if payload.MaxUses <= 0 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Max uses must be greater than 0",
-			Param:   "maxUses",
-		}
-	} else if payload.MaxUses > 100 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Max uses must be lower or equal than 100",
-			Param:   "maxUses",
-		}
-	}
-
+func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.ServerCreateResponse, error) {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tr.Start(ctxContext, "usecase.CreateInviteLink")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.CreateServer")
+	var err error
 
-	span.SetAttributes(
-		attribute.String("user.id", userId.String()),
-		attribute.String("server.id", serverIdParams),
-	)
-
-	var inviteCode string
-
-	for i := 0; i < 10; i++ {
-		inviteCode, err = util.GenerateInviteCode()
+	defer func() {
 		if err != nil {
-			usecase.Log.Error("Failed to generate invite code", zap.Error(err))
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-			return response, err
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
+		span.End()
+	}()
 
-		exists, err := usecase.ServerRepository.CheckInviteCodes(ctxContext, inviteCode)
-		if err != nil {
-			return response, err
-		}
+	span.SetAttributes(attribute.String("user.id", userId))
 
-		if exists == 1 {
-			continue
-		}
+	var response model.ServerCreateResponse
+
+	name := ctx.FormValue("name")
+	shortName := ctx.FormValue("shortName")
+	description := ctx.FormValue("description")
+	categoryIdStr := ctx.FormValue("categoryId")
+	isPrivateStr := ctx.FormValue("isPrivate")
+	nickname := ctx.FormValue("nickname")
+	bio := ctx.FormValue("bio")
+	avatarImageIdRaw := ctx.FormValue("avatarImageId")
+
+	v := util.NewValidator()
+	v.String("name", name).Required().MinLen(3).MaxLen(40)
+	v.String("shortName", shortName).Required().MinLen(2).MaxLen(10)
+	v.String("description", description).MaxLen(500)
+	v.String("categoryId", categoryIdStr).Required()
+	v.String("isPrivate", isPrivateStr).Required()
+	v.String("nickname", nickname).Required().MinLen(3).MaxLen(50)
+	v.String("bio", bio).MaxLen(500)
+	if avatarImageIdRaw != "" {
+		v.UUID("avatarImageId", avatarImageIdRaw)
 	}
-
-	now := time.Now().UTC()
-	expiresAt := time.Now().Add(time.Minute * time.Duration(payload.ExpiresInMinutes)).UTC()
-	serverInvitesId := uuid.New()
-
-	serverInvites := model.ServerInvites{
-		Id:              serverInvitesId,
-		ServerId:        serverId,
-		Code:            inviteCode,
-		MaxUses:         payload.MaxUses,
-		UsedCount:       0,
-		ExpiresDatetime: expiresAt,
-		IsActive:        true,
-		CreateDatetime:  now,
-		UpdateDatetime:  now,
-		CreateUserId:    userId,
-		UpdateUserId:    userId,
-	}
-
-	err = usecase.ServerRepository.CreateServerInvites(ctxContext, serverInvites)
+	err = v.Validate()
 	if err != nil {
 		return response, err
 	}
 
-	response.InviteCode = inviteCode
-	response.ExpiresAt = expiresAt
+	var categoryId int
+	categoryId, err = strconv.Atoi(categoryIdStr)
+	if err != nil {
+		err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "categoryId must be int", Param: "categoryId"}
+		return response, err
+	}
+	isPrivate := isPrivateStr == "true"
+
+	var catCount int
+	catCount, err = usecase.ServerRepository.CheckServerCategories(ctxContext, categoryId)
+	if err != nil {
+		return response, err
+	}
+	if catCount == 0 {
+		err = &model.NotFoundError{Code: constant.ERR_NOT_FOUND_CODE, Message: "Category not found", Param: "categoryId"}
+		return response, err
+	}
+
+	var avatarImageIdPtr *string
+	if avatarImageIdRaw != "" {
+		var owned bool
+		owned, err = usecase.ProfileRepository.CheckProfileAvatarImageOwnership(ctxContext, userId, avatarImageIdRaw)
+		if err != nil {
+			return response, err
+		}
+		if !owned {
+			err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "Avatar image is not owned by you", Param: "avatarImageId"}
+			return response, err
+		}
+		avatarImageIdPtr = util.ToPtr(avatarImageIdRaw)
+	}
+
+	var serverAvatarFile *bytes.Reader
+	var serverAvatarSize int64
+	var serverAvatarImageId *string
+	fh, fhErr := ctx.FormFile("avatar")
+	if fhErr == nil && fh != nil {
+		serverAvatarFile, serverAvatarSize, err = util.ValidateImage(ctxContext, fh, "avatar")
+		if err != nil {
+			return response, err
+		}
+		serverAvatarImageId = util.ToPtr(uuid.New().String())
+	}
+
+	var tx pgx.Tx
+	tx, err = usecase.DB.Begin(ctxContext)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to begin transaction", zap.Error(err))
+		return response, err
+	}
+	defer func() { _ = tx.Rollback(ctxContext) }()
+
+	now := time.Now().UTC()
+	serverId := uuid.New().String()
+
+	if serverAvatarImageId != nil {
+		avatarImage := model.ServerAvatarImage{
+			Id:        *serverAvatarImageId,
+			Bucket:    usecase.Config.String("MINIO_BUCKET_NAME"),
+			ObjectKey: fmt.Sprintf("server/avatar/%s.webp", *serverAvatarImageId),
+			MimeType:  "image/webp",
+			Size:      serverAvatarSize,
+			CreatedAt: now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
+		}
+		err = usecase.ServerRepository.CreateServerAvatarImage(ctxContext, tx, avatarImage)
+		if err != nil {
+			return response, err
+		}
+	}
+
+	var descPtr *string
+	if description != "" {
+		descPtr = util.ToPtr(description)
+	}
+
+	initialSettings := model.ServerSettings{IsPrivate: isPrivate}
+	var settingsBytes []byte
+	settingsBytes, err = sonic.Marshal(initialSettings)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to marshal server settings", zap.Error(err))
+		return response, err
+	}
+
+	server := model.Server{
+		Id:            serverId,
+		OwnerId:       userId,
+		Name:          name,
+		ShortName:     shortName,
+		AvatarImageId: serverAvatarImageId,
+		CategoryId:    util.ToPtr(categoryId),
+		Description:   descPtr,
+		Settings:      settingsBytes,
+		CreatedAt:     now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
+	}
+	err = usecase.ServerRepository.CreateServer(ctxContext, tx, server)
+	if err != nil {
+		return response, err
+	}
+
+	ownerRoleId := uuid.New().String()
+	ownerRole := model.ServerRole{
+		Id:          ownerRoleId,
+		ServerId:    serverId,
+		Name:        "Owner",
+		Permissions: []byte(`{"all":true}`),
+		CreatedAt:   now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
+	}
+	err = usecase.ServerRepository.CreateServerRole(ctxContext, tx, ownerRole)
+	if err != nil {
+		return response, err
+	}
+
+	memberRole := model.ServerRole{
+		Id:          uuid.New().String(),
+		ServerId:    serverId,
+		Name:        "Member",
+		Permissions: []byte(`{}`),
+		CreatedAt:   now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
+	}
+	err = usecase.ServerRepository.CreateServerRole(ctxContext, tx, memberRole)
+	if err != nil {
+		return response, err
+	}
+
+	member := model.ServerMember{
+		Id:           uuid.New().String(),
+		ServerId:     serverId,
+		UserId:       userId,
+		ServerRoleId: ownerRoleId,
+		JoinedAt:     now,
+		CreatedAt:    now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
+	}
+	err = usecase.ServerRepository.CreateServerMember(ctxContext, tx, member)
+	if err != nil {
+		return response, err
+	}
+
+	var bioPtr *string
+	if bio != "" {
+		bioPtr = util.ToPtr(bio)
+	}
+
+	profileId := uuid.New().String()
+	profile := model.ServerMemberProfile{
+		Id:            profileId,
+		ServerId:      serverId,
+		UserId:        userId,
+		Nickname:      nickname,
+		Bio:           bioPtr,
+		AvatarImageId: avatarImageIdPtr,
+		CreatedAt:     now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
+	}
+	err = usecase.ProfileRepository.CreateServerMemberProfile(ctxContext, tx, profile)
+	if err != nil {
+		return response, err
+	}
+
+	if serverAvatarImageId != nil {
+		bucket := usecase.Config.String("MINIO_BUCKET_NAME")
+		objectKey := fmt.Sprintf("server/avatar/%s.webp", *serverAvatarImageId)
+		err = usecase.ServerRepository.UploadObject(ctxContext, bucket, objectKey, serverAvatarFile, serverAvatarSize)
+		if err != nil {
+			util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to upload server avatar", zap.Error(err))
+			return response, err
+		}
+	}
+
+	err = tx.Commit(ctxContext)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
+		return response, err
+	}
+
+	response.Server = model.ServerDetailResponse{
+		Id:            serverId,
+		Name:          name,
+		ShortName:     shortName,
+		CategoryId:    util.ToPtr(categoryId),
+		Description:   descPtr,
+		OwnerId:       userId,
+		OwnerNickname: nickname,
+		MemberCount:   1,
+		IsMember:      true,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	if serverAvatarImageId != nil {
+		minioFullUrl := usecase.Config.String("MINIO_HTTP") + usecase.Config.String("MINIO_URL")
+		url := fmt.Sprintf("%s/%s/server/avatar/%s.webp", minioFullUrl, usecase.Config.String("MINIO_BUCKET_NAME"), *serverAvatarImageId)
+		response.Server.AvatarImageUrl = &url
+	}
+	response.Identity = model.ServerMemberProfileResponse{
+		ProfileId:     profileId,
+		Nickname:      nickname,
+		Bio:           bioPtr,
+		AvatarImageId: avatarImageIdPtr,
+		CreatedAt:     now, UpdatedAt: now,
+	}
 
 	return response, nil
 }
 
-func (usecase *ServerUsecase) JoinServerFromInvite(ctx fiber.Ctx, userId uuid.UUID, payload model.ServerJoinRequest) error {
-	if payload.InviteCode == "" {
-		return &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invite code is required to not be empty",
-			Param:   "inviteCode",
-		}
-	} else if len(payload.InviteCode) != 8 {
-		return &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invite code must be 8 characters",
-			Param:   "inviteCode",
-		}
-	}
-
+func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string, payload model.ServerJoinDirectRequest) error {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tr.Start(ctxContext, "usecase.JoinServerFromInvite")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.JoinServer")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
-		attribute.String("user.id", userId.String()),
-		attribute.String("invite.code", payload.InviteCode),
+		attribute.String("user.id", userId),
+		attribute.String("server.id", serverId),
 	)
 
-	usecase.Log.Debug("got here?")
-	serverId, err := usecase.ServerRepository.CheckInviteCodesAndRetrieveServerId(ctxContext, payload.InviteCode)
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	v.String("nickname", payload.Nickname).Required().MinLen(3).MaxLen(50)
+	v.String("bio", util.Deref(payload.Bio, "")).MaxLen(500)
+	if payload.AvatarImageId != nil && *payload.AvatarImageId != "" {
+		v.UUID("avatarImageId", *payload.AvatarImageId)
+	}
+	err = v.Validate()
 	if err != nil {
-		usecase.Log.Debug("got here??")
 		return err
 	}
 
-	if serverId == uuid.Nil {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invite code is not exists, expired or used up",
-			Param:   "inviteCode",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "JoinServerFromInvite")
-		return err
-	}
-
-	exists, err := usecase.ServerRepository.CheckServerMember(ctxContext, serverId, userId)
+	var serverInfo model.ServerCheckEligibleInfo
+	serverInfo, err = usecase.ServerRepository.CheckServerEligibleForJoin(ctxContext, serverId)
 	if err != nil {
-		usecase.Log.Debug("got here 1")
+		return err
+	}
+	if !serverInfo.Exists {
+		err = &model.NotFoundError{Code: constant.ERR_NOT_FOUND_CODE, Message: "Server not found", Param: "serverId"}
+		return err
+	}
+	if serverInfo.IsPrivate {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "Server is private. Use invite code.", Param: "serverId"}
 		return err
 	}
 
-	if exists == 1 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Unable to join server because user is already a member",
-			Param:   "serverId",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "JoinServerFromInvite")
+	var memberCount int
+	memberCount, err = usecase.ServerRepository.CheckServerMember(ctxContext, serverId, userId)
+	if err != nil {
 		return err
 	}
+	if memberCount > 0 {
+		err = &model.ConflictError{Code: constant.ERR_CONFLICT_CODE, Message: "Already a member of this server", Param: "serverId"}
+		return err
+	}
+
+	if payload.AvatarImageId != nil && *payload.AvatarImageId != "" {
+		var owned bool
+		owned, err = usecase.ProfileRepository.CheckProfileAvatarImageOwnership(ctxContext, userId, *payload.AvatarImageId)
+		if err != nil {
+			return err
+		}
+		if !owned {
+			err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "Avatar image is not owned by you", Param: "avatarImageId"}
+			return err
+		}
+	}
+
+	var memberRoleId string
+	memberRoleId, err = usecase.ServerRepository.GetRoleByName(ctxContext, serverId, "Member")
+	if err != nil {
+		return err
+	}
+
+	var tx pgx.Tx
+	tx, err = usecase.DB.Begin(ctxContext)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to begin transaction", zap.Error(err))
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctxContext) }()
 
 	now := time.Now().UTC()
 
-	// Check if "Member" role already exists for this server (outside transaction)
-	// If exists, reuse the role ID; otherwise create a new one inside transaction
-	serverRoleId, err := usecase.ServerRepository.GetRoleByName(ctxContext, serverId, model.MemberRole)
+	var existingProfileId string
+	var profileExists bool
+	existingProfileId, profileExists, err = usecase.ProfileRepository.TryGetServerMemberProfileId(ctxContext, tx, serverId, userId)
 	if err != nil {
 		return err
 	}
 
-	commited := false
-
-	// start transaction
-	tx, err := usecase.DB.Begin(ctxContext)
-	if err != nil {
-		usecase.Log.Error("Failed to begin transaction", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	defer func() {
-		if !commited {
-			_ = tx.Rollback(ctxContext)
+	if profileExists {
+		err = usecase.ProfileRepository.UpdateServerProfileFull(ctxContext, tx, existingProfileId,
+			payload.Nickname, payload.Bio, payload.AvatarImageId, userId, now)
+		if err != nil {
+			return err
 		}
-	}()
-
-	// If role doesn't exist, create it
-	if serverRoleId == uuid.Nil {
-		serverRoleId = uuid.New()
-
-		serverRole := model.ServerRole{
-			Id:             serverRoleId,
-			ServerId:       serverId,
-			Name:           model.MemberRole,
-			Permissions:    sonic.NoCopyRawMessage("{}"),
-			CreateDatetime: now,
-			UpdateDatetime: now,
-			CreateUserId:   userId,
-			UpdateUserId:   userId,
+	} else {
+		profile := model.ServerMemberProfile{
+			Id:            uuid.New().String(),
+			ServerId:      serverId,
+			UserId:        userId,
+			Nickname:      payload.Nickname,
+			Bio:           payload.Bio,
+			AvatarImageId: payload.AvatarImageId,
+			CreatedAt:     now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
 		}
-
-		err = usecase.ServerRepository.CreateServerRole(ctxContext, tx, serverRole)
+		err = usecase.ProfileRepository.CreateServerMemberProfile(ctxContext, tx, profile)
 		if err != nil {
 			return err
 		}
 	}
 
-	serverMemberId := uuid.New()
-
-	serverMember := model.ServerMember{
-		Id:             serverMemberId,
-		ServerId:       serverId,
-		UserId:         userId,
-		ServerRoleId:   serverRoleId,
-		Status:         model.MemberStatusActive,
-		JoinedDatetime: now,
-		LeftDatetime:   nil,
-		CreateDatetime: now,
-		UpdateDatetime: now,
-		CreateUserId:   userId,
-		UpdateUserId:   userId,
+	member := model.ServerMember{
+		Id:           uuid.New().String(),
+		ServerId:     serverId,
+		UserId:       userId,
+		ServerRoleId: memberRoleId,
+		JoinedAt:     now,
+		CreatedAt:    now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
 	}
-
-	err = usecase.ServerRepository.CreateServerMember(ctxContext, tx, serverMember)
+	err = usecase.ServerRepository.CreateServerMember(ctxContext, tx, member)
 	if err != nil {
 		return err
 	}
 
 	err = tx.Commit(ctxContext)
 	if err != nil {
-		usecase.Log.Error("Failed to commit transaction", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
 		return err
 	}
 
-	commited = true
+	return nil
+}
+
+func (usecase *ServerUsecase) JoinServerFromInvite(ctx fiber.Ctx, userId string, payload model.ServerJoinByInviteRequest) error {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.JoinServerFromInvite")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId),
+		attribute.String("invite.code", payload.InviteCode),
+	)
+
+	v := util.NewValidator()
+	v.String("inviteCode", payload.InviteCode).Required().MinLen(8).MaxLen(8)
+	v.String("nickname", payload.Nickname).Required().MinLen(3).MaxLen(50)
+	v.String("bio", util.Deref(payload.Bio, "")).MaxLen(500)
+	if payload.AvatarImageId != nil && *payload.AvatarImageId != "" {
+		v.UUID("avatarImageId", *payload.AvatarImageId)
+	}
+	err = v.Validate()
+	if err != nil {
+		return err
+	}
+
+	var serverId string
+	serverId, err = usecase.ServerRepository.ValidateAndConsumeInvite(ctxContext, payload.InviteCode)
+	if err != nil {
+		return err
+	}
+
+	span.SetAttributes(attribute.String("server.id", serverId))
+
+	var memberCount int
+	memberCount, err = usecase.ServerRepository.CheckServerMember(ctxContext, serverId, userId)
+	if err != nil {
+		return err
+	}
+	if memberCount > 0 {
+		err = &model.ConflictError{Code: constant.ERR_CONFLICT_CODE, Message: "Already a member of this server", Param: "inviteCode"}
+		return err
+	}
+
+	if payload.AvatarImageId != nil && *payload.AvatarImageId != "" {
+		var owned bool
+		owned, err = usecase.ProfileRepository.CheckProfileAvatarImageOwnership(ctxContext, userId, *payload.AvatarImageId)
+		if err != nil {
+			return err
+		}
+		if !owned {
+			err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "Avatar image is not owned by you", Param: "avatarImageId"}
+			return err
+		}
+	}
+
+	var memberRoleId string
+	memberRoleId, err = usecase.ServerRepository.GetRoleByName(ctxContext, serverId, "Member")
+	if err != nil {
+		return err
+	}
+
+	var tx pgx.Tx
+	tx, err = usecase.DB.Begin(ctxContext)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to begin transaction", zap.Error(err))
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctxContext) }()
+
+	now := time.Now().UTC()
+
+	var existingProfileId string
+	var profileExists bool
+	existingProfileId, profileExists, err = usecase.ProfileRepository.TryGetServerMemberProfileId(ctxContext, tx, serverId, userId)
+	if err != nil {
+		return err
+	}
+
+	if profileExists {
+		err = usecase.ProfileRepository.UpdateServerProfileFull(ctxContext, tx, existingProfileId,
+			payload.Nickname, payload.Bio, payload.AvatarImageId, userId, now)
+		if err != nil {
+			return err
+		}
+	} else {
+		profile := model.ServerMemberProfile{
+			Id:       uuid.New().String(),
+			ServerId: serverId, UserId: userId,
+			Nickname: payload.Nickname, Bio: payload.Bio, AvatarImageId: payload.AvatarImageId,
+			CreatedAt: now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
+		}
+		err = usecase.ProfileRepository.CreateServerMemberProfile(ctxContext, tx, profile)
+		if err != nil {
+			return err
+		}
+	}
+
+	member := model.ServerMember{
+		Id:           uuid.New().String(),
+		ServerId:     serverId, UserId: userId,
+		ServerRoleId: memberRoleId, JoinedAt: now,
+		CreatedAt: now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
+	}
+	err = usecase.ServerRepository.CreateServerMember(ctxContext, tx, member)
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit(ctxContext)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
+		return err
+	}
 
 	return nil
 }
@@ -284,1755 +547,838 @@ func (usecase *ServerUsecase) JoinServerFromInvite(ctx fiber.Ctx, userId uuid.UU
 func (usecase *ServerUsecase) GetServerInfoForInvite(ctx fiber.Ctx, inviteCode string) (model.ServerInfoForInviteResponse, error) {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tr.Start(ctxContext, "usecase.GetServerInfoForInvite")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("invite.code", inviteCode),
-	)
-
-	server, err := usecase.ServerRepository.GetServerInfoForInvite(ctxContext, inviteCode)
-	if err != nil {
-		return server, err
-	}
-
-	if server.ServerName == "" {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invite code is not exists",
-			Param:   "inviteCode",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "GetServerInfoForInvite")
-		return server, err
-	}
-
-	MINIO_URL := usecase.Config.String("MINIO_URL")
-	MINIO_BUCKET_NAME := usecase.Config.String("MINIO_BUCKET_NAME")
-	MINIO_HTTP := usecase.Config.String("MINIO_HTTP")
-
-	if server.AvatarImageId != nil {
-		*server.AvatarImageId = fmt.Sprintf("%s%s/%s/%s.webp", MINIO_HTTP, MINIO_URL, MINIO_BUCKET_NAME, *server.AvatarImageId)
-	}
-
-	if server.BannerImageId != nil {
-		*server.BannerImageId = fmt.Sprintf("%s%s/%s/%s.webp", MINIO_HTTP, MINIO_URL, MINIO_BUCKET_NAME, *server.BannerImageId)
-
-	}
-
-	return server, nil
-}
-
-// func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId uuid.UUID) error {
-// 	ctxContext := ctx.Context()
-
-// 	fieldName := "avatar"
-// 	fileHeader, err := ctx.FormFile(fieldName)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	var imageFile *bytes.Reader
-// 	var imageSize int64
-// 	var avatarImageId *uuid.UUID
-
-// 	if fileHeader.Size != 0 {
-// 		imageFile, imageSize, err = util.ValidateImage(fileHeader, fieldName)
-// 		if err != nil {
-// 			return err
-// 		}
-
-// 		id := uuid.New()
-// 		avatarImageId = &id
-// 	}
-
-// 	fieldName = "banner"
-// 	fileHeader, err = ctx.FormFile(fieldName)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	var imageFile1 *bytes.Reader
-// 	var imageSize1 int64
-// 	var bannerImageId *uuid.UUID
-
-// 	if fileHeader.Size != 0 {
-// 		imageFile1, imageSize1, err = util.ValidateImage(fileHeader, fieldName)
-// 		if err != nil {
-// 			return err
-// 		}
-
-// 		id := uuid.New()
-// 		bannerImageId = &id
-// 	}
-
-// 	name := ctx.FormValue("name")
-
-// 	if name == "" {
-// 		return &model.ValidationError{
-// 			Code:    constant.ERR_VALIDATION_CODE,
-// 			Message: "Name is required to not be empty",
-// 			Param:   "name",
-// 		}
-// 	} else if len(name) < 5 {
-// 		return &model.ValidationError{
-// 			Code:    constant.ERR_VALIDATION_CODE,
-// 			Message: "Name must be at least 4 characters",
-// 			Param:   "name",
-// 		}
-// 	} else if len(name) > 40 {
-// 		return &model.ValidationError{
-// 			Code:    constant.ERR_VALIDATION_CODE,
-// 			Message: "Name must be at most 40 characters",
-// 			Param:   "name",
-// 		}
-// 	}
-
-// 	shortName := ctx.FormValue("shortName")
-
-// 	if shortName == "" {
-// 		return &model.ValidationError{
-// 			Code:    constant.ERR_VALIDATION_CODE,
-// 			Message: "Short name is required to not be empty",
-// 			Param:   "shortName",
-// 		}
-// 	} else if len(name) < 5 {
-// 		return &model.ValidationError{
-// 			Code:    constant.ERR_VALIDATION_CODE,
-// 			Message: "Short name must be at least 5 characters",
-// 			Param:   "shortName",
-// 		}
-// 	} else if len(name) > 10 {
-// 		return &model.ValidationError{
-// 			Code:    constant.ERR_VALIDATION_CODE,
-// 			Message: "Short name must be at most 10 characters",
-// 			Param:   "shortName",
-// 		}
-// 	}
-
-// 	categoryIdString := ctx.FormValue("categoryId")
-// 	var categoryIdInt int
-// 	if categoryIdString != "" {
-// 		categoryIdInt, err = strconv.Atoi(categoryIdString)
-// 		if err != nil {
-// 			return &model.ValidationError{
-// 				Code:    constant.ERR_VALIDATION_CODE,
-// 				Message: "Category id must be a number",
-// 				Param:   "categoryId",
-// 			}
-// 		}
-
-// 		exists, err := usecase.ServerRepository.CheckServerCategories(ctxContext, categoryIdInt)
-// 		if err != nil {
-// 			return err
-// 		}
-
-// 		if exists == 1 {
-// 			return &model.ValidationError{
-// 				Code:    constant.ERR_VALIDATION_CODE,
-// 				Message: "Category id is not found",
-// 				Param:   "categoryId",
-// 			}
-// 		}
-// 	}
-
-// 	description := ctx.FormValue("description")
-
-// 	// validate settings
-
-// 	serverId := uuid.New()
-// 	now := time.Now().UTC()
-
-// 	serverAvatarImage := model.ServerAvatarImage{}
-// 	if avatarImageId != nil {
-// 		serverAvatarImage.Id = *avatarImageId
-// 		serverAvatarImage.ServerId = serverId
-// 		serverAvatarImage.Bucket = ""
-// 		serverAvatarImage.ObjectKey = ""
-// 		serverAvatarImage.MimeType = ""
-// 		serverAvatarImage.CreateDatetime = now
-// 		serverAvatarImage.UpdateDatetime = now
-// 		serverAvatarImage.CreateUserId = userId
-// 		serverAvatarImage.UpdateUserId = userId
-// 	}
-
-// 	serverBannerImage := model.ServerBannerImage{}
-
-// 	if bannerImageId != nil {
-// 		serverBannerImage.Id = *bannerImageId
-// 		serverBannerImage.ServerId = serverId
-// 		serverBannerImage.Bucket = ""
-// 		serverBannerImage.ObjectKey = ""
-// 		serverBannerImage.MimeType = ""
-// 		serverBannerImage.CreateDatetime = now
-// 		serverBannerImage.UpdateDatetime = now
-// 		serverBannerImage.CreateUserId = userId
-// 		serverBannerImage.UpdateUserId = userId
-// 	}
-
-// 	server := model.Server{
-// 		Id:             serverId,
-// 		OwnerId:        userId,
-// 		Name:           name,
-// 		ShortName:      shortName,
-// 		CategoryId:     &categoryIdInt,
-// 		AvatarImageId:  avatarImageId,
-// 		BannerImageId:  bannerImageId,
-// 		Description:    &description,
-// 		Settings:       sonic.NoCopyRawMessage("{}"),
-// 		CreateDatetime: now,
-// 		UpdateDatetime: now,
-// 		CreateUserId:   userId,
-// 		UpdateUserId:   userId,
-// 	}
-
-// 	serverRoleId := uuid.New()
-
-// 	serverRole := model.ServerRole{
-// 		Id:             serverRoleId,
-// 		ServerId:       serverId,
-// 		Name:           model.OwnerRole,
-// 		Permissions:    sonic.NoCopyRawMessage("{}"), // TODO
-// 		CreateDatetime: now,
-// 		UpdateDatetime: now,
-// 		CreateUserId:   userId,
-// 		UpdateUserId:   userId,
-// 	}
-
-// 	serverMemberId := uuid.New()
-
-// 	serverMember := model.ServerMember{
-// 		Id:             serverMemberId,
-// 		ServerId:       serverId,
-// 		UserId:         userId,
-// 		ServerRoleId:   serverRoleId,
-// 		Status:         model.MemberStatusActive,
-// 		JoinedAt:       now,
-// 		LeftAt:         nil,
-// 		CreateDatetime: now,
-// 		UpdateDatetime: now,
-// 		CreateUserId:   userId,
-// 		UpdateUserId:   userId,
-// 	}
-
-// 	commited := false
-
-// 	// start transaction
-// 	tx, err := usecase.DB.Begin(ctxContext)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	defer func() {
-// 		if !commited {
-// 			_ = tx.Rollback(ctxContext)
-// 		}
-// 	}()
-
-// 	err = usecase.ServerRepository.CreateServer(ctxContext, tx, server)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	err = usecase.ServerRepository.CreateServerRole(ctxContext, tx, serverRole)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	err = usecase.ServerRepository.CreateServerMember(ctxContext, tx, serverMember)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	if avatarImageId != nil {
-// 		err = usecase.ServerRepository.CreateServerAvatarImage(ctxContext, tx, serverAvatarImage)
-// 		if err != nil {
-// 			return err
-// 		}
-// 		err = usecase.ServerRepository.UploadObject(ctxContext, "", "", imageFile, imageSize)
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
-
-// 	if bannerImageId != nil {
-// 		err = usecase.ServerRepository.CreateServerBannerImage(ctxContext, tx, serverBannerImage)
-// 		if err != nil {
-// 			return err
-// 		}
-// 		err = usecase.ServerRepository.UploadObject(ctxContext, "", "", imageFile1, imageSize1)
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
-
-// 	err = tx.Commit(ctxContext)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	commited = true
-
-// 	return nil
-// }
-
-func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId uuid.UUID) (model.ServerCreateResponse, error) {
-	response := model.ServerCreateResponse{}
-	ctxContext := ctx.Context()
-	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tr.Start(ctxContext, "usecase.CreateServer")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("user.id", userId.String()),
-	)
-
-	fieldName := "avatar"
-	fileHeader, err := ctx.FormFile(fieldName)
-	if err != nil {
-		if err.Error() != "there is no uploaded file associated with the given key" {
-			usecase.Log.Debug("check error: ", zap.Error(err))
-			return response, err
-		}
-		// Reset error since file is optional
-		err = nil
-		fileHeader = nil
-	}
-
-	var imageFile *bytes.Reader
-	var imageSize int64
-	var avatarImageId *uuid.UUID
-
-	if fileHeader != nil && fileHeader.Size != 0 {
-		imageFile, imageSize, err = util.ValidateImage(fileHeader, fieldName)
-		if err != nil {
-			if validationErr, ok := err.(*model.ValidationError); ok {
-				util.RecordValidationError(ctxContext, usecase.Log, span, validationErr, "CreateServer")
-			}
-			return response, err
-		}
-
-		id := uuid.New()
-		avatarImageId = &id
-	}
-
-	name := ctx.FormValue("name")
-	shortName := ctx.FormValue("shortName")
-	description := ctx.FormValue("description")
-	categoryId := ctx.FormValue("categoryId")
-	isPrivate := ctx.FormValue("isPrivate")
-	isPrivateBool, err := strconv.ParseBool(isPrivate)
-	if err != nil {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Is private is invalid",
-			Param:   "isPrivate",
-		}
-	}
-
-	if name == "" {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Name is required to not be empty",
-			Param:   "name",
-		}
-	} else if len(name) < 5 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Name must be at least 4 characters",
-			Param:   "name",
-		}
-	} else if len(name) > 40 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Name must be at most 40 characters",
-			Param:   "name",
-		}
-	}
-
-	if shortName == "" {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Short name is required to not be empty",
-			Param:   "shortName",
-		}
-	} else if len(shortName) < 5 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Short name must be at least 5 characters",
-			Param:   "shortName",
-		}
-	} else if len(shortName) > 10 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Short name must be at most 10 characters",
-			Param:   "shortName",
-		}
-	}
-	categoryIdInt, err := strconv.Atoi(categoryId)
-	if err != nil {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Category id is invalid",
-			Param:   "categoryId",
-		}
-	}
-
-	if categoryIdInt != 0 {
-		exists, err := usecase.ServerRepository.CheckServerCategories(ctxContext, categoryIdInt)
-		if err != nil {
-			return response, err
-		}
-
-		if exists != 1 {
-			err := &model.ValidationError{
-				Code:    constant.ERR_VALIDATION_CODE,
-				Message: "Category id is not found",
-				Param:   "categoryId",
-			}
-			util.RecordValidationError(ctxContext, usecase.Log, span, err, "CreateServer")
-			return response, err
-		}
-	}
-
-	serverId := uuid.New()
-	now := time.Now().UTC()
-
-	settings := model.ServerSettingsCreateRequest{
-		IsPrivate: isPrivateBool,
-	}
-
-	settingsBytes, err := json.Marshal(settings)
-	if err != nil {
-		usecase.Log.Error("Failed to marshal settings", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return response, err
-	}
-
-	serverAvatarImage := model.ServerAvatarImage{}
-	bucketName := usecase.Config.String("MINIO_BUCKET_NAME")
-
-	if avatarImageId != nil {
-		serverAvatarImage = model.ServerAvatarImage{
-			Id:             *avatarImageId,
-			Bucket:         bucketName,
-			ObjectKey:      fmt.Sprintf("server/avatar/%s.webp", *avatarImageId),
-			MimeType:       "webp",
-			Size:           imageSize,
-			CreateDatetime: now,
-			UpdateDatetime: now,
-			CreateUserId:   userId,
-			UpdateUserId:   userId,
-		}
-	}
-
-	server := model.Server{
-		Id:             serverId,
-		OwnerId:        userId,
-		Name:           name,
-		ShortName:      shortName,
-		CategoryId:     &categoryIdInt,
-		AvatarImageId:  avatarImageId,
-		BannerImageId:  nil,
-		Description:    &description,
-		Settings:       sonic.NoCopyRawMessage(settingsBytes),
-		CreateDatetime: now,
-		UpdateDatetime: now,
-		CreateUserId:   userId,
-		UpdateUserId:   userId,
-	}
-
-	serverRoleId := uuid.New()
-
-	serverRole := model.ServerRole{
-		Id:             serverRoleId,
-		ServerId:       serverId,
-		Name:           model.OwnerRole,
-		Permissions:    sonic.NoCopyRawMessage(`{"*": true}`), // TODO
-		CreateDatetime: now,
-		UpdateDatetime: now,
-		CreateUserId:   userId,
-		UpdateUserId:   userId,
-	}
-
-	serverMemberId := uuid.New()
-
-	serverMember := model.ServerMember{
-		Id:             serverMemberId,
-		ServerId:       serverId,
-		UserId:         userId,
-		ServerRoleId:   serverRoleId,
-		Status:         model.MemberStatusActive,
-		JoinedDatetime: now,
-		LeftDatetime:   nil,
-		CreateDatetime: now,
-		UpdateDatetime: now,
-		CreateUserId:   userId,
-		UpdateUserId:   userId,
-	}
-
-	response.Id = serverId
-	response.OwnerId = userId
-	response.Name = name
-	response.ShortName = shortName
-	response.Description = &description
-	response.CategoryId = &categoryIdInt
-	response.Settings = settingsBytes
-	response.CreateDatetime = now
-	response.UpdateDatetime = now
-	response.CreateUserId = userId
-	response.UpdateUserId = userId
-
-	commited := false
-
-	// start transaction
-	tx, err := usecase.DB.Begin(ctxContext)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return response, err
-	}
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.GetServerInfoForInvite")
+	var err error
 
 	defer func() {
-		if !commited {
-			_ = tx.Rollback(ctxContext)
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
+		span.End()
 	}()
 
-	if avatarImageId != nil {
-		err = usecase.ServerRepository.CreateServerAvatarImage(ctxContext, tx, serverAvatarImage)
-		if err != nil {
-			return response, err
-		}
+	var response model.ServerInfoForInviteResponse
 
-		err = usecase.ServerRepository.UploadObject(ctxContext, bucketName, serverAvatarImage.ObjectKey, imageFile, imageSize)
-		if err != nil {
-			return response, err
-		}
-	}
-
-	err = usecase.ServerRepository.CreateServer(ctxContext, tx, server)
+	v := util.NewValidator()
+	v.String("inviteCode", inviteCode).Required().MinLen(8).MaxLen(8)
+	err = v.Validate()
 	if err != nil {
 		return response, err
 	}
 
-	err = usecase.ServerRepository.CreateServerRole(ctxContext, tx, serverRole)
+	span.SetAttributes(attribute.String("invite.code", inviteCode))
+
+	minioFullUrl := usecase.Config.String("MINIO_HTTP") + usecase.Config.String("MINIO_URL") + "/" + usecase.Config.String("MINIO_BUCKET_NAME")
+	response, err = usecase.ServerRepository.GetServerInfoForInvite(ctxContext, inviteCode, minioFullUrl)
 	if err != nil {
 		return response, err
-	}
-
-	err = usecase.ServerRepository.CreateServerMember(ctxContext, tx, serverMember)
-	if err != nil {
-		return response, err
-	}
-
-	err = tx.Commit(ctxContext)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return response, err
-	}
-
-	commited = true
-
-	return response, nil
-}
-
-func (usecase *ServerUsecase) GetDiscoveryServer(ctx fiber.Ctx, userId uuid.UUID) (model.DiscoveryServerResponse, error) {
-	response := model.DiscoveryServerResponse{}
-
-	limit := fiber.Query[int](ctx, "limit", constant.DEFAULT_LIMIT)
-	categoryId := fiber.Query[int](ctx, "categoryId", 0)
-	cursor := ctx.Query("cursor", "")
-
-	if limit < 0 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Limit must be greater or equal than 0",
-			Param:   "limit",
-		}
-	} else if limit > constant.MAX_LIMIT {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: fmt.Sprintf("Limit is exceeded max limit: %d", constant.MAX_LIMIT),
-			Param:   "limit",
-		}
-	}
-
-	ctxContext := ctx.Context()
-	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tr.Start(ctxContext, "usecase.GetDiscoveryServer")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("user.id", userId.String()),
-		attribute.Int("limit", limit),
-		attribute.Int("categoryId", categoryId),
-		attribute.String("cursor", cursor),
-	)
-
-	var serverDiscoveryCursor model.ServerDiscoveryCursor
-	if cursor != "" {
-		b, err := base64.RawURLEncoding.DecodeString(cursor)
-		if err != nil {
-			return response, err
-		}
-
-		err = sonic.Unmarshal(b, &serverDiscoveryCursor)
-		if err != nil {
-			return response, err
-		}
-	}
-
-	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
-	serverInfo, err := usecase.ServerRepository.GetServerDiscovery(ctxContext, limit+1, categoryId, &serverDiscoveryCursor, MINIO_FULL_URL)
-	if err != nil {
-		return response, err
-	}
-
-	// Initialize with empty array
-	response.Data = []model.ServerInfoResponse{}
-
-	if len(serverInfo) > limit {
-		// Ada data lagi, return limit items dan buat cursor
-		response.Data = serverInfo[:limit]
-
-		last := serverInfo[limit-1]
-
-		// Create cursor properly using ServerDiscoveryCursor
-		discoveryCursor := model.ServerDiscoveryCursor{
-			Id:             last.Id.String(),
-			CreateDatetime: last.CreateDatetime,
-		}
-
-		b, err := sonic.Marshal(discoveryCursor)
-		if err != nil {
-			return response, err
-		}
-
-		response.Page.NextCursor = base64.RawURLEncoding.EncodeToString(b)
-	} else {
-		// Tidak ada data lagi, return semua data tanpa cursor
-		if len(serverInfo) > 0 {
-			response.Data = serverInfo
-		}
-		// Jika kosong, Data sudah []empty array dari inisialisasi
 	}
 
 	return response, nil
 }
 
-func (usecase *ServerUsecase) GetUserServer(ctx fiber.Ctx, userId uuid.UUID) (model.ServerUserListResponse, error) {
-	response := model.ServerUserListResponse{}
-
-	limit := fiber.Query[int](ctx, "limit", constant.DEFAULT_LIMIT)
-	cursor := ctx.Query("cursor", "")
-
-	if limit < 0 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Limit must be greater or equal than 0",
-			Param:   "limit",
-		}
-	} else if limit > constant.MAX_LIMIT {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: fmt.Sprintf("Limit is exceeded max limit: %d", constant.MAX_LIMIT),
-			Param:   "limit",
-		}
-	}
-
+func (usecase *ServerUsecase) GetServerById(ctx fiber.Ctx, userId, serverId string) (model.ServerDetailResponse, error) {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tr.Start(ctxContext, "usecase.GetUserServer")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("user.id", userId.String()),
-		attribute.Int("limit", limit),
-		attribute.String("cursor", cursor),
-	)
-
-	var serverUserCursor model.ServerUserCursor
-	if cursor != "" {
-		b, err := base64.RawURLEncoding.DecodeString(cursor)
-		if err != nil {
-			return response, err
-		}
-
-		err = sonic.Unmarshal(b, &serverUserCursor)
-		if err != nil {
-			return response, err
-		}
-	}
-
-	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
-
-	// Fetch limit + 1 untuk cek apakah ada data lagi
-	serverUser, err := usecase.ServerRepository.GetUserServer(ctxContext, limit+1, &serverUserCursor, userId, MINIO_FULL_URL)
-	if err != nil {
-		return response, err
-	}
-
-	// Initialize with empty array
-	response.Data = []model.ServerUserResponse{}
-
-	if len(serverUser) > limit {
-		// Ada data lagi, return limit items dan buat cursor
-		response.Data = serverUser[:limit]
-
-		last := serverUser[limit-1]
-
-		// Create cursor properly using ServerUserCursor
-		lastCursor := model.ServerUserCursor{
-			ServerId:       last.Id.String(),
-			JoinedDatetime: last.JoinedDatetime,
-		}
-
-		b, err := sonic.Marshal(lastCursor)
-		if err != nil {
-			return response, err
-		}
-
-		response.Page.NextCursor = base64.RawURLEncoding.EncodeToString(b)
-	} else {
-		// Tidak ada data lagi, return semua data tanpa cursor
-		if len(serverUser) > 0 {
-			response.Data = serverUser
-		}
-		// Jika kosong, Data sudah []empty array dari inisialisasi
-	}
-
-	return response, nil
-}
-
-func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId uuid.UUID) error {
-	serverIdParams := ctx.Params("serverId")
-
-	serverId, err := uuid.Parse(serverIdParams)
-	if err != nil {
-		return &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid server id",
-			Param:   "serverId",
-		}
-	}
-
-	ctxContext := ctx.Context()
-	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tr.Start(ctxContext, "usecase.JoinServer")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("user.id", userId.String()),
-		attribute.String("server.id", serverIdParams),
-	)
-
-	exists, err := usecase.ServerRepository.CheckServerEligible(ctxContext, serverId)
-	if err != nil {
-		return err
-	}
-
-	if exists != 1 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Unable to join server because server is not exists or private",
-			Param:   "serverId",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "JoinServer")
-		return err
-	}
-
-	exists, err = usecase.ServerRepository.CheckServerMember(ctxContext, serverId, userId)
-	if err != nil {
-		return err
-	}
-
-	if exists == 1 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Unable to join server because user is already a member",
-			Param:   "serverId",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "JoinServer")
-		return err
-	}
-
-	now := time.Now().UTC()
-
-	// Check if "Member" role already exists for this server (outside transaction)
-	// If exists, reuse the role ID; otherwise create a new one inside transaction
-	serverRoleId, err := usecase.ServerRepository.GetRoleByName(ctxContext, serverId, model.MemberRole)
-	if err != nil {
-		return err
-	}
-
-	commited := false
-
-	// start transaction
-	tx, err := usecase.DB.Begin(ctxContext)
-	if err != nil {
-		usecase.Log.Error("Failed to begin transaction", zap.Error(err))
-		return err
-	}
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.GetServerById")
+	var err error
 
 	defer func() {
-		if !commited {
-			_ = tx.Rollback(ctxContext)
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
+		span.End()
 	}()
 
-	// If role doesn't exist, create it
-	if serverRoleId == uuid.Nil {
-		serverRoleId = uuid.New()
+	var response model.ServerDetailResponse
 
-		serverRole := model.ServerRole{
-			Id:             serverRoleId,
-			ServerId:       serverId,
-			Name:           model.MemberRole,
-			Permissions:    sonic.NoCopyRawMessage("{}"),
-			CreateDatetime: now,
-			UpdateDatetime: now,
-			CreateUserId:   userId,
-			UpdateUserId:   userId,
-		}
-
-		err = usecase.ServerRepository.CreateServerRole(ctxContext, tx, serverRole)
-		if err != nil {
-			return err
-		}
-	}
-
-	serverMemberId := uuid.New()
-
-	serverMember := model.ServerMember{
-		Id:             serverMemberId,
-		ServerId:       serverId,
-		UserId:         userId,
-		ServerRoleId:   serverRoleId,
-		Status:         model.MemberStatusActive,
-		JoinedDatetime: now,
-		LeftDatetime:   nil,
-		CreateDatetime: now,
-		UpdateDatetime: now,
-		CreateUserId:   userId,
-		UpdateUserId:   userId,
-	}
-
-	err = usecase.ServerRepository.CreateServerMember(ctxContext, tx, serverMember)
-	if err != nil {
-		return err
-	}
-
-	err = tx.Commit(ctxContext)
-	if err != nil {
-		usecase.Log.Error("Failed to commit transaction", zap.Error(err))
-		return err
-	}
-
-	commited = true
-
-	return nil
-}
-
-// func (usecase *ServerUsecase) GetServerById(ctx fiber.Ctx) (model.ServerResponse, error) {
-// 	serverIdParams := ctx.Params("serverId")
-
-// 	response := model.ServerResponse{}
-
-// 	serverId, err := uuid.Parse(serverIdParams)
-// 	if err != nil {
-// 		return response, &model.ValidationError{
-// 			Code:    constant.ERR_VALIDATION_CODE,
-// 			Message: "Invalid server id",
-// 			Param:   "serverId",
-// 		}
-// 	}
-
-// 	exists, err := usecase.ServerRepository.CheckServerEligible(ctx.Context(), serverId)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	if exists == 1 {
-// 		return response, &model.ValidationError{
-// 			Code:    constant.ERR_VALIDATION_CODE,
-// 			Message: "Unable to view server detail because server is not exists or private",
-// 			Param:   "serverId",
-// 		}
-// 	}
-
-// }
-
-func (usecase *ServerUsecase) UpdateServerName(ctx fiber.Ctx, userId uuid.UUID, serverIdParam string, payload model.ServerUpdateNameRequest) (model.ServerUpdateResponse, error) {
-	response := model.ServerUpdateResponse{}
-
-	serverId, err := uuid.Parse(serverIdParam)
-	if err != nil {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid server id",
-			Param:   "serverId",
-		}
-	}
-
-	if payload.Name == "" {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Name is required to not be empty",
-			Param:   "name",
-		}
-	} else if len(payload.Name) < 5 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Name must be at least 4 characters",
-			Param:   "name",
-		}
-	} else if len(payload.Name) > 40 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Name must be at most 40 characters",
-			Param:   "name",
-		}
-	}
-
-	ctxContext := ctx.Context()
-	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tr.Start(ctxContext, "usecase.UpdateServerName")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("user.id", userId.String()),
-		attribute.String("server.id", serverIdParam),
-		attribute.String("server.name", payload.Name),
-	)
-
-	exists, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	err = v.Validate()
 	if err != nil {
 		return response, err
 	}
 
-	if exists != 1 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "You are not the owner of this server",
-			Param:   "serverId",
+	span.SetAttributes(attribute.String("user.id", userId), attribute.String("server.id", serverId))
+
+	minioFullUrl := usecase.Config.String("MINIO_HTTP") + usecase.Config.String("MINIO_URL") + "/" + usecase.Config.String("MINIO_BUCKET_NAME")
+	response, err = usecase.ServerRepository.GetServerById(ctxContext, serverId, userId, minioFullUrl)
+	if err != nil {
+		return response, err
+	}
+
+	return response, nil
+}
+
+func (usecase *ServerUsecase) UpdateServerName(ctx fiber.Ctx, userId, serverId string, payload model.ServerUpdateNameRequest) (model.ServerUpdateResponse, error) {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.UpdateServerName")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateServerName")
+		span.End()
+	}()
+
+	var response model.ServerUpdateResponse
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	v.String("name", payload.Name).Required().MinLen(3).MaxLen(40)
+	err = v.Validate()
+	if err != nil {
+		return response, err
+	}
+
+	span.SetAttributes(attribute.String("user.id", userId), attribute.String("server.id", serverId))
+
+	var ownerCount int
+	ownerCount, err = usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
+	if err != nil {
+		return response, err
+	}
+	if ownerCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not the owner of this server", Param: "serverId"}
 		return response, err
 	}
 
 	now := time.Now().UTC()
-
 	err = usecase.ServerRepository.UpdateServerName(ctxContext, serverId, payload.Name, userId, now)
 	if err != nil {
 		return response, err
 	}
 
-	response, err = usecase.ServerRepository.GetServerDetail(ctxContext, serverId)
-	if err != nil {
-		return response, err
-	}
-
+	response.Id = serverId
+	response.UpdatedAt = now
 	return response, nil
 }
 
-func (usecase *ServerUsecase) UpdateServerShortName(ctx fiber.Ctx, userId uuid.UUID, serverIdParam string, payload model.ServerUpdateShortNameRequest) (model.ServerUpdateResponse, error) {
-	response := model.ServerUpdateResponse{}
-
-	serverId, err := uuid.Parse(serverIdParam)
-	if err != nil {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid server id",
-			Param:   "serverId",
-		}
-	}
-
-	if payload.ShortName == "" {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Short name is required to not be empty",
-			Param:   "shortName",
-		}
-	} else if len(payload.ShortName) < 5 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Short name must be at least 5 characters",
-			Param:   "shortName",
-		}
-	} else if len(payload.ShortName) > 10 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Short name must be at most 10 characters",
-			Param:   "shortName",
-		}
-	}
-
+func (usecase *ServerUsecase) UpdateServerShortName(ctx fiber.Ctx, userId, serverId string, payload model.ServerUpdateShortNameRequest) (model.ServerUpdateResponse, error) {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tr.Start(ctxContext, "usecase.UpdateServerShortName")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.UpdateServerShortName")
+	var err error
 
-	span.SetAttributes(
-		attribute.String("user.id", userId.String()),
-		attribute.String("server.id", serverIdParam),
-		attribute.String("server.shortName", payload.ShortName),
-	)
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
 
-	exists, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
+	var response model.ServerUpdateResponse
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	v.String("shortName", payload.ShortName).Required().MinLen(2).MaxLen(10)
+	err = v.Validate()
 	if err != nil {
 		return response, err
 	}
 
-	if exists != 1 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "You are not the owner of this server",
-			Param:   "serverId",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateServerShortName")
+	span.SetAttributes(attribute.String("user.id", userId), attribute.String("server.id", serverId))
+
+	var ownerCount int
+	ownerCount, err = usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
+	if err != nil {
+		return response, err
+	}
+	if ownerCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not the owner of this server", Param: "serverId"}
 		return response, err
 	}
 
 	now := time.Now().UTC()
-
 	err = usecase.ServerRepository.UpdateServerShortName(ctxContext, serverId, payload.ShortName, userId, now)
 	if err != nil {
 		return response, err
 	}
 
-	response, err = usecase.ServerRepository.GetServerDetail(ctxContext, serverId)
-	if err != nil {
-		return response, err
-	}
-
+	response.Id = serverId
+	response.UpdatedAt = now
 	return response, nil
 }
 
-func (usecase *ServerUsecase) UpdateServerCategory(ctx fiber.Ctx, userId uuid.UUID, serverIdParam string, payload model.ServerUpdateCategoryRequest) (model.ServerUpdateResponse, error) {
-	response := model.ServerUpdateResponse{}
-
-	serverId, err := uuid.Parse(serverIdParam)
-	if err != nil {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid server id",
-			Param:   "serverId",
-		}
-	}
-
+func (usecase *ServerUsecase) UpdateServerCategory(ctx fiber.Ctx, userId, serverId string, payload model.ServerUpdateCategoryRequest) (model.ServerUpdateResponse, error) {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tr.Start(ctxContext, "usecase.UpdateServerCategory")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.UpdateServerCategory")
+	var err error
 
-	span.SetAttributes(
-		attribute.String("user.id", userId.String()),
-		attribute.String("server.id", serverIdParam),
-	)
-
-	if payload.CategoryId != nil {
-		exists, err := usecase.ServerRepository.CheckServerCategories(ctxContext, *payload.CategoryId)
+	defer func() {
 		if err != nil {
-			return response, err
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
+		span.End()
+	}()
 
-		if exists != 1 {
-			err := &model.ValidationError{
-				Code:    constant.ERR_VALIDATION_CODE,
-				Message: "Category id is not found",
-				Param:   "categoryId",
-			}
-			util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateServerCategory")
-			return response, err
-		}
-	}
+	var response model.ServerUpdateResponse
 
-	exists, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	v.Int("categoryId", payload.CategoryId).Required().Positive()
+	err = v.Validate()
 	if err != nil {
 		return response, err
 	}
 
-	if exists != 1 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "You are not the owner of this server",
-			Param:   "serverId",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateServerCategory")
+	span.SetAttributes(
+		attribute.String("user.id", userId),
+		attribute.String("server.id", serverId),
+		attribute.Int("server.category_id", payload.CategoryId),
+	)
+
+	var ownerCount int
+	ownerCount, err = usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
+	if err != nil {
+		return response, err
+	}
+	if ownerCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not the owner of this server", Param: "serverId"}
+		return response, err
+	}
+
+	var categoryExists bool
+	categoryExists, err = usecase.ServerRepository.CheckCategoryActive(ctxContext, payload.CategoryId)
+	if err != nil {
+		return response, err
+	}
+	if !categoryExists {
+		err = &model.NotFoundError{Code: constant.ERR_NOT_FOUND_CODE, Message: "Category not found or inactive", Param: "categoryId"}
 		return response, err
 	}
 
 	now := time.Now().UTC()
-
 	err = usecase.ServerRepository.UpdateServerCategory(ctxContext, serverId, payload.CategoryId, userId, now)
 	if err != nil {
 		return response, err
 	}
 
-	response, err = usecase.ServerRepository.GetServerDetail(ctxContext, serverId)
-	if err != nil {
-		return response, err
-	}
-
+	response.Id = serverId
+	response.UpdatedAt = now
 	return response, nil
 }
 
-func (usecase *ServerUsecase) UpdateServerDescription(ctx fiber.Ctx, userId uuid.UUID, serverIdParam string, payload model.ServerUpdateDescriptionRequest) (model.ServerUpdateResponse, error) {
-	response := model.ServerUpdateResponse{}
-
-	serverId, err := uuid.Parse(serverIdParam)
-	if err != nil {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid server id",
-			Param:   "serverId",
-		}
-	}
-
+func (usecase *ServerUsecase) UpdateServerDescription(ctx fiber.Ctx, userId, serverId string, payload model.ServerUpdateDescriptionRequest) (model.ServerUpdateResponse, error) {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tr.Start(ctxContext, "usecase.UpdateServerDescription")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.UpdateServerDescription")
+	var err error
 
-	span.SetAttributes(
-		attribute.String("user.id", userId.String()),
-		attribute.String("server.id", serverIdParam),
-	)
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
 
-	exists, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
+	var response model.ServerUpdateResponse
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	v.String("description", payload.Description).MaxLen(2000)
+	err = v.Validate()
 	if err != nil {
 		return response, err
 	}
 
-	if exists != 1 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "You are not the owner of this server",
-			Param:   "serverId",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateServerDescription")
+	span.SetAttributes(attribute.String("user.id", userId), attribute.String("server.id", serverId))
+
+	var ownerCount int
+	ownerCount, err = usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
+	if err != nil {
+		return response, err
+	}
+	if ownerCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not the owner of this server", Param: "serverId"}
 		return response, err
 	}
 
 	now := time.Now().UTC()
-
-	err = usecase.ServerRepository.UpdateServerDescription(ctxContext, serverId, payload.Description, userId, now)
+	var descPtr *string
+	if payload.Description != "" {
+		descPtr = util.ToPtr(payload.Description)
+	}
+	err = usecase.ServerRepository.UpdateServerDescription(ctxContext, serverId, descPtr, userId, now)
 	if err != nil {
 		return response, err
 	}
 
-	response, err = usecase.ServerRepository.GetServerDetail(ctxContext, serverId)
-	if err != nil {
-		return response, err
-	}
-
+	response.Id = serverId
+	response.UpdatedAt = now
 	return response, nil
 }
 
-func (usecase *ServerUsecase) DeleteServer(ctx fiber.Ctx, userId uuid.UUID, serverIdParam string) error {
-	serverId, err := uuid.Parse(serverIdParam)
-	if err != nil {
-		return &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid server id",
-			Param:   "serverId",
-		}
-	}
-
+func (usecase *ServerUsecase) UpdateServerSettings(ctx fiber.Ctx, userId, serverId string, payload model.ServerUpdateSettingsRequest) (model.ServerUpdateResponse, error) {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tr.Start(ctxContext, "usecase.DeleteServer")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("user.id", userId.String()),
-		attribute.String("server.id", serverIdParam),
-	)
-
-	exists, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
-	if err != nil {
-		usecase.Log.Error("Failed to check server ownership", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	if exists != 1 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "You are not the owner of this server",
-			Param:   "serverId",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "DeleteServer")
-		return err
-	}
-
-	err = usecase.ServerRepository.DeleteServer(ctxContext, serverId)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (usecase *ServerUsecase) UpdateServerAvatar(ctx fiber.Ctx, userId uuid.UUID, serverIdParam string) error {
-	serverId, err := uuid.Parse(serverIdParam)
-	if err != nil {
-		return &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid server id",
-			Param:   "serverId",
-		}
-	}
-
-	ctxContext := ctx.Context()
-	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tr.Start(ctxContext, "usecase.UpdateServerAvatar")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("user.id", userId.String()),
-		attribute.String("server.id", serverIdParam),
-	)
-
-	exists, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
-	if err != nil {
-		usecase.Log.Error("Failed to check server ownership", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	if exists != 1 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "You are not the owner of this server",
-			Param:   "serverId",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateServerAvatar")
-		return err
-	}
-
-	fieldName := "avatar"
-	fileHeader, err := ctx.FormFile(fieldName)
-	if err != nil {
-		return err
-	}
-
-	var imageFile *bytes.Reader
-	var imageSize int64
-	var avatarImageId *uuid.UUID
-
-	if fileHeader.Size != 0 {
-		imageFile, imageSize, err = util.ValidateImage(fileHeader, fieldName)
-		if err != nil {
-			return err
-		}
-
-		id := uuid.New()
-		avatarImageId = &id
-	} else {
-		avatarImageId = nil
-	}
-
-	serverAvatarImage := model.ServerAvatarImage{}
-	now := time.Now().UTC()
-
-	bucketName := usecase.Config.String("MINIO_BUCKET_NAME")
-
-	if avatarImageId != nil {
-		serverAvatarImage.Id = *avatarImageId
-		serverAvatarImage.Bucket = bucketName
-		serverAvatarImage.ObjectKey = fmt.Sprintf("server/avatar/%s.webp", *avatarImageId)
-		serverAvatarImage.MimeType = "webp"
-		serverAvatarImage.Size = imageSize
-		serverAvatarImage.CreateDatetime = now
-		serverAvatarImage.UpdateDatetime = now
-		serverAvatarImage.CreateUserId = userId
-		serverAvatarImage.UpdateUserId = userId
-	}
-
-	commited := false
-
-	// start transaction
-	tx, err := usecase.DB.Begin(ctxContext)
-	if err != nil {
-		usecase.Log.Error("Failed to begin transaction", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.UpdateServerSettings")
+	var err error
 
 	defer func() {
-		if !commited {
-			_ = tx.Rollback(ctxContext)
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
+		span.End()
 	}()
 
-	// Get old avatar image ID to delete later
-	serverDetail, err := usecase.ServerRepository.GetServerDetail(ctxContext, serverId)
+	var response model.ServerUpdateResponse
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	err = v.Validate()
 	if err != nil {
-		return err
+		return response, err
 	}
-
-	var oldAvatarImageId *uuid.UUID
-	if serverDetail.AvatarImageId != nil {
-		oldAvatarImageId = serverDetail.AvatarImageId
-	}
-
-	if avatarImageId != nil {
-		// Create new avatar image FIRST before updating server
-		err = usecase.ServerRepository.CreateServerAvatarImage(ctxContext, tx, serverAvatarImage)
-		if err != nil {
-			return err
-		}
-
-		// Now update server to reference the new image
-		err = usecase.ServerRepository.UpdateServerAvatarImage(ctxContext, tx, serverId, avatarImageId, userId, now)
-		if err != nil {
-			return err
-		}
-
-		err = usecase.ServerRepository.UploadObject(ctxContext, bucketName, serverAvatarImage.ObjectKey, imageFile, imageSize)
-		if err != nil {
-			return err
-		}
-
-		// Delete old avatar image if exists
-		if oldAvatarImageId != nil {
-			fileName, err := usecase.ServerRepository.GetServerAvatar(ctxContext, tx, *oldAvatarImageId)
-			if err != nil {
-				return err
-			}
-			err = usecase.ServerRepository.DeleteServerAvatarImage(ctxContext, tx, *oldAvatarImageId)
-			if err != nil {
-				return err
-			}
-			if fileName != "" {
-				err = usecase.ServerRepository.RemoveServerAvatarObject(ctxContext, bucketName, fileName)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	} else {
-		// Update server to remove avatar image reference
-		err = usecase.ServerRepository.UpdateServerAvatarImage(ctxContext, tx, serverId, avatarImageId, userId, now)
-		if err != nil {
-			return err
-		}
-
-		// Delete old avatar image if exists
-		if oldAvatarImageId != nil {
-			fileName, err := usecase.ServerRepository.GetServerAvatar(ctxContext, tx, *oldAvatarImageId)
-			if err != nil {
-				return err
-			}
-			err = usecase.ServerRepository.DeleteServerAvatarImage(ctxContext, tx, *oldAvatarImageId)
-			if err != nil {
-				return err
-			}
-			if fileName != "" {
-				err = usecase.ServerRepository.RemoveServerAvatarObject(ctxContext, bucketName, fileName)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	err = tx.Commit(ctxContext)
-	if err != nil {
-		usecase.Log.Error("Failed to commit transaction", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	commited = true
-
-	return nil
-}
-
-func (usecase *ServerUsecase) UpdateServerBanner(ctx fiber.Ctx, userId uuid.UUID, serverIdParam string) error {
-	serverId, err := uuid.Parse(serverIdParam)
-	if err != nil {
-		return &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid server id",
-			Param:   "serverId",
-		}
-	}
-
-	ctxContext := ctx.Context()
-	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tr.Start(ctxContext, "usecase.UpdateServerBanner")
-	defer span.End()
 
 	span.SetAttributes(
-		attribute.String("user.id", userId.String()),
-		attribute.String("server.id", serverIdParam),
+		attribute.String("user.id", userId),
+		attribute.String("server.id", serverId),
+		attribute.Bool("server.is_private", payload.IsPrivate),
 	)
 
-	exists, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
+	var ownerCount int
+	ownerCount, err = usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
 	if err != nil {
-		usecase.Log.Error("Failed to check server ownership", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
+		return response, err
+	}
+	if ownerCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not the owner of this server", Param: "serverId"}
+		return response, err
 	}
 
-	if exists != 1 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "You are not the owner of this server",
-			Param:   "serverId",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateServerBanner")
-		return err
-	}
-
-	fieldName := "banner"
-	fileHeader, err := ctx.FormFile(fieldName)
+	settings := model.ServerSettings{IsPrivate: payload.IsPrivate}
+	var settingsBytes []byte
+	settingsBytes, err = sonic.Marshal(settings)
 	if err != nil {
-		return err
-	}
-
-	var imageFile *bytes.Reader
-	var imageSize int64
-	var bannerImageId *uuid.UUID
-
-	if fileHeader.Size != 0 {
-		imageFile, imageSize, err = util.ValidateImage(fileHeader, fieldName)
-		if err != nil {
-			return err
-		}
-
-		id := uuid.New()
-		bannerImageId = &id
-	} else {
-		bannerImageId = nil
-	}
-
-	serverBannerImage := model.ServerBannerImage{}
-	now := time.Now().UTC()
-
-	bucketName := usecase.Config.String("MINIO_BUCKET_NAME")
-
-	if bannerImageId != nil {
-		serverBannerImage.Id = *bannerImageId
-		serverBannerImage.Bucket = bucketName
-		serverBannerImage.ObjectKey = fmt.Sprintf("server/banner/%s.webp", *bannerImageId)
-		serverBannerImage.MimeType = "webp"
-		serverBannerImage.Size = imageSize
-		serverBannerImage.CreateDatetime = now
-		serverBannerImage.UpdateDatetime = now
-		serverBannerImage.CreateUserId = userId
-		serverBannerImage.UpdateUserId = userId
-	}
-
-	commited := false
-
-	// start transaction
-	tx, err := usecase.DB.Begin(ctxContext)
-	if err != nil {
-		usecase.Log.Error("Failed to begin transaction", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	defer func() {
-		if !commited {
-			_ = tx.Rollback(ctxContext)
-		}
-	}()
-
-	// Get old banner image ID to delete later
-	serverDetail, err := usecase.ServerRepository.GetServerDetail(ctxContext, serverId)
-	if err != nil {
-		return err
-	}
-
-	var oldBannerImageId *uuid.UUID
-	if serverDetail.BannerImageId != nil {
-		oldBannerImageId = serverDetail.BannerImageId
-	}
-
-	if bannerImageId != nil {
-		// Create new banner image FIRST before updating server
-		err = usecase.ServerRepository.CreateServerBannerImage(ctxContext, tx, serverBannerImage)
-		if err != nil {
-			return err
-		}
-
-		// Now update server to reference the new image
-		err = usecase.ServerRepository.UpdateServerBannerImage(ctxContext, tx, serverId, bannerImageId, userId, now)
-		if err != nil {
-			return err
-		}
-
-		err = usecase.ServerRepository.UploadObject(ctxContext, bucketName, serverBannerImage.ObjectKey, imageFile, imageSize)
-		if err != nil {
-			return err
-		}
-
-		// Delete old banner image if exists
-		if oldBannerImageId != nil {
-			fileName, err := usecase.ServerRepository.GetServerBanner(ctxContext, tx, *oldBannerImageId)
-			if err != nil {
-				return err
-			}
-			err = usecase.ServerRepository.DeleteServerBannerImage(ctxContext, tx, *oldBannerImageId)
-			if err != nil {
-				return err
-			}
-			if fileName != "" {
-				err = usecase.ServerRepository.RemoveServerBannerObject(ctxContext, bucketName, fileName)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	} else {
-		// Update server to remove banner image reference
-		err = usecase.ServerRepository.UpdateServerBannerImage(ctxContext, tx, serverId, bannerImageId, userId, now)
-		if err != nil {
-			return err
-		}
-
-		// Delete old banner image if exists
-		if oldBannerImageId != nil {
-			fileName, err := usecase.ServerRepository.GetServerBanner(ctxContext, tx, *oldBannerImageId)
-			if err != nil {
-				return err
-			}
-			err = usecase.ServerRepository.DeleteServerBannerImage(ctxContext, tx, *oldBannerImageId)
-			if err != nil {
-				return err
-			}
-			if fileName != "" {
-				err = usecase.ServerRepository.RemoveServerBannerObject(ctxContext, bucketName, fileName)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	err = tx.Commit(ctxContext)
-	if err != nil {
-		usecase.Log.Error("Failed to commit transaction", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	commited = true
-
-	return nil
-}
-
-func (usecase *ServerUsecase) UpdateServerSettings(ctx fiber.Ctx, userId uuid.UUID, serverIdParam string, payload model.ServerSettingsCreateRequest) error {
-	serverId, err := uuid.Parse(serverIdParam)
-	if err != nil {
-		return &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid server id",
-			Param:   "serverId",
-		}
-	}
-
-	ctxContext := ctx.Context()
-	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tr.Start(ctxContext, "usecase.UpdateServerSettings")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("user.id", userId.String()),
-		attribute.String("server.id", serverIdParam),
-	)
-
-	exists, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
-	if err != nil {
-		usecase.Log.Error("Failed to check server ownership", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	if exists != 1 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "You are not the owner of this server",
-			Param:   "serverId",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateServerSettings")
-		return err
-	}
-
-	settingsBytes, err := json.Marshal(payload)
-	if err != nil {
-		usecase.Log.Error("Failed to marshal settings", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to marshal server settings", zap.Error(err))
+		return response, err
 	}
 
 	now := time.Now().UTC()
-
 	err = usecase.ServerRepository.UpdateServerSettings(ctxContext, serverId, settingsBytes, userId, now)
 	if err != nil {
+		return response, err
+	}
+
+	response.Id = serverId
+	response.UpdatedAt = now
+	return response, nil
+}
+
+func (usecase *ServerUsecase) UpdateServerAvatar(ctx fiber.Ctx, userId, serverId string) error {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.UpdateServerAvatar")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(attribute.String("user.id", userId), attribute.String("server.id", serverId))
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	err = v.Validate()
+	if err != nil {
+		return err
+	}
+
+	var ownerCount int
+	ownerCount, err = usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
+	if err != nil {
+		return err
+	}
+	if ownerCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not the owner of this server"}
+		return err
+	}
+
+	fh, err := ctx.FormFile("avatar")
+	if err != nil {
+		err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "Avatar image is required", Param: "avatar"}
+		return err
+	}
+	var imageFile *bytes.Reader
+	var imageSize int64
+	imageFile, imageSize, err = util.ValidateImage(ctxContext, fh, "avatar")
+	if err != nil {
+		return err
+	}
+
+	var tx pgx.Tx
+	tx, err = usecase.DB.Begin(ctxContext)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to begin transaction", zap.Error(err))
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctxContext) }()
+
+	now := time.Now().UTC()
+	bucket := usecase.Config.String("MINIO_BUCKET_NAME")
+
+	var oldImageId *string
+	oldImageId, err = usecase.ServerRepository.GetServerAvatarImageId(ctxContext, tx, serverId)
+	if err != nil {
+		return err
+	}
+
+	newImageId := uuid.New().String()
+	newImage := model.ServerAvatarImage{
+		Id: newImageId, Bucket: bucket,
+		ObjectKey: fmt.Sprintf("server/avatar/%s.webp", newImageId),
+		MimeType:  "image/webp", Size: imageSize,
+		CreatedAt: now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
+	}
+	err = usecase.ServerRepository.CreateServerAvatarImage(ctxContext, tx, newImage)
+	if err != nil {
+		return err
+	}
+
+	err = usecase.ServerRepository.UpdateServerAvatarImage(ctxContext, tx, serverId, util.ToPtr(newImageId), userId, now)
+	if err != nil {
+		return err
+	}
+
+	if oldImageId != nil {
+		err = usecase.ServerRepository.DeleteServerAvatarImage(ctxContext, tx, *oldImageId)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = usecase.ServerRepository.UploadObject(ctxContext, bucket,
+		fmt.Sprintf("server/avatar/%s.webp", newImageId), imageFile, imageSize)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to upload new server avatar", zap.Error(err))
+		return err
+	}
+
+	err = tx.Commit(ctxContext)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
 		return err
 	}
 
 	return nil
 }
 
-func (usecase *ServerUsecase) GetServerById(ctx fiber.Ctx) (model.ServerDetailResponse, error) {
-	response := model.ServerDetailResponse{}
-
-	serverIdParam := ctx.Params("id")
-
-	serverId, err := uuid.Parse(serverIdParam)
-	if err != nil {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid server id",
-			Param:   "id",
-		}
-	}
-
-	// Get userId from context (requires authentication)
-	userId := ctx.Locals("userId").(uuid.UUID)
-
+func (usecase *ServerUsecase) UpdateServerBanner(ctx fiber.Ctx, userId, serverId string) error {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tr.Start(ctxContext, "usecase.GetServerById")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.UpdateServerBanner")
+	var err error
 
-	span.SetAttributes(
-		attribute.String("user.id", userId.String()),
-		attribute.String("server.id", serverIdParam),
-	)
-
-	MINIO_FULL_URL := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
-
-	// Single query that checks both server existence AND membership (for private servers)
-	serverDetail, err := usecase.ServerRepository.GetServerById(ctxContext, serverId, userId, MINIO_FULL_URL)
-	if err != nil {
-		return response, err
-	}
-
-	if serverDetail.Id == uuid.Nil {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Server not found or you don't have permission to access it",
-			Param:   "id",
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "GetServerById")
-		return response, err
+		span.End()
+	}()
+
+	span.SetAttributes(attribute.String("user.id", userId), attribute.String("server.id", serverId))
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	err = v.Validate()
+	if err != nil {
+		return err
 	}
 
-	// Clear isPrivate flag from response (it's internal only)
-	serverDetail.IsPrivate = nil
+	var ownerCount int
+	ownerCount, err = usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
+	if err != nil {
+		return err
+	}
+	if ownerCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not the owner of this server"}
+		return err
+	}
 
-	return serverDetail, nil
+	fh, err := ctx.FormFile("banner")
+	if err != nil {
+		err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "Banner image is required", Param: "banner"}
+		return err
+	}
+	var imageFile *bytes.Reader
+	var imageSize int64
+	imageFile, imageSize, err = util.ValidateImage(ctxContext, fh, "banner")
+	if err != nil {
+		return err
+	}
+
+	var tx pgx.Tx
+	tx, err = usecase.DB.Begin(ctxContext)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to begin transaction", zap.Error(err))
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctxContext) }()
+
+	now := time.Now().UTC()
+	bucket := usecase.Config.String("MINIO_BUCKET_NAME")
+
+	var oldImageId *string
+	oldImageId, err = usecase.ServerRepository.GetServerBannerImageId(ctxContext, tx, serverId)
+	if err != nil {
+		return err
+	}
+
+	newImageId := uuid.New().String()
+	newImage := model.ServerBannerImage{
+		Id: newImageId, Bucket: bucket,
+		ObjectKey: fmt.Sprintf("server/banner/%s.webp", newImageId),
+		MimeType:  "image/webp", Size: imageSize,
+		CreatedAt: now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
+	}
+	err = usecase.ServerRepository.CreateServerBannerImage(ctxContext, tx, newImage)
+	if err != nil {
+		return err
+	}
+
+	err = usecase.ServerRepository.UpdateServerBannerImage(ctxContext, tx, serverId, util.ToPtr(newImageId), userId, now)
+	if err != nil {
+		return err
+	}
+
+	if oldImageId != nil {
+		err = usecase.ServerRepository.DeleteServerBannerImage(ctxContext, tx, *oldImageId)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = usecase.ServerRepository.UploadObject(ctxContext, bucket,
+		fmt.Sprintf("server/banner/%s.webp", newImageId), imageFile, imageSize)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to upload new server banner", zap.Error(err))
+		return err
+	}
+
+	err = tx.Commit(ctxContext)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
+		return err
+	}
+
+	return nil
 }
 
-func (usecase *ServerUsecase) GetCategoryServer(ctx fiber.Ctx) (model.ServerCategoryListResponse, error) {
-	response := model.ServerCategoryListResponse{}
-
-	limit := fiber.Query[int](ctx, "limit", constant.DEFAULT_LIMIT)
-	cursor := ctx.Query("cursor", "")
-
-	if limit < 0 {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Limit must be greater or equal than 0",
-			Param:   "limit",
-		}
-	} else if limit > constant.MAX_LIMIT {
-		return response, &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: fmt.Sprintf("Limit is exceeded max limit: %d", constant.MAX_LIMIT),
-			Param:   "limit",
-		}
-	}
-
-	var serverCategoryCursor model.ServerCategoryCursor
-	if cursor != "" {
-		b, err := base64.RawURLEncoding.DecodeString(cursor)
-		if err != nil {
-			return response, err
-		}
-
-		err = sonic.Unmarshal(b, &serverCategoryCursor)
-		if err != nil {
-			return response, err
-		}
-	}
-
+func (usecase *ServerUsecase) DeleteServer(ctx fiber.Ctx, userId, serverId string) error {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tr.Start(ctxContext, "usecase.GetCategoryServer")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.DeleteServer")
+	var err error
 
-	span.SetAttributes(
-		attribute.Int("limit", limit),
-		attribute.String("cursor", cursor),
-	)
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
 
-	// Fetch limit + 1 untuk cek apakah ada data lagi
-	categories, err := usecase.ServerRepository.GetServerCategories(ctxContext, limit+1, &serverCategoryCursor)
+	span.SetAttributes(attribute.String("user.id", userId), attribute.String("server.id", serverId))
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	err = v.Validate()
+	if err != nil {
+		return err
+	}
+
+	var ownerCount int
+	ownerCount, err = usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
+	if err != nil {
+		return err
+	}
+	if ownerCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not the owner of this server", Param: "serverId"}
+		return err
+	}
+
+	err = usecase.ServerRepository.DeleteServerHard(ctxContext, serverId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (usecase *ServerUsecase) LeaveServer(ctx fiber.Ctx, userId, serverId string) error {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.LeaveServer")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(attribute.String("user.id", userId), attribute.String("server.id", serverId))
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	err = v.Validate()
+	if err != nil {
+		return err
+	}
+
+	var memberCount int
+	memberCount, err = usecase.ServerRepository.CheckServerMember(ctxContext, serverId, userId)
+	if err != nil {
+		return err
+	}
+	if memberCount == 0 {
+		err = &model.NotFoundError{Code: constant.ERR_NOT_FOUND_CODE, Message: "You are not a member of this server", Param: "serverId"}
+		return err
+	}
+
+	var ownerCount int
+	ownerCount, err = usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, userId)
+	if err != nil {
+		return err
+	}
+	if ownerCount > 0 {
+		err = &model.ConflictError{Code: constant.ERR_CONFLICT_CODE, Message: "Owner cannot leave. Delete server or transfer ownership.", Param: "serverId"}
+		return err
+	}
+
+	err = usecase.ServerRepository.DeleteServerMember(ctxContext, serverId, userId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (usecase *ServerUsecase) CreateInviteLink(ctx fiber.Ctx, userId, serverId string, payload model.ServerInviteLinkRequest) (model.ServerInviteLinkResponse, error) {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.CreateInviteLink")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	var response model.ServerInviteLinkResponse
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	err = v.Validate()
 	if err != nil {
 		return response, err
 	}
 
-	// Initialize with empty array
-	response.Data = []model.ServerCategoryResponse{}
+	span.SetAttributes(attribute.String("user.id", userId), attribute.String("server.id", serverId))
 
-	if len(categories) > limit {
-		// Ada data lagi, return limit items dan buat cursor
-		response.Data = categories[:limit]
+	var memberCount int
+	memberCount, err = usecase.ServerRepository.CheckServerMember(ctxContext, serverId, userId)
+	if err != nil {
+		return response, err
+	}
+	if memberCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "Not a member of this server", Param: "serverId"}
+		return response, err
+	}
 
-		last := categories[limit-1]
+	if payload.MaxUses <= 0 {
+		payload.MaxUses = 10
+	}
+	if payload.MaxUses > 100 {
+		err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "Max uses cannot exceed 100", Param: "maxUses"}
+		return response, err
+	}
 
-		// Create cursor properly using ServerCategoryCursor
-		categoryCursor := model.ServerCategoryCursor{
-			Id: last.Id,
-		}
+	var code string
+	code, err = util.GenerateInviteCode()
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate invite code", zap.Error(err))
+		return response, err
+	}
 
-		b, err := sonic.Marshal(categoryCursor)
+	now := time.Now().UTC()
+	invite := model.ServerInvite{
+		Id:        uuid.New().String(),
+		ServerId:  serverId,
+		Code:      code,
+		MaxUses:   payload.MaxUses,
+		UsedCount: 0,
+		ExpiresAt: payload.ExpiresAt,
+		IsActive:  true,
+		CreatedAt: now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
+	}
+	err = usecase.ServerRepository.CreateServerInvites(ctxContext, invite)
+	if err != nil {
+		return response, err
+	}
+
+	response.Code = code
+	response.InviteUrl = fmt.Sprintf("%s/api/servers/invites/%s", usecase.Config.String("APP_BASE_URL"), code)
+	response.MaxUses = payload.MaxUses
+	response.ExpiresAt = payload.ExpiresAt
+	return response, nil
+}
+
+func (usecase *ServerUsecase) GetDiscoveryServer(ctx fiber.Ctx, userId, cursor, limitStr, categoryStr string) (model.DiscoveryServerResponse, error) {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.GetDiscoveryServer")
+	var err error
+
+	defer func() {
 		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	var response model.DiscoveryServerResponse
+
+	span.SetAttributes(attribute.String("user.id", userId))
+
+	limit, _ := strconv.Atoi(limitStr)
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+
+	var cursorObj *model.ServerDiscoveryCursor
+	if cursor != "" {
+		cursorObj, err = util.DecodeCursor[model.ServerDiscoveryCursor](cursor)
+		if err != nil {
+			err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "Invalid cursor", Param: "cursor"}
 			return response, err
 		}
-
-		response.Page.NextCursor = base64.RawURLEncoding.EncodeToString(b)
-	} else {
-		// Tidak ada data lagi, return semua data tanpa cursor
-		if len(categories) > 0 {
-			response.Data = categories
-		}
-		// Jika kosong, Data sudah []empty array dari inisialisasi
 	}
+
+	var categoryId int
+	if categoryStr != "" {
+		categoryId, err = strconv.Atoi(categoryStr)
+		if err != nil {
+			err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "categoryId must be int", Param: "categoryId"}
+			return response, err
+		}
+	}
+
+	minioFullUrl := usecase.Config.String("MINIO_HTTP") + usecase.Config.String("MINIO_URL") + "/" + usecase.Config.String("MINIO_BUCKET_NAME")
+	var servers []model.ServerInfoResponse
+	servers, err = usecase.ServerRepository.GetServerDiscovery(ctxContext, limit+1, categoryId, cursorObj, minioFullUrl)
+	if err != nil {
+		return response, err
+	}
+
+	if len(servers) > limit {
+		last := servers[limit-1]
+		response.Page.NextCursor = util.EncodeCursor(model.ServerDiscoveryCursor{CreatedAt: last.CreatedAt, Id: last.Id})
+		servers = servers[:limit]
+	}
+	response.Data = servers
+
+	return response, nil
+}
+
+func (usecase *ServerUsecase) GetUserServer(ctx fiber.Ctx, userId, cursor, limitStr string) (model.ServerUserListResponse, error) {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.GetUserServer")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	var response model.ServerUserListResponse
+
+	span.SetAttributes(attribute.String("user.id", userId))
+
+	limit, _ := strconv.Atoi(limitStr)
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+
+	var cursorObj *model.ServerUserCursor
+	if cursor != "" {
+		cursorObj, err = util.DecodeCursor[model.ServerUserCursor](cursor)
+		if err != nil {
+			err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "Invalid cursor", Param: "cursor"}
+			return response, err
+		}
+	}
+
+	minioFullUrl := usecase.Config.String("MINIO_HTTP") + usecase.Config.String("MINIO_URL") + "/" + usecase.Config.String("MINIO_BUCKET_NAME")
+	var servers []model.ServerUserResponse
+	servers, err = usecase.ServerRepository.GetUserServers(ctxContext, userId, limit+1, cursorObj, minioFullUrl)
+	if err != nil {
+		return response, err
+	}
+
+	if len(servers) > limit {
+		last := servers[limit-1]
+		response.Page.NextCursor = util.EncodeCursor(model.ServerUserCursor{JoinedAt: last.JoinedAt, ServerId: last.Id})
+		servers = servers[:limit]
+	}
+	response.Data = servers
+
+	return response, nil
+}
+
+func (usecase *ServerUsecase) GetCategoryServer(ctx fiber.Ctx, cursor, limitStr string) (model.ServerCategoryListResponse, error) {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.GetCategoryServer")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	var response model.ServerCategoryListResponse
+
+	limit, _ := strconv.Atoi(limitStr)
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+
+	var cursorId int
+	if cursor != "" {
+		cursorId, err = strconv.Atoi(cursor)
+		if err != nil {
+			err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "Invalid cursor", Param: "cursor"}
+			return response, err
+		}
+	}
+
+	var categories []model.ServerCategoryResponse
+	categories, err = usecase.ServerRepository.GetServerCategories(ctxContext, limit+1, cursorId)
+	if err != nil {
+		return response, err
+	}
+
+	if len(categories) > limit {
+		last := categories[limit-1]
+		response.Page.NextCursor = strconv.Itoa(last.Id)
+		categories = categories[:limit]
+	}
+	response.Data = categories
 
 	return response, nil
 }

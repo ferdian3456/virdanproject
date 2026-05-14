@@ -1,7 +1,7 @@
 package model
 
 import (
-	"github.com/bytedance/sonic"
+	"time"
 )
 
 const OwnerRole = "Owner"
@@ -11,6 +11,9 @@ type ServerRole struct {
 	Id          string
 	ServerId    string
 	Name        string
-	Permissions sonic.NoCopyRawMessage
-	Audit
+	Permissions []byte
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	CreatedBy   string
+	UpdatedBy   string
 }

@@ -120,9 +120,9 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 	postRepository := repository.NewPostRepository(zapLogger, testConfig, dbPool, redisClient, minioClient)
 
 	// 8. Setup usecases
-	serverUsecase := usecase.NewServerUsecase(serverRepository, dbPool, zapLogger, testConfig)
+	serverUsecase := usecase.NewServerUsecase(serverRepository, nil, dbPool, zapLogger, testConfig)
 	userUsecase := usecase.NewUserUsecase(userRepository, serverRepository, dbPool, zapLogger, testConfig)
-	postUsecase := usecase.NewPostUsecase(postRepository, dbPool, zapLogger, testConfig)
+	postUsecase := usecase.NewPostUsecase(postRepository, serverRepository, dbPool, zapLogger, testConfig)
 
 	// 9. Setup controllers
 	serverController := http.NewServerController(serverUsecase, zapLogger, testConfig)
@@ -130,7 +130,7 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 	postController := http.NewPostController(postUsecase, zapLogger, testConfig)
 
 	// 10. Setup middleware
-	authMiddleware := middleware.NewAuthMiddleware(nil, zapLogger, testConfig, userUsecase)
+	authMiddleware := middleware.NewAuthMiddleware(testConfig, zapLogger, userUsecase)
 
 	// 11. Setup Fiber app
 	fiberApp := fiber.New(fiber.Config{

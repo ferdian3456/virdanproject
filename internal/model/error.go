@@ -52,3 +52,69 @@ func (e *UnauthorizedError) GetCode() string {
 func (e *UnauthorizedError) GetParam() string {
 	return e.Param
 }
+
+type ForbiddenError struct {
+	Code    string
+	Message string
+	Param   string
+}
+
+func (e *ForbiddenError) Error() string {
+	return e.Message
+}
+
+func (e *ForbiddenError) StatusCode() int {
+	return http.StatusForbidden
+}
+
+func (e *ForbiddenError) GetCode() string {
+	return e.Code
+}
+
+func (e *ForbiddenError) GetParam() string {
+	return e.Param
+}
+
+type NotFoundError struct {
+	Code    string
+	Message string
+	Param   string
+}
+
+func (e *NotFoundError) Error() string {
+	return e.Message
+}
+
+func (e *NotFoundError) StatusCode() int {
+	return http.StatusNotFound
+}
+
+func (e *NotFoundError) GetCode() string {
+	return e.Code
+}
+
+func (e *NotFoundError) GetParam() string {
+	return e.Param
+}
+
+type ConflictError struct {
+	Code    string
+	Message string
+	Param   string
+}
+
+func (e *ConflictError) Error() string {
+	return e.Message
+}
+
+func (e *ConflictError) StatusCode() int {
+	return http.StatusConflict
+}
+
+func (e *ConflictError) GetCode() string {
+	return e.Code
+}
+
+func (e *ConflictError) GetParam() string {
+	return e.Param
+}

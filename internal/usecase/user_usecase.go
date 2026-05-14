@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bytedance/sonic"
 	"github.com/ferdian3456/virdanproject/internal/constant"
 	"github.com/ferdian3456/virdanproject/internal/model"
 	"github.com/ferdian3456/virdanproject/internal/repository"
@@ -17,6 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/zap"
@@ -24,7 +24,6 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 )
 
 type UserUsecase struct {
@@ -45,519 +44,102 @@ func NewUserUsecase(userRepository *repository.UserRepository, serverRepository 
 	}
 }
 
-// func (usecase *UserUsecase) Register(ctx fiber.Ctx, payload model.UserCreateRequest) (model.TokenResponse, error) {
-// 	ctxContext := ctx.Context()
-// 	token := model.TokenResponse{}
-
-// 	if payload.Username == "" {
-// 		return token, &model.ValidationError{
-// 			Code:    constant.ERR_VALIDATION_CODE,
-// 			Message: "Username is required to not be empty",
-// 			Param:   "username",
-// 		}
-// 	} else if len(payload.Username) < 4 {
-// 		return token, &model.ValidationError{
-// 			Code:    constant.ERR_VALIDATION_CODE,
-// 			Message: "Username must be at least 4 characters",
-// 			Param:   "username",
-// 		}
-// 	} else if len(payload.Username) > 22 {
-// 		return token, &model.ValidationError{
-// 			Code:    constant.ERR_VALIDATION_CODE,
-// 			Message: "username must be at most 22 characters",
-// 			Param:   "username",
-// 		}
-// 	}
-
-// 	if payload.Email == "" {
-// 		return token, &model.ValidationError{
-// 			Code:    constant.ERR_VALIDATION_CODE,
-// 			Message: "Email is required to not be empty",
-// 			Param:   "email",
-// 		}
-// 	} else if len(payload.Email) < 16 {
-// 		return token, &model.ValidationError{
-// 			Code:    constant.ERR_VALIDATION_CODE,
-// 			Message: "email must be at least 16 characters",
-// 			Param:   "email",
-// 		}
-// 	} else if len(payload.Email) > 80 {
-// 		return token, &model.ValidationError{
-// 			Code:    constant.ERR_VALIDATION_CODE,
-// 			Message: "Email must be at most 80 characters",
-// 			Param:   "email",
-// 		}
-// 	}
-
-// 	if payload.Password == "" {
-// 		return token, &model.ValidationError{
-// 			Code:    constant.ERR_VALIDATION_CODE,
-// 			Message: "Password is required to not be empty",
-// 			Param:   "email",
-// 		}
-// 	} else if len(payload.Password) < 5 {
-// 		return token, &model.ValidationError{
-// 			Code:    constant.ERR_VALIDATION_CODE,
-// 			Message: "Password must be at least 5 characters",
-// 			Param:   "email",
-// 		}
-// 	} else if len(payload.Password) > 20 {
-// 		return token, &model.ValidationError{
-// 			Code:    constant.ERR_VALIDATION_CODE,
-// 			Message: "Password must be at most 20 characters",
-// 			Param:   "email",
-// 		}
-// 	}
-
-// 	//err := usecase.UserRepository.CheckUsernameOrEmailUnique(ctxContext, payload.Username, payload.Email)
-// 	//if err != nil {
-// 	//	return token, err
-// 	//}
-
-// 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
-// 	if err != nil {
-// 		return token, err
-// 	}
-
-// 	userUUID := uuid.New()
-// 	now := time.Now().UTC()
-// 	user := model.User{
-// 		Id:             userUUID,
-// 		Username:       payload.Username,
-// 		Fullname:       strings.ToTitle(payload.Username),
-// 		Bio:            nil,
-// 		AvatarImageId:  nil,
-// 		Email:          payload.Email,
-// 		Password:       string(hashedPassword),
-// 		Settings:       sonic.NoCopyRawMessage("{}"),
-// 		CreateDatetime: now,
-// 		UpdateDatetime: now,
-// 		CreateUserId:   userUUID,
-// 		UpdateUserId:   userUUID,
-// 	}
-
-// 	serverUUID := uuid.New()
-// 	server := model.Server{
-// 		Id:            serverUUID,
-// 		OwnerId:       userUUID,
-// 		Name:          fmt.Sprintf("%s's server", strings.ToLower(payload.Username)),
-// 		ShortName:     util.GenerateShortName(payload.Username),
-// 		CategoryId:    nil,
-// 		AvatarImageId: nil,
-// 		BannerImageId: nil,
-// 		Description:   nil,
-// 		Settings: sonic.NoCopyRawMessage(`
-// 		{
-// 			"visibility": "private",
-// 			"joinMode": "invite_only",
-// 			"discoverable": false
-// 		}`),
-// 		CreateDatetime: now,
-// 		UpdateDatetime: now,
-// 		CreateUserId:   userUUID,
-// 		UpdateUserId:   userUUID,
-// 	}
-
-// 	serverRoleUUID := uuid.New()
-// 	serverRole := model.ServerRole{
-// 		Id:             serverRoleUUID,
-// 		ServerId:       serverUUID,
-// 		Name:           model.OwnerRole,
-// 		Permissions:    sonic.NoCopyRawMessage(`{"*": true}`),
-// 		CreateDatetime: now,
-// 		UpdateDatetime: now,
-// 		CreateUserId:   userUUID,
-// 		UpdateUserId:   userUUID,
-// 	}
-
-// 	serverMemberUUID := uuid.New()
-// 	serverMember := model.ServerMember{
-// 		Id:             serverMemberUUID,
-// 		ServerId:       serverUUID,
-// 		UserId:         userUUID,
-// 		ServerRoleId:   serverRoleUUID,
-// 		Status:         model.MemberStatusActive,
-// 		JoinedAt:       now,
-// 		LeftAt:         nil,
-// 		CreateDatetime: now,
-// 		UpdateDatetime: now,
-// 		CreateUserId:   userUUID,
-// 		UpdateUserId:   userUUID,
-// 	}
-
-// 	serverMemberProfileUUID := uuid.New()
-// 	serverMemberProfile := model.ServerMemberProfile{
-// 		Id:             serverMemberProfileUUID,
-// 		ServerMemberId: serverMemberUUID,
-// 		ServerId:       serverUUID,
-// 		UserId:         userUUID,
-// 		Username:       user.Username,
-// 		Fullname:       user.Fullname,
-// 		Bio:            user.Bio,
-// 		AvatarImageId:  nil,
-// 		CreateDatetime: now,
-// 		UpdateDatetime: now,
-// 		CreateUserId:   userUUID,
-// 		UpdateUserId:   userUUID,
-// 	}
-
-// 	// start transaction
-// 	tx, err := usecase.DB.Begin(ctx.Context())
-// 	if err != nil {
-// 		return token, err
-// 	}
-
-// 	defer tx.Rollback(ctxContext)
-
-// 	err = usecase.UserRepository.Register(ctxContext, tx, user)
-// 	if err != nil {
-// 		return token, err
-// 	}
-
-// 	err = usecase.ServerRepository.CreateServer(ctxContext, tx, server)
-// 	if err != nil {
-// 		return token, err
-// 	}
-
-// 	err = usecase.ServerRepository.CreateRole(ctxContext, tx, serverRole)
-// 	if err != nil {
-// 		return token, err
-// 	}
-
-// 	err = usecase.ServerRepository.CreateServerMember(ctxContext, tx, serverMember)
-// 	if err != nil {
-// 		return token, err
-// 	}
-
-// 	err = usecase.ServerRepository.CreateServerMemberProfile(ctxContext, tx, serverMemberProfile)
-// 	if err != nil {
-// 		return token, err
-// 	}
-
-// 	err = tx.Commit(ctxContext)
-// 	if err != nil {
-// 		return token, err
-// 	}
-
-// 	token, err = util.GenerateTokenPair(user.Id, usecase.Config.String("JWT_SECRET_KEY"))
-// 	if err != nil {
-// 		return token, err
-// 	}
-
-// 	err = usecase.UserRepository.SetAuthTokenInCache(ctxContext, token.AccessToken, token.RefreshToken, user.Id)
-// 	if err != nil {
-// 		return token, err
-// 	}
-
-// 	return token, nil
-// }
-
+// Login authenticates a user and returns a fresh token pair.
 func (usecase *UserUsecase) Login(ctx fiber.Ctx, payload model.UserLoginRequest) (model.TokenResponse, error) {
 	ctxContext := ctx.Context()
-	token := model.TokenResponse{}
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
 	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.Login")
-
 	var err error
+
 	defer func() {
 		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
 		span.End()
 	}()
 
-	validator := util.NewValidator()
-	validator.String("username", payload.Username).Required().MinLen(4).MaxLen(22)
-	validator.String("password", payload.Password).Required().MinLen(5).MaxLen(20)
+	var response model.TokenResponse
 
-	err = validator.Err()
+	span.SetAttributes(attribute.String("user.username", payload.Username))
+
+	v := util.NewValidator()
+	v.String("username", payload.Username).Required().MinLen(4).MaxLen(22)
+	v.String("password", payload.Password).Required().MinLen(5).MaxLen(20)
+	err = v.Validate()
 	if err != nil {
-		return token, err
+		return response, err
 	}
 
 	payload.Username = strings.ToLower(payload.Username)
 
-	userId, password, err := usecase.UserRepository.GetUserAuth(ctxContext, payload.Username)
+	var userId, passwordHash string
+	userId, passwordHash, err = usecase.UserRepository.GetUserAuth(ctxContext, payload.Username)
 	if err != nil {
-		return token, err
+		return response, err
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(password), []byte(payload.Password))
+	err = bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(payload.Password))
 	if err != nil {
-		err := &model.BadRequestError{
+		err = &model.BadRequestError{
 			Code:    constant.ERR_BAD_REQUEST_CODE,
 			Message: "Password is incorrect",
 			Param:   "password",
 		}
-		return token, err
+		return response, err
 	}
 
-	token, err = util.GenerateTokenPair(userId, usecase.Config.String("JWT_SECRET_KEY"))
+	response, err = util.GenerateTokenPair(userId, usecase.Config.String("JWT_SECRET_KEY"))
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate token pair", zap.Error(err))
-		return token, err
+		return model.TokenResponse{}, err
 	}
 
 	now := time.Now().UTC()
-
-	refreshTokenHash := util.HashToken(token.RefreshToken)
-	refreshTokenExpiresAt := now.Add(util.RefreshTokenDuration)
-	tokenFamily := uuid.New().String()
-
-	userIdStr := userId.String()
 
 	refreshToken := model.RefreshToken{
 		Id:          uuid.New().String(),
-		UserId:      userIdStr,
-		TokenHash:   refreshTokenHash,
-		TokenFamily: tokenFamily,
-		ExpiresAt:   refreshTokenExpiresAt,
-		Audit: model.Audit{
-			CreatedAt: now,
-			UpdatedAt: now,
-			CreatedBy: userIdStr,
-			UpdatedBy: userIdStr,
-		},
+		UserId:      userId,
+		TokenHash:   util.HashToken(response.RefreshToken),
+		TokenFamily: uuid.New().String(),
+		ExpiresAt:   now.Add(util.RefreshTokenDuration),
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		CreatedBy:   userId,
+		UpdatedBy:   userId,
 	}
-
 	err = usecase.UserRepository.CreateRefreshTokenNoTx(ctxContext, refreshToken)
 	if err != nil {
-		return token, err
+		return response, err
 	}
 
-	// Store access token in Redis cache only
-	err = usecase.UserRepository.SetAccessTokenInCache(ctxContext, token.AccessToken, userId)
+	err = usecase.UserRepository.SetAccessTokenInCache(ctxContext, response.AccessToken, userId)
 	if err != nil {
-		return token, err
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to cache access token", zap.Error(err))
+		return response, err
 	}
 
-	return token, nil
+	return response, nil
 }
 
-func (usecase *UserUsecase) GetUserInfo(ctx fiber.Ctx, userId uuid.UUID) (model.UserResponse, error) {
-	ctxContext := ctx.Context()
-	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tracer := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tracer.Start(ctxContext, "usecase.GetUserInfo")
-	defer span.End()
-
-	span.SetAttributes(attribute.String("user.id", userId.String()))
-
-	user, err := usecase.UserRepository.GetUserInfo(ctxContext, userId)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return user, err
-	}
-
-	MINIO_URL := usecase.Config.String("MINIO_URL")
-	MINIO_BUCKET_NAME := usecase.Config.String("MINIO_BUCKET_NAME")
-	MINIO_HTTP := usecase.Config.String("MINIO_HTTP")
-
-	if user.AvatarImage != nil {
-		*user.AvatarImage = fmt.Sprintf("%s%s/%s/%s", MINIO_HTTP, MINIO_URL, MINIO_BUCKET_NAME, *user.AvatarImage)
-	}
-
-	return user, nil
-}
-
-func (usecase *UserUsecase) GetAccessToken(ctx fiber.Ctx, userId uuid.UUID, accessToken string) error {
-	ctxContext := ctx.Context()
-	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctx, "usecase.GetAccessToken")
-	var err error
-
-	defer func() {
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-		}
-		span.End()
-	}()
-
-	span.SetAttributes(attribute.String("user.id", userId.String()))
-
-	hashedTokenFromCache, err := usecase.UserRepository.GetAccessTokenInCache(ctxContext, userId)
-	if err != nil {
-		return err
-	}
-
-	// Hash the token from client before comparing with cached hash
-	hashedTokenFromClient := util.HashToken(accessToken)
-
-	if hashedTokenFromClient != hashedTokenFromCache {
-		err = &model.UnauthorizedError{
-			Code:    constant.ERR_UNAUTHORIZED_ERROR,
-			Message: "Authorization token is expired",
-			Param:   "accessToken",
-		}
-		return err
-	}
-
-	return nil
-}
-
-func (usecase *UserUsecase) Logout(ctx fiber.Ctx, userId uuid.UUID) error {
-	ctxContext := ctx.Context()
-	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.Logout")
-
-	var err error
-	defer func() {
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-		}
-		span.End()
-	}()
-
-	span.SetAttributes(attribute.String("user.id", userId.String()))
-
-	now := time.Now().UTC()
-
-	// Revoke all refresh tokens for this user
-	err = usecase.UserRepository.RevokeAllRefreshTokensByUserId(ctxContext, userId, now, now, userId)
-	if err != nil {
-		return err
-	}
-
-	// Remove access token from Redis cache
-	err = usecase.UserRepository.RemoveAuthToken(ctxContext, userId)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (usecase *UserUsecase) UpdateAvatar(ctx fiber.Ctx, userId uuid.UUID) error {
-	ctxContext := ctx.Context()
-	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tracer := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tracer.Start(ctxContext, "usecase.UpdateAvatar")
-	defer span.End()
-
-	span.SetAttributes(attribute.String("user.id", userId.String()))
-
-	fieldName := "avatar"
-	fileHeader, err := ctx.FormFile(fieldName)
-	if err != nil {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Avatar is required to not be empty",
-			Param:   fieldName,
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateAvatar")
-		return err
-	}
-
-	imageFile, imageSize, err := util.ValidateImage(fileHeader, fieldName)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	avatarImageId := uuid.New()
-	now := time.Now().UTC()
-	bucketName := usecase.Config.String("MINIO_BUCKET_NAME")
-
-	avatarImage := model.UserAvatarImage{
-		Id:             avatarImageId,
-		UserId:         userId,
-		Bucket:         bucketName,
-		ObjectKey:      fmt.Sprintf("user/avatar/%s.webp", avatarImageId),
-		MimeType:       "webp",
-		Size:           0,
-		CreateDatetime: now,
-		UpdateDatetime: now,
-		CreateUserId:   userId,
-		UpdateUserId:   userId,
-	}
-
-	// start transaction
-	tx, err := usecase.DB.Begin(ctxContext)
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to begin transaction", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	defer func() {
-		_ = tx.Rollback(ctxContext)
-	}()
-
-	fileName, err := usecase.UserRepository.GetUserAvatar(ctxContext, tx, userId)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	if fileName != "" {
-		err = usecase.UserRepository.DeleteAvatarImage(ctxContext, tx, userId)
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-			return err
-		}
-
-		err = usecase.UserRepository.DeleteUserAvatar(ctxContext, bucketName, fileName)
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-			return err
-		}
-	}
-
-	err = usecase.UserRepository.AddUserAvatar(ctxContext, tx, avatarImage)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	err = usecase.UserRepository.UploadUserAvatar(ctxContext, bucketName, avatarImage.ObjectKey, imageFile, imageSize)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	err = tx.Commit(ctxContext)
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	return nil
-}
-
+// StartSignup initiates a signup flow by sending an OTP to the provided email.
 func (usecase *UserUsecase) StartSignup(ctx fiber.Ctx, payload model.UserSignupStartRequest) (model.UserSignupStartResponse, error) {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
 	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.StartSignup")
-
 	var err error
 
 	defer func() {
 		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
 		span.End()
 	}()
 
-	response := model.UserSignupStartResponse{}
+	var response model.UserSignupStartResponse
 
-	validator := util.NewValidator()
-	validator.String("email", payload.Email).Required().MinLen(16).MaxLen(80).Email()
-
-	err = validator.Err()
+	v := util.NewValidator()
+	v.String("email", payload.Email).Required().MinLen(5).MaxLen(255).Email()
+	err = v.Validate()
 	if err != nil {
 		return response, err
 	}
@@ -565,148 +147,145 @@ func (usecase *UserUsecase) StartSignup(ctx fiber.Ctx, payload model.UserSignupS
 	payload.Email = strings.ToLower(payload.Email)
 	span.SetAttributes(attribute.String("user.email", payload.Email))
 
-	exists, err := usecase.UserRepository.CheckEmailUnique(ctxContext, payload.Email)
+	var exists bool
+	exists, err = usecase.UserRepository.CheckEmailUnique(ctxContext, payload.Email)
 	if err != nil {
 		return response, err
 	}
-
 	if exists {
-		err := &model.BadRequestError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Email is already exists",
+		err = &model.ConflictError{
+			Code:    constant.ERR_CONFLICT_CODE,
+			Message: "Email is already registered",
 			Param:   "email",
 		}
 		return response, err
 	}
 
-	exists, emailSessionId, err := usecase.UserRepository.CheckSignupEmailSession(ctxContext, payload.Email)
+	var sessionExists bool
+	var prevSessionId string
+	sessionExists, prevSessionId, err = usecase.UserRepository.CheckSignupEmailSession(ctxContext, payload.Email)
 	if err != nil {
 		return response, err
 	}
-
-	if exists {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Debug("Email session exists, deleting previous session", zap.String("email", payload.Email))
-		err = usecase.UserRepository.DeleteEmailSignupSession(ctxContext, emailSessionId)
+	if sessionExists {
+		err = usecase.UserRepository.DeleteSignupSession(ctxContext, prevSessionId)
 		if err != nil {
 			return response, err
 		}
-		err = usecase.UserRepository.DeleteSignupSession(ctxContext, emailSessionId)
+		err = usecase.UserRepository.DeleteEmailSignupSession(ctxContext, payload.Email)
 		if err != nil {
 			return response, err
 		}
 	}
 
-	otp, err := util.GenerateOTP()
+	var otp string
+	otp, err = util.GenerateOTP()
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate OTP", zap.Error(err))
 		return response, err
 	}
 
 	otpHash := util.HashSHA256(otp)
-	sessionId := uuid.New()
+	sessionId := uuid.New().String()
 	otpExpiresAt := time.Now().UTC().Add(5 * time.Minute).Unix()
 
 	response.SessionId = sessionId
 	response.OtpExpiresAt = otpExpiresAt
 
-	OtpTemplateData := model.OTPTemplateData{
-		OTP:       otp,
-		ExpiresIn: 5,
-	}
-
-	template, err := template.ParseFS(util.TemplateFS, "template/otp.html")
+	var tmpl *template.Template
+	tmpl, err = template.ParseFS(util.TemplateFS, "template/otp.html")
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to parse OTP template", zap.Error(err))
 		return response, err
 	}
 
-	var tmpl bytes.Buffer
-	err = template.Execute(&tmpl, OtpTemplateData)
+	var bodyBuf bytes.Buffer
+	err = tmpl.Execute(&bodyBuf, model.OTPTemplateData{OTP: otp, ExpiresIn: 5})
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to execute OTP template", zap.Error(err))
 		return response, err
 	}
 
+	// Sub-span for SendEmail (slow op).
+	emailCtx, emailSpan := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.StartSignup.SendEmail")
 	smtpHost := usecase.Config.String("SMTP_HOST")
 	smtpPort := usecase.Config.Int("SMTP_PORT")
 	senderName := usecase.Config.String("SENDER_NAME")
 	senderEmail := usecase.Config.String("SENDER_EMAIL")
 	senderPassword := usecase.Config.String("SENDER_PASSWORD")
-
-	subject := "Register OTP Verification Code"
-	err = util.SendEmail(smtpHost, smtpPort, senderName, senderEmail, senderPassword, payload.Email, subject, tmpl.String())
+	err = util.SendEmail(smtpHost, smtpPort, senderName, senderEmail, senderPassword,
+		payload.Email, "Register OTP Verification Code", bodyBuf.String())
 	if err != nil {
+		util.RecordErrorTelemetry(emailCtx, emailSpan, err)
+		emailSpan.End()
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to send OTP email", zap.Error(err))
 		return response, err
 	}
+	emailSpan.End()
 
 	err = usecase.UserRepository.SetSignupSession(ctxContext, sessionId, payload.Email, otpHash, otpExpiresAt)
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to set signup session in cache", zap.Error(err))
 		return response, err
 	}
 
-	err = usecase.UserRepository.SetSignupEmailSession(ctxContext, sessionId.String(), payload.Email)
+	err = usecase.UserRepository.SetSignupEmailSession(ctxContext, sessionId, payload.Email)
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to set signup email session in cache", zap.Error(err))
 		return response, err
 	}
 
 	return response, nil
 }
 
+// VerifyOtp validates the OTP for a signup session.
 func (usecase *UserUsecase) VerifyOtp(ctx fiber.Ctx, payload model.UserVerifyOTPRequest) error {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
 	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.VerifyOtp")
-
 	var err error
+
 	defer func() {
 		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
 		span.End()
 	}()
 
-	validator := util.NewValidator()
-	validator.String("sessionId", payload.SessionId).Len(36).Required()
-	validator.String("otp", payload.OTP).Len(6).Required()
-
-	err = validator.Err()
+	v := util.NewValidator()
+	v.String("sessionId", payload.SessionId).Required().UUID()
+	v.String("otp", payload.OTP).Required().Len(6)
+	err = v.Validate()
 	if err != nil {
 		return err
 	}
 
 	span.SetAttributes(attribute.String("signup.session_id", payload.SessionId))
 
-	otp, err := usecase.UserRepository.GetOTPSignupSessionData(ctxContext, payload.SessionId)
+	var otp model.OTPSignupData
+	otp, err = usecase.UserRepository.GetOTPSignupSessionData(ctxContext, payload.SessionId)
 	if err != nil {
 		return err
 	}
 
 	if otp.OTP == "" {
-		err := &model.BadRequestError{
+		err = &model.BadRequestError{
 			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "OTP does not exists or expired",
+			Message: "OTP does not exist or has expired",
 			Param:   "otp",
 		}
 		return err
 	}
-
 	if time.Now().Unix() > otp.ExpiresAt {
-		err := &model.BadRequestError{
+		err = &model.BadRequestError{
 			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Otp is expired",
+			Message: "OTP has expired",
 			Param:   "otp",
 		}
 		return err
 	}
-
 	if subtle.ConstantTimeCompare([]byte(otp.OTP), []byte(util.HashSHA256(payload.OTP))) != 1 {
-		err := &model.BadRequestError{
+		err = &model.BadRequestError{
 			Code:    constant.ERR_BAD_REQUEST_CODE,
-			Message: "Otp does not match",
+			Message: "OTP does not match",
 			Param:   "otp",
 		}
 		return err
@@ -726,809 +305,739 @@ func (usecase *UserUsecase) VerifyOtp(ctx fiber.Ctx, payload model.UserVerifyOTP
 	return nil
 }
 
+// ResendOtp regenerates and resends an OTP, subject to cooldown.
 func (usecase *UserUsecase) ResendOtp(ctx fiber.Ctx, payload model.UserResendOTPRequest) (model.UserSignupStartResponse, error) {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tracer := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tracer.Start(ctxContext, "usecase.ResendOtp")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.ResendOtp")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
 
 	var response model.UserSignupStartResponse
 
-	sessionId, err := uuid.Parse(payload.SessionId)
+	v := util.NewValidator()
+	v.String("sessionId", payload.SessionId).Required().UUID()
+	err = v.Validate()
 	if err != nil {
-		err := &model.ValidationError{
+		return response, err
+	}
+
+	span.SetAttributes(attribute.String("signup.session_id", payload.SessionId))
+
+	var data []interface{}
+	data, err = usecase.UserRepository.GetOtpDataForResend(ctxContext, payload.SessionId)
+	if err != nil {
+		return response, err
+	}
+
+	if len(data) < 2 || data[0] == nil || data[1] == nil {
+		err = &model.BadRequestError{
 			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid session id",
+			Message: "Signup session is expired or does not exist",
 			Param:   "sessionId",
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "ResendOtp")
 		return response, err
 	}
 
-	span.SetAttributes(attribute.String("signup.session_id", sessionId.String()))
-
-	data, err := usecase.UserRepository.GetOtpDataForResend(ctxContext, sessionId)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return response, err
-	}
-
-	emailRaw := data[0]
-	expiresRaw := data[1]
-
-	emailStr, ok := emailRaw.(string)
+	emailStr, ok := data[0].(string)
 	if !ok {
-		return response, fmt.Errorf("invalid email format")
+		err = fmt.Errorf("invalid email format from session data")
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Session data corrupt", zap.Error(err))
+		return response, err
 	}
-
-	otpExpiresAtStr, ok := expiresRaw.(string)
+	otpExpiresAtStr, ok := data[1].(string)
 	if !ok {
-		return response, fmt.Errorf("invalid OTP expiration format")
-	}
-
-	otpExpiresAt, err := strconv.ParseInt(otpExpiresAtStr, 10, 64)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
+		err = fmt.Errorf("invalid otp_expires_at format from session data")
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Session data corrupt", zap.Error(err))
 		return response, err
 	}
 
-	if time.Now().Unix() < otpExpiresAt {
-		remainingSeconds := otpExpiresAt - time.Now().Unix()
+	var prevExpiresAt int64
+	prevExpiresAt, err = strconv.ParseInt(otpExpiresAtStr, 10, 64)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to parse OTP expiresAt", zap.Error(err))
+		return response, err
+	}
 
-		err := &model.ValidationError{
+	if time.Now().Unix() < prevExpiresAt {
+		remainingSeconds := prevExpiresAt - time.Now().Unix()
+		err = &model.BadRequestError{
 			Code:    constant.ERR_VALIDATION_CODE,
 			Message: fmt.Sprintf("Please wait %s before requesting another OTP", util.FormatRemainingTime(remainingSeconds)),
 			Param:   "otp",
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "ResendOtp")
 		return response, err
 	}
 
-	otp, err := util.GenerateOTP()
+	var otp string
+	otp, err = util.GenerateOTP()
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate OTP", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
 	otpHash := util.HashSHA256(otp)
-	otpExpiresAt = time.Now().UTC().Add(5 * time.Minute).Unix()
+	newExpiresAt := time.Now().UTC().Add(5 * time.Minute).Unix()
+	response.SessionId = payload.SessionId
+	response.OtpExpiresAt = newExpiresAt
 
-	response.SessionId = sessionId
-	response.OtpExpiresAt = otpExpiresAt
-
-	OtpTemplateData := model.OTPTemplateData{
-		OTP:       otp,
-		ExpiresIn: 5,
-	}
-
-	template, err := template.ParseFS(util.TemplateFS, "template/otp.html")
+	var tmpl *template.Template
+	tmpl, err = template.ParseFS(util.TemplateFS, "template/otp.html")
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to parse OTP template", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
-	var tmpl bytes.Buffer
-	err = template.Execute(&tmpl, OtpTemplateData)
+	var bodyBuf bytes.Buffer
+	err = tmpl.Execute(&bodyBuf, model.OTPTemplateData{OTP: otp, ExpiresIn: 5})
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to execute OTP template", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
-	smtpHost := usecase.Config.String("SMTP_HOST")
-	smtpPort := usecase.Config.Int("SMTP_PORT")
-	senderName := usecase.Config.String("SENDER_NAME")
-	senderEmail := usecase.Config.String("SENDER_EMAIL")
-	senderPassword := usecase.Config.String("SENDER_PASSWORD")
-
-	subject := "Register OTP Verification Code"
-	err = util.SendEmail(smtpHost, smtpPort, senderName, senderEmail, senderPassword, emailStr, subject, tmpl.String())
+	emailCtx, emailSpan := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.ResendOtp.SendEmail")
+	err = util.SendEmail(
+		usecase.Config.String("SMTP_HOST"),
+		usecase.Config.Int("SMTP_PORT"),
+		usecase.Config.String("SENDER_NAME"),
+		usecase.Config.String("SENDER_EMAIL"),
+		usecase.Config.String("SENDER_PASSWORD"),
+		emailStr, "Register OTP Verification Code", bodyBuf.String(),
+	)
 	if err != nil {
+		util.RecordErrorTelemetry(emailCtx, emailSpan, err)
+		emailSpan.End()
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to send OTP email", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
+	emailSpan.End()
 
-	err = usecase.UserRepository.UpdateSessionForResendOtp(ctxContext, sessionId, otpHash, otpExpiresAt)
+	err = usecase.UserRepository.UpdateSessionForResendOtp(ctxContext, payload.SessionId, otpHash, newExpiresAt)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
-	return response, err
+	return response, nil
 }
 
+// VerifyUsername stores a unique username in the signup session.
 func (usecase *UserUsecase) VerifyUsername(ctx fiber.Ctx, payload model.UserVerifyUsernameRequest) error {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tracer := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tracer.Start(ctxContext, "usecase.VerifyUsername")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.VerifyUsername")
+	var err error
 
-	sessionId, err := uuid.Parse(payload.SessionId)
-	if err != nil {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid session id",
-			Param:   "sessionId",
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Message)
-		return err
-	}
+		span.End()
+	}()
 
 	span.SetAttributes(
-		attribute.String("signup.session_id", sessionId.String()),
+		attribute.String("signup.session_id", payload.SessionId),
 		attribute.String("user.username", payload.Username),
 	)
 
-	if payload.Username == "" {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Username is required to not be empty",
-			Param:   "username",
-		}
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Message)
-		return err
-	} else if len(payload.Username) < 4 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Username must be at least 4 characters",
-			Param:   "username",
-		}
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Message)
-		return err
-	} else if len(payload.Username) > 22 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "username must be at most 22 characters",
-			Param:   "username",
-		}
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Message)
-		return err
-	}
-
-	data, err := usecase.UserRepository.GetSignupState(ctxContext, sessionId)
+	v := util.NewValidator()
+	v.String("sessionId", payload.SessionId).Required().UUID()
+	v.String("username", payload.Username).Required().MinLen(4).MaxLen(22)
+	err = v.Validate()
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
-	if data[0] == nil {
-		err := &model.ValidationError{
+	payload.Username = strings.ToLower(payload.Username)
+
+	var data []interface{}
+	data, err = usecase.UserRepository.GetSignupState(ctxContext, payload.SessionId)
+	if err != nil {
+		return err
+	}
+
+	if len(data) == 0 || data[0] == nil {
+		err = &model.BadRequestError{
 			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Signup session is expired or not exists",
+			Message: "Signup session is expired or does not exist",
 			Param:   "sessionId",
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyUsername")
 		return err
 	}
 
 	stepRaw, ok := data[0].(string)
 	if !ok {
-		return fmt.Errorf("invalid signup step format")
+		err = fmt.Errorf("invalid signup step format from session data")
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Session data corrupt", zap.Error(err))
+		return err
 	}
 
 	if stepRaw == model.SignupStepStart {
-		err := &model.ValidationError{
+		err = &model.BadRequestError{
 			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid signup step for this session",
+			Message: "Invalid signup step. Verify OTP first.",
 			Param:   "sessionId",
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyUsername")
 		return err
 	}
 
-	exists, err := usecase.UserRepository.CheckUsernameUnique(ctxContext, payload.Username)
+	var taken int
+	taken, err = usecase.UserRepository.CheckUsernameUnique(ctxContext, payload.Username)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
-
-	if exists == 1 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
+	if taken > 0 {
+		err = &model.ConflictError{
+			Code:    constant.ERR_CONFLICT_CODE,
 			Message: "Username is already taken",
 			Param:   "username",
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyUsername")
 		return err
 	}
 
-	err = usecase.UserRepository.SetVerificationUsernameState(ctxContext, sessionId, payload.Username)
+	err = usecase.UserRepository.SetVerificationUsernameState(ctxContext, payload.SessionId, payload.Username)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	return nil
 }
 
+// VerifyPassword completes the signup flow by creating the user and issuing tokens.
 func (usecase *UserUsecase) VerifyPassword(ctx fiber.Ctx, payload model.UserVerifyPasswordRequest) (model.TokenResponse, error) {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tracer := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tracer.Start(ctxContext, "usecase.VerifyPassword")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.VerifyPassword")
+	var err error
 
-	token := model.TokenResponse{}
-
-	sessionId, err := uuid.Parse(payload.SessionId)
-	if err != nil {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid session id",
-			Param:   "sessionId",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyPassword")
-		return token, err
-	}
-
-	span.SetAttributes(attribute.String("signup.session_id", sessionId.String()))
-
-	if payload.Password == "" {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Password is required to not be empty",
-			Param:   "password",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyPassword")
-		return token, err
-	} else if len(payload.Password) < 5 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Password must be at least 5 characters",
-			Param:   "password",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyPassword")
-		return token, err
-	} else if len(payload.Password) > 20 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Password must be at most 20 characters",
-			Param:   "password",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyPassword")
-		return token, err
-	}
-
-	data, err := usecase.UserRepository.GetAllSessionData(ctxContext, sessionId)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return token, err
-	}
-
-	if len(data) == 0 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Signup session is expired or not exists",
-			Param:   "sessionId",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyPassword")
-		return token, err
-	}
-
-	stepRaw, ok := data["step"]
-	if !ok {
-		return token, fmt.Errorf("step not found in session data")
-	}
-
-	if stepRaw != model.SignupStepUsernameSet {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid signup step for this session",
-			Param:   "sessionId",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyPassword")
-		return token, err
-	}
-
-	username, email, err := usecase.UserRepository.CheckUsernameOrEmailUnique(ctxContext, data["username"], data["email"])
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return token, err
-	}
-
-	if username == data["username"] {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Username is already exist",
-			Param:   "sessionId",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyPassword")
-		return token, err
-	}
-
-	if email == data["email"] {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Debug("email exists in verify password step, deleting session", zap.String("email", data["email"]))
-
-		err = usecase.UserRepository.DeleteSignupSession(ctxContext, payload.SessionId)
+	defer func() {
 		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-			return token, err
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
+		span.End()
+	}()
 
-		err = usecase.UserRepository.DeleteEmailSignupSession(ctxContext, data["email"])
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-			return token, err
-		}
+	var response model.TokenResponse
 
-		err := &model.ValidationError{
+	v := util.NewValidator()
+	v.String("sessionId", payload.SessionId).Required().UUID()
+	v.String("password", payload.Password).Required().MinLen(5).MaxLen(20)
+	err = v.Validate()
+	if err != nil {
+		return response, err
+	}
+
+	span.SetAttributes(attribute.String("signup.session_id", payload.SessionId))
+
+	var sessionData map[string]string
+	sessionData, err = usecase.UserRepository.GetAllSessionData(ctxContext, payload.SessionId)
+	if err != nil {
+		return response, err
+	}
+	if len(sessionData) == 0 {
+		err = &model.BadRequestError{
 			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Email is already exist",
+			Message: "Signup session is expired or does not exist",
 			Param:   "sessionId",
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "VerifyPassword")
-		return token, err
+		return response, err
 	}
 
-	err = usecase.UserRepository.DeleteSignupSession(ctxContext, payload.SessionId)
+	if sessionData["step"] != model.SignupStepUsernameSet {
+		err = &model.BadRequestError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Invalid signup step. Set username first.",
+			Param:   "sessionId",
+		}
+		return response, err
+	}
+
+	var usernameTaken, emailTaken bool
+	usernameTaken, emailTaken, err = usecase.UserRepository.CheckUsernameOrEmailUnique(ctxContext, sessionData["username"], sessionData["email"])
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return token, err
+		return response, err
+	}
+	if usernameTaken {
+		err = &model.ConflictError{
+			Code:    constant.ERR_CONFLICT_CODE,
+			Message: "Username has been taken since you started signup. Please restart.",
+			Param:   "username",
+		}
+		return response, err
+	}
+	if emailTaken {
+		if delErr := usecase.UserRepository.DeleteSignupSession(ctxContext, payload.SessionId); delErr != nil {
+			util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Warn("Failed to delete signup session (non-fatal)", zap.Error(delErr))
+		}
+		if delErr := usecase.UserRepository.DeleteEmailSignupSession(ctxContext, sessionData["email"]); delErr != nil {
+			util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Warn("Failed to delete email signup session (non-fatal)", zap.Error(delErr))
+		}
+		err = &model.ConflictError{
+			Code:    constant.ERR_CONFLICT_CODE,
+			Message: "Email has been registered since you started signup. Please restart.",
+			Param:   "email",
+		}
+		return response, err
 	}
 
-	err = usecase.UserRepository.DeleteEmailSignupSession(ctxContext, data["email"])
+	// Sub-span: bcrypt.GenerateFromPassword (~100ms hot path).
+	bcryptCtx, bcryptSpan := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.VerifyPassword.GenerateFromPassword")
+	var hashedPassword []byte
+	hashedPassword, err = bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return token, err
+		util.RecordErrorTelemetry(bcryptCtx, bcryptSpan, err)
+		bcryptSpan.End()
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to hash password", zap.Error(err))
+		return response, err
 	}
+	bcryptSpan.End()
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate hashed password", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return token, err
-	}
-
-	userId := uuid.New()
+	userId := uuid.New().String()
 	now := time.Now().UTC()
-	user := model.User{
-		Id:             userId,
-		Username:       data["username"],
-		Fullname:       strings.ToTitle(data["username"]),
-		Bio:            nil,
-		AvatarImageId:  nil,
-		Email:          data["email"],
-		Password:       string(hashedPassword),
-		Settings:       sonic.NoCopyRawMessage("{}"),
-		CreateDatetime: now,
-		UpdateDatetime: now,
-		CreateUserId:   userId,
-		UpdateUserId:   userId,
-	}
 
-	err = usecase.UserRepository.RegisterNoTx(ctxContext, user)
+	var tx pgx.Tx
+	tx, err = usecase.DB.Begin(ctxContext)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return token, err
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to begin transaction", zap.Error(err))
+		return response, err
+	}
+	defer func() { _ = tx.Rollback(ctxContext) }()
+
+	user := model.User{
+		Id:        userId,
+		Username:  sessionData["username"],
+		Email:     sessionData["email"],
+		Password:  string(hashedPassword),
+		Settings:  []byte("{}"),
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: userId,
+		UpdatedBy: userId,
+	}
+	err = usecase.UserRepository.Register(ctxContext, tx, user)
+	if err != nil {
+		return response, err
 	}
 
-	token, err = util.GenerateTokenPair(userId, usecase.Config.String("JWT_SECRET_KEY"))
+	response, err = util.GenerateTokenPair(userId, usecase.Config.String("JWT_SECRET_KEY"))
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate token pair", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return token, err
+		return model.TokenResponse{}, err
 	}
 
-	// Create refresh token in database
-	refreshTokenHash := util.HashToken(token.RefreshToken)
-	refreshTokenExpiresAt := now.Add(util.RefreshTokenDuration)
-	tokenFamily := uuid.New().String()
-
-	refreshTokenCreate := model.RefreshTokenCreate{
-		Id:          uuid.New(),
+	refreshToken := model.RefreshToken{
+		Id:          uuid.New().String(),
 		UserId:      userId,
-		TokenHash:   refreshTokenHash,
-		TokenFamily: tokenFamily,
-		ExpiresAt:   refreshTokenExpiresAt,
+		TokenHash:   util.HashToken(response.RefreshToken),
+		TokenFamily: uuid.New().String(),
+		ExpiresAt:   now.Add(util.RefreshTokenDuration),
 		CreatedAt:   now,
 		UpdatedAt:   now,
 		CreatedBy:   userId,
+		UpdatedBy:   userId,
 	}
-
-	err = usecase.UserRepository.CreateRefreshTokenNoTx(ctxContext, refreshTokenCreate)
+	err = usecase.UserRepository.CreateRefreshToken(ctxContext, tx, refreshToken)
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to create refresh token", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return token, err
+		return response, err
 	}
 
-	// Store access token in Redis cache only
-	err = usecase.UserRepository.SetAccessTokenInCache(ctxContext, token.AccessToken, userId)
+	// External ops BEFORE commit (Redis SET / DEL). On commit failure the orphan state is acceptable.
+	err = usecase.UserRepository.SetAccessTokenInCache(ctxContext, response.AccessToken, userId)
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to set access token in cache", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return token, err
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to cache access token", zap.Error(err))
+		return response, err
+	}
+	err = usecase.UserRepository.DeleteSignupSession(ctxContext, payload.SessionId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to delete signup session", zap.Error(err))
+		return response, err
+	}
+	err = usecase.UserRepository.DeleteEmailSignupSession(ctxContext, sessionData["email"])
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to delete email signup session", zap.Error(err))
+		return response, err
 	}
 
-	return token, nil
+	err = tx.Commit(ctxContext)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
+		return response, err
+	}
+
+	return response, nil
 }
 
+// GetSignupStatus reports the current step of a signup session.
 func (usecase *UserUsecase) GetSignupStatus(ctx fiber.Ctx, sessionId string) (model.UserSignupStatus, error) {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tracer := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tracer.Start(ctxContext, "usecase.GetSignupStatus")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.GetSignupStatus")
+	var err error
 
-	response := model.UserSignupStatus{}
-	sessionUUID, err := uuid.Parse(sessionId)
-	if err != nil {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid session id",
-			Param:   "sessionId",
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "GetSignupStatus")
+		span.End()
+	}()
+
+	var response model.UserSignupStatus
+
+	v := util.NewValidator()
+	v.String("sessionId", sessionId).Required().UUID()
+	err = v.Validate()
+	if err != nil {
 		return response, err
 	}
 
-	span.SetAttributes(attribute.String("signup.session_id", sessionUUID.String()))
+	span.SetAttributes(attribute.String("signup.session_id", sessionId))
 
-	data, err := usecase.UserRepository.GetSignupState(ctxContext, sessionUUID)
+	var data []interface{}
+	data, err = usecase.UserRepository.GetSignupState(ctxContext, sessionId)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
-	if data[0] == nil {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Signup session is expired or not exists",
+	if len(data) == 0 || data[0] == nil {
+		err = &model.NotFoundError{
+			Code:    constant.ERR_NOT_FOUND_CODE,
+			Message: "Signup session is expired or does not exist",
 			Param:   "sessionId",
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "GetSignupStatus")
 		return response, err
 	}
 
 	stepRaw, ok := data[0].(string)
 	if !ok {
-		return response, fmt.Errorf("invalid signup step format")
+		err = fmt.Errorf("invalid signup step format from session data")
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Session data corrupt", zap.Error(err))
+		return response, err
 	}
 
-	response.SessionId = sessionUUID
+	response.SessionId = sessionId
 	response.Step = stepRaw
 
 	return response, nil
 }
 
-func (usecase *UserUsecase) UpdateUsername(ctx fiber.Ctx, userId uuid.UUID, payload model.UsernameUpdateRequest) error {
+// GetAccessToken verifies that the access token presented matches what is cached for the user.
+func (usecase *UserUsecase) GetAccessToken(ctx fiber.Ctx, userId string, accessToken string) error {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tracer := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tracer.Start(ctxContext, "usecase.UpdateUsername")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.GetAccessToken")
+	var err error
 
-	span.SetAttributes(
-		attribute.String("user.id", userId.String()),
-		attribute.String("user.username", payload.Username),
-	)
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
 
-	// Validate username
-	if payload.Username == "" {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Username is required to not be empty",
-			Param:   "username",
-		}
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Message)
-		return err
-	} else if len(payload.Username) < 4 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Username must be at least 4 characters",
-			Param:   "username",
-		}
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Message)
-		return err
-	} else if len(payload.Username) > 22 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "username must be at most 22 characters",
-			Param:   "username",
-		}
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Message)
-		return err
-	}
+	span.SetAttributes(attribute.String("user.id", userId))
 
-	// Check if username is already taken
-	exists, err := usecase.UserRepository.CheckUsernameUnique(ctxContext, payload.Username)
+	var hashedTokenFromCache string
+	hashedTokenFromCache, err = usecase.UserRepository.GetAccessTokenInCache(ctxContext, userId)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
-	if exists == 1 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Username is already taken",
-			Param:   "username",
+	hashedTokenFromClient := util.HashToken(accessToken)
+	if hashedTokenFromClient != hashedTokenFromCache {
+		err = &model.UnauthorizedError{
+			Code:    constant.ERR_UNAUTHORIZED_CODE,
+			Message: "Authorization token is expired",
+			Param:   "accessToken",
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateUsername")
-		return err
-	}
-
-	now := time.Now().UTC()
-
-	err = usecase.UserRepository.UpdateUsername(ctxContext, userId, payload.Username, userId, now)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	return nil
 }
 
-func (usecase *UserUsecase) UpdateFullname(ctx fiber.Ctx, userId uuid.UUID, payload model.FullnameUpdateRequest) error {
+// GetUserInfo returns the authenticated user's account info.
+func (usecase *UserUsecase) GetUserInfo(ctx fiber.Ctx, userId string) (model.UserResponse, error) {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tracer := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tracer.Start(ctxContext, "usecase.UpdateFullname")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.GetUserInfo")
+	var err error
 
-	span.SetAttributes(
-		attribute.String("user.id", userId.String()),
-		attribute.String("user.fullname", payload.Fullname),
-	)
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
 
-	// Validate fullname
-	if payload.Fullname == "" {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Fullname is required to not be empty",
-			Param:   "fullname",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateFullname")
-		return err
-	} else if len(payload.Fullname) < 4 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Fullname must be at least 4 characters",
-			Param:   "fullname",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateFullname")
-		return err
-	} else if len(payload.Fullname) > 40 {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Fullname must be at most 40 characters",
-			Param:   "fullname",
-		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "UpdateFullname")
-		return err
+	var response model.UserResponse
+
+	v := util.NewValidator()
+	v.String("userId", userId).Required().UUID()
+	err = v.Validate()
+	if err != nil {
+		return response, err
 	}
+
+	span.SetAttributes(attribute.String("user.id", userId))
+
+	response, err = usecase.UserRepository.GetUserInfo(ctxContext, userId)
+	if err != nil {
+		return response, err
+	}
+
+	return response, nil
+}
+
+// Logout revokes all refresh tokens and clears the access-token cache.
+func (usecase *UserUsecase) Logout(ctx fiber.Ctx, userId string) error {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.Logout")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(attribute.String("user.id", userId))
 
 	now := time.Now().UTC()
 
-	err := usecase.UserRepository.UpdateFullname(ctxContext, userId, payload.Fullname, userId, now)
+	err = usecase.UserRepository.RevokeAllRefreshTokensByUserId(ctxContext, userId, now, now, userId)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	err = usecase.UserRepository.RemoveAuthToken(ctxContext, userId)
+	if err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (usecase *UserUsecase) UpdateBio(ctx fiber.Ctx, userId uuid.UUID, payload model.BioUpdateRequest) error {
-	ctxContext := ctx.Context()
-	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tracer := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tracer.Start(ctxContext, "usecase.UpdateBio")
-	defer span.End()
-
-	span.SetAttributes(attribute.String("user.id", userId.String()))
-
-	// No validation needed for bio
-	// Convert empty string to nil for NULL in database
-	var bioPtr *string
-	if payload.Bio != "" {
-		bioPtr = &payload.Bio
-	}
-
-	now := time.Now().UTC()
-
-	err := usecase.UserRepository.UpdateBio(ctxContext, userId, bioPtr, userId, now)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	return nil
-}
-
+// RefreshToken rotates a refresh token, escalating to full revocation on detected theft.
 func (usecase *UserUsecase) RefreshToken(ctx fiber.Ctx, payload model.RefreshTokenRefreshRequest) (model.TokenResponse, error) {
 	ctxContext := ctx.Context()
-	response := model.TokenResponse{}
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	tracer := otel.Tracer(serviceName + "-usecase")
-	ctxContext, span := tracer.Start(ctxContext, "usecase.RefreshToken")
-	defer span.End()
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.RefreshToken")
+	var err error
 
-	// Validate refresh token
-	if payload.RefreshToken == "" {
-		err := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Refresh token is required to not be empty",
-			Param:   "refreshToken",
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
-		util.RecordValidationError(ctxContext, usecase.Log, span, err, "RefreshToken")
+		span.End()
+	}()
+
+	var response model.TokenResponse
+
+	v := util.NewValidator()
+	v.String("refreshToken", payload.RefreshToken).Required()
+	err = v.Validate()
+	if err != nil {
 		return response, err
 	}
 
-	// Hash the refresh token to find it in database
 	tokenHash := util.HashToken(payload.RefreshToken)
 
-	// Get refresh token from database
-	refreshToken, err := usecase.UserRepository.GetRefreshTokenByHash(ctxContext, tokenHash)
+	var refreshToken model.RefreshToken
+	refreshToken, err = usecase.UserRepository.GetRefreshTokenByHash(ctxContext, tokenHash)
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to get refresh token by hash", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
-	// Check if token is revoked
-	// If revoked, this could indicate token theft - security escalation
+	span.SetAttributes(
+		attribute.String("user.id", refreshToken.UserId),
+		attribute.String("token.family", refreshToken.TokenFamily),
+	)
+
+	// SECURITY: token reuse detected → escalate (revoke ALL user tokens).
 	if refreshToken.RevokedAt != nil {
-		// SECURITY ESCALATION: Revoke ALL refresh tokens for this user
-		// This kicks out any attacker who may have stolen a token
 		now := time.Now().UTC()
-		err := usecase.UserRepository.RevokeAllRefreshTokensByUserId(ctxContext, refreshToken.UserId, now, now, refreshToken.UserId)
-		if err != nil {
-			util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to revoke all tokens after revoked token detection", zap.Error(err))
-			// Log error but continue - still return unauthorized to client
+		if revokeErr := usecase.UserRepository.RevokeAllRefreshTokensByUserId(ctxContext, refreshToken.UserId, now, now, refreshToken.UserId); revokeErr != nil {
+			util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error(
+				"Failed to revoke all refresh tokens during theft escalation",
+				zap.String("user.id", refreshToken.UserId),
+				zap.Error(revokeErr),
+			)
 		}
 
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Warn("Possible token theft detected - attempt to use revoked refresh token",
-			zap.String("userId", refreshToken.UserId.String()),
-			zap.String("tokenFamily", refreshToken.TokenFamily),
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Warn(
+			"Possible token theft detected — revoked refresh token reused",
+			zap.String("user.id", refreshToken.UserId),
+			zap.String("token.family", refreshToken.TokenFamily),
 			zap.Time("revokedAt", *refreshToken.RevokedAt),
 		)
 
 		err = &model.UnauthorizedError{
-			Code:    constant.ERR_UNAUTHORIZED_ERROR,
+			Code:    constant.ERR_UNAUTHORIZED_CODE,
 			Message: "Session expired. Please login again.",
 			Param:   "refreshToken",
 		}
 		return response, err
 	}
 
-	// Check if token is expired
 	if time.Now().UTC().After(refreshToken.ExpiresAt) {
-		err := &model.UnauthorizedError{
-			Code:    constant.ERR_UNAUTHORIZED_ERROR,
-			Message: "Refresh token is expired",
+		err = &model.UnauthorizedError{
+			Code:    constant.ERR_UNAUTHORIZED_CODE,
+			Message: "Refresh token has expired",
 			Param:   "refreshToken",
 		}
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Warn("Attempt to use expired refresh token",
-			zap.String("userId", refreshToken.UserId.String()),
-			zap.String("tokenFamily", refreshToken.TokenFamily),
-		)
 		return response, err
 	}
 
-	// Start transaction for atomic operations
-	tx, err := usecase.DB.Begin(ctxContext)
+	var tx pgx.Tx
+	tx, err = usecase.DB.Begin(ctxContext)
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to begin transaction", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
-	defer func() {
-		_ = tx.Rollback(ctxContext)
-	}()
+	defer func() { _ = tx.Rollback(ctxContext) }()
 
-	// Token rotation: revoke all tokens in the same family
 	now := time.Now().UTC()
-	err = usecase.UserRepository.RevokeRefreshTokensByFamily(ctxContext, tx, refreshToken.UserId, refreshToken.TokenFamily, now, now, refreshToken.UserId)
+
+	err = usecase.UserRepository.RevokeRefreshTokensByFamily(
+		ctxContext, tx, refreshToken.UserId, refreshToken.TokenFamily, now, now, refreshToken.UserId)
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to revoke old refresh tokens", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
-	// Generate new token family for security (new family = new session lineage)
-	newTokenFamily := uuid.New().String()
-
-	// Generate new access token
-	jwtSecretKey := usecase.Config.String("JWT_SECRET_KEY")
-	accessToken, err := util.GenerateAccessToken(refreshToken.UserId, jwtSecretKey)
+	response, err = util.GenerateTokenPair(refreshToken.UserId, usecase.Config.String("JWT_SECRET_KEY"))
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate access token", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return response, err
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate token pair", zap.Error(err))
+		return model.TokenResponse{}, err
 	}
 
-	// Generate new refresh token
-	newRefreshToken := uuid.New().String()
-	newRefreshTokenHash := util.HashToken(newRefreshToken)
-	newExpiresAt := now.Add(util.RefreshTokenDuration)
-
-	// Create refresh token record
-	refreshTokenCreate := model.RefreshTokenCreate{
-		Id:          uuid.New(),
+	newRefresh := model.RefreshToken{
+		Id:          uuid.New().String(),
 		UserId:      refreshToken.UserId,
-		TokenHash:   newRefreshTokenHash,
-		TokenFamily: newTokenFamily,
-		ExpiresAt:   newExpiresAt,
+		TokenHash:   util.HashToken(response.RefreshToken),
+		TokenFamily: uuid.New().String(),
+		ExpiresAt:   now.Add(util.RefreshTokenDuration),
 		CreatedAt:   now,
 		UpdatedAt:   now,
 		CreatedBy:   refreshToken.UserId,
+		UpdatedBy:   refreshToken.UserId,
 	}
-
-	err = usecase.UserRepository.CreateRefreshToken(ctxContext, tx, refreshTokenCreate)
+	err = usecase.UserRepository.CreateRefreshToken(ctxContext, tx, newRefresh)
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to create new refresh token", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
-	// Set new tokens in cache
-	err = usecase.UserRepository.SetAccessTokenInCache(ctxContext, accessToken, refreshToken.UserId)
+	err = usecase.UserRepository.SetAccessTokenInCache(ctxContext, response.AccessToken, refreshToken.UserId)
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to set new tokens in cache", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to cache access token", zap.Error(err))
 		return response, err
 	}
 
-	// Commit transaction
 	err = tx.Commit(ctxContext)
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return response, err
 	}
 
-	response = model.TokenResponse{
-		AccessToken:           accessToken,
-		AccessTokenExpiresIn:  int(util.AccessTokenDuration.Seconds()),
-		RefreshToken:          newRefreshToken,
-		RefreshTokenExpiresIn: int(util.RefreshTokenDuration.Seconds()),
-		TokenType:             "Bearer",
+	return response, nil
+}
+
+// DeleteAccount soft-deletes the user, hard-deletes owned servers + memberships, and revokes all tokens.
+//
+// Flow:
+//  1. Validate user exists and is not already deleted.
+//  2. Hard delete owned servers (FK CASCADE handles roles/members/profiles/posts/comments/likes/invites).
+//  3. Hard delete server_members rows for all other servers.
+//  4. server_member_profiles retained (snapshot historical).
+//  5. Posts/comments/likes in other servers retained (FK author_id; users row stays via soft delete).
+//  6. Soft delete users row (set deleted_at).
+//  7. Revoke all refresh tokens.
+//  8. Invalidate access-token cache.
+//
+// MinIO objects intentionally stay orphan in Phase 1 (background cleanup job in Phase 2).
+func (usecase *UserUsecase) DeleteAccount(ctx fiber.Ctx, userId string) error {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.DeleteAccount")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(attribute.String("user.id", userId))
+
+	v := util.NewValidator()
+	v.String("userId", userId).Required().UUID()
+	err = v.Validate()
+	if err != nil {
+		return err
 	}
 
-	return response, nil
+	var existsAndActive bool
+	existsAndActive, err = usecase.UserRepository.CheckUserActive(ctxContext, userId)
+	if err != nil {
+		return err
+	}
+	if !existsAndActive {
+		err = &model.NotFoundError{
+			Code:    constant.ERR_NOT_FOUND_CODE,
+			Message: "User not found or already deleted",
+			Param:   "",
+		}
+		return err
+	}
+
+	var tx pgx.Tx
+	tx, err = usecase.DB.Begin(ctxContext)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to begin transaction", zap.Error(err))
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctxContext) }()
+
+	now := time.Now().UTC()
+
+	err = usecase.ServerRepository.DeleteServersByOwnerId(ctxContext, tx, userId)
+	if err != nil {
+		return err
+	}
+
+	err = usecase.ServerRepository.DeleteAllServerMembersByUserId(ctxContext, tx, userId)
+	if err != nil {
+		return err
+	}
+
+	err = usecase.UserRepository.SoftDeleteUser(ctxContext, tx, userId, now)
+	if err != nil {
+		return err
+	}
+
+	err = usecase.UserRepository.RevokeAllRefreshTokensByUserIdTx(ctxContext, tx, userId, now, now, userId)
+	if err != nil {
+		return err
+	}
+
+	err = usecase.UserRepository.RemoveAllAccessTokensFromCache(ctxContext, userId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to clear access token cache", zap.Error(err))
+		return err
+	}
+
+	err = tx.Commit(ctxContext)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
+		return err
+	}
+
+	return nil
 }

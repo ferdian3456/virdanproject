@@ -19,7 +19,6 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/exception"
 	gofiber "github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/compress"
-	"github.com/gofiber/fiber/v3/middleware/requestid"
 	zapLog "go.uber.org/zap"
 )
 
@@ -52,12 +51,14 @@ func main() {
 	fiber.Use(middleware.CORSMiddleware())
 	bootstrapZap := config.NewBootstrapZap()
 	koanf := config.NewKoanf(bootstrapZap)
-	zap := config.NewZap(initCtx, koanf, bootstrapZap)
-	_ = bootstrapZap.Sync()
 
 	// OTel providers — returned for graceful shutdown
-	meterProvider := config.NewMetrics(initCtx, koanf, zap)
-	tracerProvider := config.NewTracer(initCtx, koanf, zap)
+	loggerProvider := config.NewOtelLoggerProvider(initCtx, koanf, bootstrapZap)
+	zap := config.NewZap(koanf, loggerProvider)
+	_ = bootstrapZap.Sync()
+
+	meterProvider := config.NewOtelMetricProvider(initCtx, koanf, zap)
+	tracerProvider := config.NewOtelTracerProvider(initCtx, koanf, zap)
 
 	rds := config.NewRedisClient(initCtx, koanf, zap)
 	postgresql := config.NewPostgresqlPool(initCtx, koanf, zap)
@@ -68,17 +69,13 @@ func main() {
 	// Custom recovery middleware to handle panics with JSON response
 	fiber.Use(exception.Recovery(zap))
 
-	// Compression middleware (should be before logging)
+	// Compression middleware
 	fiber.Use(compress.New(compress.Config{
 		Level: compress.LevelBestSpeed,
 	}))
 
-	// RequestID middleware
-	fiber.Use(requestid.New())
-
-	fiber.Use(middleware.TracingMiddleware(koanf))
-
-	fiber.Use(middleware.LoggingMiddleware(koanf, meterProvider, zap))
+	// Unified observability middleware (request id, root span, logs, metrics)
+	fiber.Use(middleware.ObservabilityMiddleware(koanf, meterProvider, zap))
 
 	config.Server(&config.ServerConfig{
 		Router:  fiber,
@@ -91,7 +88,7 @@ func main() {
 
 	GO_SERVER_PORT := koanf.String("GO_SERVER")
 
-	zap.Info("server is running on: " + GO_SERVER_PORT)
+	zap.Info("Server is running on: " + GO_SERVER_PORT)
 
 	var err error
 	go func() {
@@ -100,7 +97,7 @@ func main() {
 			EnablePrefork:         false,
 		})
 		if err != nil {
-			zap.Fatal("error starting server", zapLog.Error(err))
+			zap.Fatal("Error starting server", zapLog.Error(err))
 		}
 	}()
 
@@ -108,7 +105,7 @@ func main() {
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
 	<-stop
-	zap.Info("got one of stop signals")
+	zap.Info("Got one of stop signals")
 
 	// Shutdown context — for graceful shutdown only
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -116,19 +113,22 @@ func main() {
 
 	// Shutdown OTel providers first — flush all telemetry data before app exits
 	if err := tracerProvider.Shutdown(shutdownCtx); err != nil {
-		zap.Error("failed to shutdown tracer provider", zapLog.Error(err))
+		zap.Error("Failed to shutdown tracer provider", zapLog.Error(err))
 	}
 	if err := meterProvider.Shutdown(shutdownCtx); err != nil {
-		zap.Error("failed to shutdown meter provider", zapLog.Error(err))
+		zap.Error("Failed to shutdown meter provider", zapLog.Error(err))
+	}
+	if err := loggerProvider.Shutdown(shutdownCtx); err != nil {
+		zap.Error("Failed to shutdown logger provider", zapLog.Error(err))
 	}
 
 	err = fiber.ShutdownWithContext(shutdownCtx)
 	if err != nil {
-		zap.Warn("timeout, forced kill!", zapLog.Error(err))
+		zap.Warn("Timeout, forced kill!", zapLog.Error(err))
 		_ = zap.Sync()
 		os.Exit(1)
 	}
 
-	zap.Info("server has shut down gracefully")
+	zap.Info("Server has shut down gracefully")
 	_ = zap.Sync()
 }

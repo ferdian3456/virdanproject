@@ -11,7 +11,7 @@ func NewKoanf(log *zap.Logger) *koanf.Koanf {
 	k := koanf.New(".")
 	err := k.Load(file.Provider(".env"), dotenv.Parser())
 	if err != nil {
-		log.Fatal("failed to load .env files", zap.Error(err))
+		log.Fatal("Failed to load .env files", zap.Error(err))
 	}
 
 	return k

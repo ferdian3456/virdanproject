@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ferdian3456/virdanproject/internal/constant"
 	"github.com/ferdian3456/virdanproject/internal/model"
 	"github.com/ferdian3456/virdanproject/internal/util"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/knadh/koanf/v2"
@@ -17,7 +17,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.uber.org/zap"
 )
 
@@ -39,904 +38,877 @@ func NewPostRepository(zap *zap.Logger, koanf *koanf.Koanf, db *pgxpool.Pool, db
 	}
 }
 
-func (repository *PostRepository) CheckServerMember(ctx context.Context, serverId uuid.UUID, userId uuid.UUID) (int, error) {
+func (repository *PostRepository) UploadPostObject(ctx context.Context, bucketName string, objectKey string, file *bytes.Reader, size int64) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.CheckServerMember")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
-		attribute.String("db.operation", "SELECT"),
-		attribute.String("server.id", serverId.String()),
-		attribute.String("user.id", userId.String()),
-	)
-
-	query := "SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2 AND status = $3"
-
-	var exists int
-	err := repository.DB.QueryRow(ctx, query, serverId, userId, model.MemberStatusActive).Scan(&exists)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return exists, nil
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UploadPostObject")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
 		}
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to check server member", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return exists, err
-	}
-
-	return exists, nil
-}
-
-func (repository *PostRepository) UploadPostObject(ctx context.Context, bucketName string, imageName string, imageFile *bytes.Reader, imageSize int64) error {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.UploadPostObject")
-	defer span.End()
+		span.End()
+	}()
 
 	span.SetAttributes(
 		attribute.String("storage.system", "minio"),
 		attribute.String("storage.operation", "Upload"),
 		attribute.String("storage.bucket", bucketName),
-		attribute.String("storage.object", imageName),
+		attribute.String("storage.object", objectKey),
 	)
 
-	_, err := repository.DBObject.PutObject(ctx, bucketName, imageName, imageFile, imageSize,
+	_, err = repository.DBObject.PutObject(ctx, bucketName, objectKey, file, size,
 		minio.PutObjectOptions{
 			ContentType:  "image/webp",
 			CacheControl: "public, max-age=31536000, immutable",
 		})
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to upload post object to storage", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	return nil
 }
 
-func (repository *PostRepository) CreateServerPostImage(ctx context.Context, tx pgx.Tx, serverPostImage model.ServerPostImages) error {
+func (repository *PostRepository) CreateServerPostImage(ctx context.Context, tx pgx.Tx, image model.ServerPostImage) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.CreateServerPostImage")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CreateServerPostImage")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.system", "postgres"),
 		attribute.String("db.operation", "INSERT"),
 	)
 
-	query := "INSERT INTO server_post_images (id, bucket, object_key, mime_type, size, create_datetime, update_datetime, create_user_id, update_user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"
+	query := `INSERT INTO server_post_images (id, bucket, object_key, mime_type, size, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
-	_, err := tx.Exec(ctx, query, serverPostImage.Id, serverPostImage.Bucket, serverPostImage.ObjectKey, serverPostImage.MimeType, serverPostImage.Size, serverPostImage.CreateDatetime, serverPostImage.UpdateDatetime, serverPostImage.CreateUserId, serverPostImage.UpdateUserId)
+	_, err = tx.Exec(ctx, query, image.Id, image.Bucket, image.ObjectKey, image.MimeType, image.Size,
+		image.CreatedAt, image.UpdatedAt, image.CreatedBy, image.UpdatedBy)
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to create server post image", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	return nil
 }
 
-func (repository *PostRepository) CreateServerPost(ctx context.Context, tx pgx.Tx, serverPost model.ServerPosts) error {
+func (repository *PostRepository) CreateServerPost(ctx context.Context, tx pgx.Tx, post model.ServerPost) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.CreateServerPost")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CreateServerPost")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.system", "postgres"),
 		attribute.String("db.operation", "INSERT"),
+		attribute.String("server.id", post.ServerId),
+		attribute.String("author.id", post.AuthorId),
 	)
 
-	query := "INSERT INTO server_posts (id, server_id, author_id, post_image_id, caption, create_datetime, update_datetime, create_user_id, update_user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"
+	query := `INSERT INTO server_posts (id, server_id, author_id, post_image_id, caption, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
-	_, err := tx.Exec(ctx, query, serverPost.Id, serverPost.ServerId, serverPost.AuthorId, serverPost.PostImageId, serverPost.Caption, serverPost.CreateDatetime, serverPost.UpdateDatetime, serverPost.CreateUserId, serverPost.UpdateUserId)
+	_, err = tx.Exec(ctx, query, post.Id, post.ServerId, post.AuthorId, post.PostImageId, post.Caption,
+		post.CreatedAt, post.UpdatedAt, post.CreatedBy, post.UpdatedBy)
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to create server post", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	return nil
 }
 
-func (repository *PostRepository) CheckPostOwnership(ctx context.Context, postId uuid.UUID, userId uuid.UUID) (int, error) {
+func (repository *PostRepository) CheckPostOwnership(ctx context.Context, postId string, userId string) (int, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.CheckPostOwnership")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
-		attribute.String("db.operation", "SELECT"),
-		attribute.String("post.id", postId.String()),
-		attribute.String("user.id", userId.String()),
-	)
-
-	query := "SELECT 1 FROM server_posts WHERE id = $1 AND author_id = $2"
-
-	var exists int
-	err := repository.DB.QueryRow(ctx, query, postId, userId).Scan(&exists)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return exists, nil
-		}
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to check post ownership", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return exists, err
-	}
-
-	return exists, nil
-}
-
-func (repository *PostRepository) GetAuthorNameById(ctx context.Context, userId uuid.UUID) (string, error) {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.GetAuthorNameById")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
-		attribute.String("db.operation", "SELECT"),
-		attribute.String("user.id", userId.String()),
-	)
-
-	query := "SELECT username FROM users WHERE id = $1"
-
-	var username string
-	err := repository.DB.QueryRow(ctx, query, userId).Scan(&username)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return username, nil
-		}
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get author name", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return username, err
-	}
-
-	return username, nil
-}
-
-func (repository *PostRepository) UpdatePostCaption(ctx context.Context, postId uuid.UUID, caption string, updateUserId uuid.UUID, updateDatetime time.Time) error {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.UpdatePostCaption")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
-		attribute.String("db.operation", "UPDATE"),
-		attribute.String("post.id", postId.String()),
-	)
-
-	query := "UPDATE server_posts SET caption = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4"
-
-	_, err := repository.DB.Exec(ctx, query, caption, updateDatetime, updateUserId, postId)
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to update post caption", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	return nil
-}
-
-func (repository *PostRepository) DeletePost(ctx context.Context, postId uuid.UUID) error {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.DeletePost")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
-		attribute.String("db.operation", "DELETE"),
-		attribute.String("post.id", postId.String()),
-	)
-
-	query := "DELETE FROM server_posts WHERE id = $1"
-
-	_, err := repository.DB.Exec(ctx, query, postId)
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete post", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	return nil
-}
-
-func (repository *PostRepository) GetPostImage(ctx context.Context, tx pgx.Tx, postId uuid.UUID) (uuid.UUID, string, error) {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.GetPostImage")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
-		attribute.String("db.operation", "SELECT"),
-		attribute.String("post.id", postId.String()),
-	)
-
-	query := `
-		SELECT sp.post_image_id, spi.object_key
-		FROM server_posts sp
-		INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
-		WHERE sp.id = $1
-	`
-
-	var postImageId uuid.UUID
-	var objectKey string
-	err := tx.QueryRow(ctx, query, postId).Scan(&postImageId, &objectKey)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return uuid.Nil, "", nil
-		}
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get post image", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return uuid.Nil, "", err
-	}
-
-	return postImageId, objectKey, nil
-}
-
-func (repository *PostRepository) DeletePostImage(ctx context.Context, tx pgx.Tx, postImageId uuid.UUID) error {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.DeletePostImage")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
-		attribute.String("db.operation", "DELETE"),
-		attribute.String("post_image.id", postImageId.String()),
-	)
-
-	query := "DELETE FROM server_post_images WHERE id = $1"
-
-	_, err := tx.Exec(ctx, query, postImageId)
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete post image", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	return nil
-}
-
-func (repository *PostRepository) DeletePostObject(ctx context.Context, bucketName string, objectKey string) error {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.DeletePostObject")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("storage.system", "minio"),
-		attribute.String("storage.operation", "Delete"),
-		attribute.String("storage.bucket", bucketName),
-		attribute.String("storage.object", objectKey),
-	)
-
-	err := repository.DBObject.RemoveObject(ctx, bucketName, objectKey, minio.RemoveObjectOptions{})
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete post object from storage", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	return nil
-}
-
-func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit int, serverId uuid.UUID, userId uuid.UUID, cursor *model.ServerPostCursor, minioFullUrl string) ([]model.ServerPostForMe, error) {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.GetServerPostForMe")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
-		attribute.String("db.operation", "SELECT"),
-		attribute.String("server.id", serverId.String()),
-		attribute.String("user.id", userId.String()),
-	)
-
-	var rows pgx.Rows
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CheckPostOwnership")
 	var err error
-
-	// Check if cursor is provided (not first page)
-	if cursor.Id != uuid.Nil && !cursor.CreateDatetime.IsZero() {
-		// Query with cursor for pagination
-		queryWithCursor := `
-			SELECT A.id, B.object_key, A.create_datetime
-			FROM server_posts A
-			INNER JOIN server_post_images B ON A.post_image_id = B.id  
-			WHERE A.server_id = $1 AND A.author_id = $2 
-			AND (A.create_datetime < $3 OR (A.create_datetime = $3 AND A.id < $4))
-			ORDER BY A.create_datetime DESC, A.id DESC
-			LIMIT $5
-		`
-		rows, err = repository.DB.Query(ctx, queryWithCursor, serverId, userId, cursor.CreateDatetime, cursor.Id, limit)
-	} else {
-		// Query without cursor for first page
-		query := `
-			SELECT A.id, B.object_key, A.create_datetime
-			FROM server_posts A
-			INNER JOIN server_post_images B ON A.post_image_id = B.id  
-			WHERE A.server_id = $1 AND A.author_id = $2 
-			ORDER BY A.create_datetime DESC, A.id DESC
-			LIMIT $3
-		`
-		rows, err = repository.DB.Query(ctx, query, serverId, userId, limit)
-	}
-
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to query server posts for me", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return nil, err
-	}
-	defer rows.Close()
-
-	posts := []model.ServerPostForMe{}
-
-	for rows.Next() {
-		var post model.ServerPostForMe
-		err := rows.Scan(&post.PostId, &post.PostImageUrl, &post.CreateDatetime)
+	defer func() {
 		if err != nil {
-			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan server post for me row", zap.Error(err))
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-			return nil, err
+			util.RecordErrorTelemetry(ctx, span, err)
 		}
-
-		post.PostImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, post.PostImageUrl)
-
-		posts = append(posts, post)
-	}
-
-	return posts, nil
-}
-
-func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int, serverId uuid.UUID, userId uuid.UUID, cursor *model.ServerPostCursor, minioFullUrl string) ([]model.ServerPostResponse, error) {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.GetServerPosts")
-	defer span.End()
+		span.End()
+	}()
 
 	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.system", "postgres"),
 		attribute.String("db.operation", "SELECT"),
-		attribute.String("server.id", serverId.String()),
-		attribute.String("user.id", userId.String()),
+		attribute.String("post.id", postId),
+		attribute.String("user.id", userId),
 	)
 
-	var rows pgx.Rows
-	var err error
-
-	// Check if cursor is provided (not first page)
-	if cursor.Id != uuid.Nil && !cursor.CreateDatetime.IsZero() {
-		// Query with cursor for pagination
-		queryWithCursor := `
-			SELECT sp.author_id, us.username, uai.object_key, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
-			       COALESCE(comment_counts.comment_count, 0) as comment_count,
-			       COALESCE(like_counts.like_count, 0) as like_count,
-			       user_likes.user_id is not null as is_liked
-			FROM server_posts sp
-			INNER JOIN users us ON sp.author_id = us.id
-			LEFT JOIN user_avatar_images uai ON us.id = uai.user_id
-			INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
-			LEFT JOIN (
-				SELECT post_id, COUNT(*) as comment_count
-				FROM server_post_comments
-				GROUP BY post_id
-			) comment_counts ON sp.id = comment_counts.post_id
-			LEFT JOIN (
-				SELECT post_id, COUNT(*) as like_count
-				FROM server_post_likes
-				GROUP BY post_id
-			) like_counts ON sp.id = like_counts.post_id
-			LEFT JOIN server_post_likes user_likes ON sp.id = user_likes.post_id AND user_likes.user_id = $5
-			WHERE sp.server_id = $1
-			AND (sp.create_datetime < $2 OR (sp.create_datetime = $2 AND sp.id < $3))
-			ORDER BY sp.create_datetime DESC, sp.id DESC
-			LIMIT $4
-		`
-		rows, err = repository.DB.Query(ctx, queryWithCursor, serverId, cursor.CreateDatetime, cursor.Id, limit, userId)
-	} else {
-		// Query without cursor for first page
-		query := `
-			SELECT sp.author_id, us.username, uai.object_key, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
-			       COALESCE(comment_counts.comment_count, 0) as comment_count,
-			       COALESCE(like_counts.like_count, 0) as like_count,
-			       user_likes.user_id is not null as is_liked
-			FROM server_posts sp
-			INNER JOIN users us ON sp.author_id = us.id
-			LEFT JOIN user_avatar_images uai ON us.id = uai.user_id
-			INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
-			LEFT JOIN (
-				SELECT post_id, COUNT(*) as comment_count
-				FROM server_post_comments
-				GROUP BY post_id
-			) comment_counts ON sp.id = comment_counts.post_id
-			LEFT JOIN (
-				SELECT post_id, COUNT(*) as like_count
-				FROM server_post_likes
-				GROUP BY post_id
-			) like_counts ON sp.id = like_counts.post_id
-			LEFT JOIN server_post_likes user_likes ON sp.id = user_likes.post_id AND user_likes.user_id = $3
-			WHERE sp.server_id = $1
-			ORDER BY sp.create_datetime DESC, sp.id DESC
-			LIMIT $2
-		`
-		rows, err = repository.DB.Query(ctx, query, serverId, limit, userId)
-	}
-
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to query server posts", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return nil, err
-	}
-	defer rows.Close()
-
-	posts := []model.ServerPostResponse{}
-
-	for rows.Next() {
-		var post model.ServerPostResponse
-		err := rows.Scan(&post.OwnerId, &post.OwnerName, &post.OwnerImageUrl, &post.PostId, &post.PostImageUrl, &post.Caption, &post.CreateDatetime, &post.UpdateDatetime, &post.CommentCount, &post.LikeCount, &post.IsLiked)
-		if err != nil {
-			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan server post row", zap.Error(err))
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-			return nil, err
-		}
-
-		post.PostImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, post.PostImageUrl)
-		if post.OwnerImageUrl != nil {
-			*post.OwnerImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *post.OwnerImageUrl)
-		}
-
-		posts = append(posts, post)
-	}
-
-	return posts, nil
-}
-
-func (repository *PostRepository) GetPost(ctx context.Context, postId uuid.UUID, userId uuid.UUID, minioFullUrl string) (model.ServerPostResponse, error) {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.GetPost")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
-		attribute.String("db.operation", "SELECT"),
-		attribute.String("post.id", postId.String()),
-		attribute.String("user.id", userId.String()),
-	)
-
-	query := `
-		SELECT sp.author_id, us.username, uai.object_key, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
-		       COALESCE(comment_counts.comment_count, 0) as comment_count,
-		       COALESCE(like_counts.like_count, 0) as like_count,
-		       user_likes.user_id is not null as is_liked
-		FROM server_posts sp
-		INNER JOIN users us ON sp.author_id = us.id
-		LEFT JOIN user_avatar_images uai ON us.id = uai.user_id
-		INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
-		LEFT JOIN (
-			SELECT post_id, COUNT(*) as comment_count
-			FROM server_post_comments
-			GROUP BY post_id
-		) comment_counts ON sp.id = comment_counts.post_id
-		LEFT JOIN (
-			SELECT post_id, COUNT(*) as like_count
-			FROM server_post_likes
-			GROUP BY post_id
-		) like_counts ON sp.id = like_counts.post_id
-		LEFT JOIN server_post_likes user_likes ON sp.id = user_likes.post_id AND user_likes.user_id = $2
-		WHERE sp.id = $1
-	`
-
-	var post model.ServerPostResponse
-	err := repository.DB.QueryRow(ctx, query, postId, userId).Scan(
-		&post.OwnerId, &post.OwnerName, &post.OwnerImageUrl, &post.PostId, &post.PostImageUrl, &post.Caption,
-		&post.CreateDatetime, &post.UpdateDatetime, &post.CommentCount, &post.LikeCount, &post.IsLiked,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return post, nil
-		}
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get post by ID", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return post, err
-	}
-
-	post.PostImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, post.PostImageUrl)
-	if post.OwnerImageUrl != nil {
-		*post.OwnerImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *post.OwnerImageUrl)
-	}
-
-	return post, nil
-}
-
-func (repository *PostRepository) CheckPostLike(ctx context.Context, postId uuid.UUID, userId uuid.UUID) (int, error) {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.CheckPostLike")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
-		attribute.String("db.operation", "SELECT"),
-		attribute.String("post.id", postId.String()),
-		attribute.String("user.id", userId.String()),
-	)
-
-	query := "SELECT 1 FROM server_post_likes WHERE post_id = $1 AND user_id = $2"
-
-	var exists int
-	err := repository.DB.QueryRow(ctx, query, postId, userId).Scan(&exists)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return exists, nil
-		}
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to check post like", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return exists, err
-	}
-
-	return exists, nil
-}
-
-func (repository *PostRepository) GetPostLikeCount(ctx context.Context, postId uuid.UUID) (int, error) {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.GetPostLikeCount")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
-		attribute.String("db.operation", "SELECT"),
-		attribute.String("post.id", postId.String()),
-	)
-
-	query := `SELECT COUNT(*) FROM server_post_likes WHERE post_id = $1`
+	query := `SELECT COUNT(*) FROM server_posts WHERE id = $1 AND author_id = $2`
 
 	var count int
-	err := repository.DB.QueryRow(ctx, query, postId).Scan(&count)
+	err = repository.DB.QueryRow(ctx, query, postId, userId).Scan(&count)
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get post like count", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return count, err
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to check post ownership", zap.Error(err))
+		return 0, err
 	}
 
 	return count, nil
 }
 
-func (repository *PostRepository) CreatePostLike(ctx context.Context, postLike model.ServerPostLikes) error {
+func (repository *PostRepository) UpdatePostCaption(ctx context.Context, postId string, caption string, updatedBy string, updatedAt time.Time) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.CreatePostLike")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UpdatePostCaption")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
-		attribute.String("db.operation", "INSERT"),
-		attribute.String("post.id", postLike.PostId.String()),
-		attribute.String("user.id", postLike.UserId.String()),
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("post.id", postId),
 	)
 
-	query := "INSERT INTO server_post_likes (id, post_id, user_id, create_datetime, update_datetime, create_user_id, update_user_id) VALUES ($1, $2, $3, $4, $5, $6, $7)"
+	query := `UPDATE server_posts SET caption = $1, updated_at = $2, updated_by = $3 WHERE id = $4`
 
-	_, err := repository.DB.Exec(ctx, query, postLike.Id, postLike.PostId, postLike.UserId, postLike.CreateDatetime, postLike.UpdateDatetime, postLike.CreateUserId, postLike.UpdateUserId)
+	_, err = repository.DB.Exec(ctx, query, caption, updatedAt, updatedBy, postId)
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to create post like", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to update post caption", zap.Error(err))
 		return err
 	}
 
 	return nil
 }
 
-func (repository *PostRepository) GetPostServerId(ctx context.Context, postId uuid.UUID) (uuid.UUID, error) {
+func (repository *PostRepository) DeletePostHard(ctx context.Context, postId string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.GetPostServerId")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeletePostHard")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
-		attribute.String("db.operation", "SELECT"),
-		attribute.String("post.id", postId.String()),
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "DELETE"),
+		attribute.String("post.id", postId),
 	)
 
-	query := "SELECT server_id FROM server_posts WHERE id = $1"
+	query := `DELETE FROM server_posts WHERE id = $1`
 
-	var serverId uuid.UUID
-	err := repository.DB.QueryRow(ctx, query, postId).Scan(&serverId)
+	_, err = repository.DB.Exec(ctx, query, postId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to hard delete post", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (repository *PostRepository) GetPost(ctx context.Context, postId string, userId string, minioFullUrl string) (model.ServerPostResponse, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetPost")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("post.id", postId),
+		attribute.String("user.id", userId),
+	)
+
+	query := `
+		SELECT sp.id, sp.server_id, sp.caption, sp.author_id,
+			sp.created_at, sp.updated_at,
+			spi.object_key,
+			smp.nickname,
+			pai.object_key,
+			CASE
+				WHEN u.deleted_at IS NOT NULL THEN 'user_deleted'
+				WHEN sm_author.user_id IS NULL THEN 'user_left'
+				ELSE 'active'
+			END AS author_status,
+			(SELECT COUNT(*) FROM server_post_likes WHERE post_id = sp.id) AS like_count,
+			(SELECT COUNT(*) FROM server_post_comments WHERE post_id = sp.id) AS comment_count,
+			EXISTS (SELECT 1 FROM server_post_likes l WHERE l.post_id = sp.id AND l.user_id = $2) AS user_liked
+		FROM server_posts sp
+		INNER JOIN users u ON sp.author_id = u.id
+		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = sp.author_id
+		LEFT JOIN server_members sm_author ON sm_author.server_id = sp.server_id AND sm_author.user_id = sp.author_id
+		LEFT JOIN server_post_images spi ON sp.post_image_id = spi.id
+		LEFT JOIN profile_avatar_images pai ON smp.avatar_image_id = pai.id
+		WHERE sp.id = $1
+		LIMIT 1`
+
+	var resp model.ServerPostResponse
+	var authorStatus string
+	err = repository.DB.QueryRow(ctx, query, postId, userId).Scan(
+		&resp.Id,
+		&resp.ServerId,
+		&resp.Caption,
+		&resp.Author.UserId,
+		&resp.CreatedAt,
+		&resp.UpdatedAt,
+		&resp.ImageUrl,
+		&resp.Author.Nickname,
+		&resp.Author.AvatarImageUrl,
+		&authorStatus,
+		&resp.LikeCount,
+		&resp.CommentCount,
+		&resp.UserLiked,
+	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return uuid.Nil, nil
+			err = &model.NotFoundError{Code: constant.ERR_NOT_FOUND_CODE, Message: "Post not found", Param: "postId"}
+			return model.ServerPostResponse{}, err
 		}
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get post server ID", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return uuid.Nil, err
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get post", zap.Error(err))
+		return model.ServerPostResponse{}, err
+	}
+
+	resp.Author.Status = model.AuthorStatus(authorStatus)
+	resp.IsOwner = resp.Author.UserId == userId
+
+	if resp.ImageUrl != nil {
+		*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
+	}
+	if resp.Author.AvatarImageUrl != nil {
+		*resp.Author.AvatarImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarImageUrl)
+	}
+
+	return resp, nil
+}
+
+func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int, serverId string, userId string, cursor *model.ServerPostCursor, minioFullUrl string) ([]model.ServerPostResponse, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerPosts")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("server.id", serverId),
+		attribute.String("user.id", userId),
+	)
+
+	baseSelect := `
+		SELECT sp.id, sp.server_id, sp.caption, sp.author_id,
+			sp.created_at, sp.updated_at,
+			spi.object_key,
+			smp.nickname,
+			pai.object_key,
+			CASE
+				WHEN u.deleted_at IS NOT NULL THEN 'user_deleted'
+				WHEN sm_author.user_id IS NULL THEN 'user_left'
+				ELSE 'active'
+			END AS author_status,
+			(SELECT COUNT(*) FROM server_post_likes WHERE post_id = sp.id) AS like_count,
+			(SELECT COUNT(*) FROM server_post_comments WHERE post_id = sp.id) AS comment_count,
+			EXISTS (SELECT 1 FROM server_post_likes l WHERE l.post_id = sp.id AND l.user_id = $2) AS user_liked
+		FROM server_posts sp
+		INNER JOIN users u ON sp.author_id = u.id
+		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = sp.author_id
+		LEFT JOIN server_members sm_author ON sm_author.server_id = sp.server_id AND sm_author.user_id = sp.author_id
+		LEFT JOIN server_post_images spi ON sp.post_image_id = spi.id
+		LEFT JOIN profile_avatar_images pai ON smp.avatar_image_id = pai.id`
+
+	var rows pgx.Rows
+	if cursor.Id != "" && !cursor.CreatedAt.IsZero() {
+		query := baseSelect + `
+		WHERE sp.server_id = $1
+		AND (sp.created_at < $3 OR (sp.created_at = $3 AND sp.id < $4))
+		ORDER BY sp.created_at DESC, sp.id DESC
+		LIMIT $5`
+		rows, err = repository.DB.Query(ctx, query, serverId, userId, cursor.CreatedAt, cursor.Id, limit)
+	} else {
+		query := baseSelect + `
+		WHERE sp.server_id = $1
+		ORDER BY sp.created_at DESC, sp.id DESC
+		LIMIT $3`
+		rows, err = repository.DB.Query(ctx, query, serverId, userId, limit)
+	}
+
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to query server posts", zap.Error(err))
+		return nil, err
+	}
+	defer rows.Close()
+
+	posts := []model.ServerPostResponse{}
+	for rows.Next() {
+		var resp model.ServerPostResponse
+		var authorStatus string
+		err = rows.Scan(
+			&resp.Id,
+			&resp.ServerId,
+			&resp.Caption,
+			&resp.Author.UserId,
+			&resp.CreatedAt,
+			&resp.UpdatedAt,
+			&resp.ImageUrl,
+			&resp.Author.Nickname,
+			&resp.Author.AvatarImageUrl,
+			&authorStatus,
+			&resp.LikeCount,
+			&resp.CommentCount,
+			&resp.UserLiked,
+		)
+		if err != nil {
+			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan server post row", zap.Error(err))
+			return nil, err
+		}
+
+		resp.Author.Status = model.AuthorStatus(authorStatus)
+		resp.IsOwner = resp.Author.UserId == userId
+
+		if resp.ImageUrl != nil {
+			*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
+		}
+		if resp.Author.AvatarImageUrl != nil {
+			*resp.Author.AvatarImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarImageUrl)
+		}
+
+		posts = append(posts, resp)
+	}
+
+	return posts, nil
+}
+
+func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit int, serverId string, userId string, cursor *model.ServerPostCursor, minioFullUrl string) ([]model.ServerPostResponse, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerPostForMe")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("server.id", serverId),
+		attribute.String("user.id", userId),
+	)
+
+	baseSelect := `
+		SELECT sp.id, sp.server_id, sp.caption, sp.author_id,
+			sp.created_at, sp.updated_at,
+			spi.object_key,
+			smp.nickname,
+			pai.object_key,
+			(SELECT COUNT(*) FROM server_post_likes WHERE post_id = sp.id) AS like_count,
+			(SELECT COUNT(*) FROM server_post_comments WHERE post_id = sp.id) AS comment_count,
+			EXISTS (SELECT 1 FROM server_post_likes l WHERE l.post_id = sp.id AND l.user_id = $2) AS user_liked
+		FROM server_posts sp
+		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = sp.author_id
+		LEFT JOIN server_post_images spi ON sp.post_image_id = spi.id
+		LEFT JOIN profile_avatar_images pai ON smp.avatar_image_id = pai.id`
+
+	var rows pgx.Rows
+	if cursor.Id != "" && !cursor.CreatedAt.IsZero() {
+		query := baseSelect + `
+		WHERE sp.server_id = $1 AND sp.author_id = $2
+		AND (sp.created_at < $3 OR (sp.created_at = $3 AND sp.id < $4))
+		ORDER BY sp.created_at DESC, sp.id DESC
+		LIMIT $5`
+		rows, err = repository.DB.Query(ctx, query, serverId, userId, cursor.CreatedAt, cursor.Id, limit)
+	} else {
+		query := baseSelect + `
+		WHERE sp.server_id = $1 AND sp.author_id = $2
+		ORDER BY sp.created_at DESC, sp.id DESC
+		LIMIT $3`
+		rows, err = repository.DB.Query(ctx, query, serverId, userId, limit)
+	}
+
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to query server posts for me", zap.Error(err))
+		return nil, err
+	}
+	defer rows.Close()
+
+	posts := []model.ServerPostResponse{}
+	for rows.Next() {
+		var resp model.ServerPostResponse
+		err = rows.Scan(
+			&resp.Id,
+			&resp.ServerId,
+			&resp.Caption,
+			&resp.Author.UserId,
+			&resp.CreatedAt,
+			&resp.UpdatedAt,
+			&resp.ImageUrl,
+			&resp.Author.Nickname,
+			&resp.Author.AvatarImageUrl,
+			&resp.LikeCount,
+			&resp.CommentCount,
+			&resp.UserLiked,
+		)
+		if err != nil {
+			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan server post for me row", zap.Error(err))
+			return nil, err
+		}
+
+		resp.Author.Status = model.AuthorStatusActive
+		resp.IsOwner = true
+
+		if resp.ImageUrl != nil {
+			*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
+		}
+		if resp.Author.AvatarImageUrl != nil {
+			*resp.Author.AvatarImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarImageUrl)
+		}
+
+		posts = append(posts, resp)
+	}
+
+	return posts, nil
+}
+
+func (repository *PostRepository) GetPostServerId(ctx context.Context, postId string) (string, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetPostServerId")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("post.id", postId),
+	)
+
+	query := `SELECT server_id FROM server_posts WHERE id = $1 LIMIT 1`
+
+	var serverId string
+	err = repository.DB.QueryRow(ctx, query, postId).Scan(&serverId)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			err = &model.NotFoundError{Code: constant.ERR_NOT_FOUND_CODE, Message: "Post not found", Param: "postId"}
+			return "", err
+		}
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get post server_id", zap.Error(err))
+		return "", err
 	}
 
 	return serverId, nil
 }
 
-func (repository *PostRepository) CheckPostServerMember(ctx context.Context, postId uuid.UUID, userId uuid.UUID) (int, error) {
+func (repository *PostRepository) CheckPostLike(ctx context.Context, postId string, userId string) (bool, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.CheckPostServerMember")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CheckPostLike")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.system", "postgres"),
 		attribute.String("db.operation", "SELECT"),
-		attribute.String("post.id", postId.String()),
-		attribute.String("user.id", userId.String()),
+		attribute.String("post.id", postId),
+		attribute.String("user.id", userId),
+	)
+
+	query := `SELECT EXISTS (SELECT 1 FROM server_post_likes WHERE post_id = $1 AND user_id = $2)`
+
+	var exists bool
+	err = repository.DB.QueryRow(ctx, query, postId, userId).Scan(&exists)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to check post like", zap.Error(err))
+		return false, err
+	}
+
+	return exists, nil
+}
+
+func (repository *PostRepository) GetPostLikeCount(ctx context.Context, postId string) (int, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetPostLikeCount")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("post.id", postId),
+	)
+
+	query := `SELECT COUNT(*) FROM server_post_likes WHERE post_id = $1`
+
+	var count int
+	err = repository.DB.QueryRow(ctx, query, postId).Scan(&count)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get post like count", zap.Error(err))
+		return 0, err
+	}
+
+	return count, nil
+}
+
+func (repository *PostRepository) CreatePostLikeIdempotent(ctx context.Context, like model.ServerPostLike) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CreatePostLikeIdempotent")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "INSERT"),
+		attribute.String("post.id", like.PostId),
+		attribute.String("user.id", like.UserId),
+	)
+
+	query := `INSERT INTO server_post_likes (id, post_id, user_id, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (post_id, user_id) DO NOTHING`
+
+	_, err = repository.DB.Exec(ctx, query, like.Id, like.PostId, like.UserId,
+		like.CreatedAt, like.UpdatedAt, like.CreatedBy, like.UpdatedBy)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to create post like", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (repository *PostRepository) DeletePostLike(ctx context.Context, postId string, userId string) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeletePostLike")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "DELETE"),
+		attribute.String("post.id", postId),
+		attribute.String("user.id", userId),
+	)
+
+	query := `DELETE FROM server_post_likes WHERE post_id = $1 AND user_id = $2`
+
+	_, err = repository.DB.Exec(ctx, query, postId, userId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete post like", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (repository *PostRepository) CheckCommentExists(ctx context.Context, commentId string, postId string) (int, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CheckCommentExists")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("comment.id", commentId),
+		attribute.String("post.id", postId),
+	)
+
+	query := `SELECT COUNT(*) FROM server_post_comments WHERE id = $1 AND post_id = $2`
+
+	var count int
+	err = repository.DB.QueryRow(ctx, query, commentId, postId).Scan(&count)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to check comment exists", zap.Error(err))
+		return 0, err
+	}
+
+	return count, nil
+}
+
+func (repository *PostRepository) CreateComment(ctx context.Context, comment model.ServerPostComment) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CreateComment")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "INSERT"),
+		attribute.String("post.id", comment.PostId),
+		attribute.String("user.id", comment.AuthorId),
+	)
+
+	query := `INSERT INTO server_post_comments (id, post_id, author_id, parent_id, content, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+
+	_, err = repository.DB.Exec(ctx, query, comment.Id, comment.PostId, comment.AuthorId, comment.ParentId,
+		comment.Content, comment.CreatedAt, comment.UpdatedAt, comment.CreatedBy, comment.UpdatedBy)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to create comment", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (repository *PostRepository) GetCommentById(ctx context.Context, commentId string, userId string, minioFullUrl string) (model.ServerCommentResponse, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetCommentById")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("comment.id", commentId),
 	)
 
 	query := `
-		SELECT 1
-		FROM server_posts sp
-		INNER JOIN server_members sm ON sp.server_id = sm.server_id
-		WHERE sp.id = $1 AND sm.user_id = $2 AND sm.status = $3
-	`
+		SELECT
+			c.id, c.post_id, c.parent_id, c.content, c.author_id,
+			c.created_at, c.updated_at,
+			smp.nickname AS author_nickname,
+			pai.object_key AS author_avatar_key,
+			CASE
+				WHEN u.deleted_at IS NOT NULL THEN 'user_deleted'
+				WHEN sm_author.user_id IS NULL THEN 'user_left'
+				ELSE 'active'
+			END AS author_status
+		FROM server_post_comments c
+		INNER JOIN server_posts sp ON c.post_id = sp.id
+		INNER JOIN users u ON c.author_id = u.id
+		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = c.author_id
+		LEFT JOIN server_members sm_author ON sm_author.server_id = sp.server_id AND sm_author.user_id = c.author_id
+		LEFT JOIN profile_avatar_images pai ON smp.avatar_image_id = pai.id
+		WHERE c.id = $1
+		LIMIT 1`
 
-	var exists int
-	err := repository.DB.QueryRow(ctx, query, postId, userId, model.MemberStatusActive).Scan(&exists)
+	var resp model.ServerCommentResponse
+	var authorAvatarKey *string
+	var authorNickname, authorStatus string
+
+	err = repository.DB.QueryRow(ctx, query, commentId).Scan(
+		&resp.Id, &resp.PostId, &resp.ParentId, &resp.Content, &resp.Author.UserId,
+		&resp.CreatedAt, &resp.UpdatedAt,
+		&authorNickname, &authorAvatarKey,
+		&authorStatus,
+	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return exists, nil
+			err = &model.NotFoundError{Code: constant.ERR_NOT_FOUND_CODE, Message: "Comment not found", Param: "commentId"}
+			return resp, err
 		}
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to check post server member", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return exists, err
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get comment by id", zap.Error(err))
+		return resp, err
 	}
 
-	return exists, nil
-}
-
-func (repository *PostRepository) DeletePostLike(ctx context.Context, postId uuid.UUID, userId uuid.UUID) error {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.DeletePostLike")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
-		attribute.String("db.operation", "DELETE"),
-		attribute.String("post.id", postId.String()),
-		attribute.String("user.id", userId.String()),
-	)
-
-	query := "DELETE FROM server_post_likes WHERE post_id = $1 AND user_id = $2"
-
-	_, err := repository.DB.Exec(ctx, query, postId, userId)
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete post like", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
+	resp.Author.Nickname = authorNickname
+	resp.Author.Status = model.AuthorStatus(authorStatus)
+	if authorAvatarKey != nil {
+		avatarUrl := fmt.Sprintf("%s/%s", minioFullUrl, *authorAvatarKey)
+		resp.Author.AvatarImageUrl = &avatarUrl
 	}
+	resp.IsOwner = resp.Author.UserId == userId
 
-	return nil
+	return resp, nil
 }
 
-func (repository *PostRepository) CheckCommentExists(ctx context.Context, commentId uuid.UUID, postId uuid.UUID) (int, error) {
+func (repository *PostRepository) GetComments(ctx context.Context, limit int, postId string, userId string, cursor *model.ServerCommentCursor, minioFullUrl string) ([]model.ServerCommentResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.CheckCommentExists")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
-		attribute.String("db.operation", "SELECT"),
-		attribute.String("comment.id", commentId.String()),
-		attribute.String("post.id", postId.String()),
-	)
-
-	query := "SELECT 1 FROM server_post_comments WHERE id = $1 AND post_id = $2"
-
-	var exists int
-	err := repository.DB.QueryRow(ctx, query, commentId, postId).Scan(&exists)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return exists, nil
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetComments")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
 		}
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to check comment exists", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return exists, err
-	}
-
-	return exists, nil
-}
-
-func (repository *PostRepository) CreateComment(ctx context.Context, comment model.ServerPostComments) error {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.CreateComment")
-	defer span.End()
+		span.End()
+	}()
 
 	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
-		attribute.String("db.operation", "INSERT"),
-		attribute.String("post.id", comment.PostId.String()),
-		attribute.String("user.id", comment.AuthorId.String()),
-	)
-
-	query := "INSERT INTO server_post_comments (id, post_id, author_id, parent_id, content, create_datetime, update_datetime, create_user_id, update_user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"
-
-	_, err := repository.DB.Exec(ctx, query, comment.Id, comment.PostId, comment.AuthorId, comment.ParentId, comment.Content, comment.CreateDatetime, comment.UpdateDatetime, comment.CreateUserId, comment.UpdateUserId)
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to create comment", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	return nil
-}
-
-func (repository *PostRepository) GetComments(ctx context.Context, limit int, postId uuid.UUID, cursor *model.ServerCommentCursor, minioFullUrl string) ([]model.ServerCommentResponse, error) {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.GetComments")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.system", "postgres"),
 		attribute.String("db.operation", "SELECT"),
-		attribute.String("post.id", postId.String()),
+		attribute.String("post.id", postId),
 	)
+
+	query := `
+		SELECT
+			c.id, c.post_id, c.parent_id, c.content, c.author_id,
+			c.created_at, c.updated_at,
+			smp.nickname AS author_nickname,
+			pai.object_key AS author_avatar_key,
+			CASE
+				WHEN u.deleted_at IS NOT NULL THEN 'user_deleted'
+				WHEN sm_author.user_id IS NULL THEN 'user_left'
+				ELSE 'active'
+			END AS author_status
+		FROM server_post_comments c
+		INNER JOIN server_posts sp ON c.post_id = sp.id
+		INNER JOIN users u ON c.author_id = u.id
+		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = c.author_id
+		LEFT JOIN server_members sm_author ON sm_author.server_id = sp.server_id AND sm_author.user_id = c.author_id
+		LEFT JOIN profile_avatar_images pai ON smp.avatar_image_id = pai.id
+		WHERE c.post_id = $1`
+
+	args := []interface{}{postId}
+	argIdx := 2
+
+	if cursor != nil {
+		query += fmt.Sprintf(" AND (c.created_at, c.id) > ($%d, $%d)", argIdx, argIdx+1)
+		args = append(args, cursor.CreatedAt, cursor.Id)
+		argIdx += 2
+	}
+
+	query += fmt.Sprintf(" ORDER BY c.created_at ASC, c.id ASC LIMIT $%d", argIdx)
+	args = append(args, limit)
 
 	var rows pgx.Rows
-	var err error
-
-	// Check if cursor is provided (not first page)
-	if cursor.Id != uuid.Nil && !cursor.CreateDatetime.IsZero() {
-		// Query with cursor for pagination - JOIN with users and user_avatar_images table
-		queryWithCursor := `
-			SELECT
-				c.id, c.author_id, c.parent_id, c.content, c.create_datetime, c.update_datetime,
-				u.username as author_name,
-				avatar.object_key as author_avatar
-			FROM server_post_comments c
-			INNER JOIN users u ON c.author_id = u.id
-			LEFT JOIN user_avatar_images avatar ON u.id = avatar.user_id
-			WHERE c.post_id = $1
-			AND (c.create_datetime < $2 OR (c.create_datetime = $2 AND c.id < $3))
-			ORDER BY c.create_datetime DESC, c.id DESC
-			LIMIT $4
-		`
-		rows, err = repository.DB.Query(ctx, queryWithCursor, postId, cursor.CreateDatetime, cursor.Id, limit)
-	} else {
-		// Query without cursor for first page - JOIN with users and user_avatar_images table
-		query := `
-			SELECT
-				c.id, c.author_id, c.parent_id, c.content, c.create_datetime, c.update_datetime,
-				u.username as author_name,
-				avatar.object_key as author_avatar
-			FROM server_post_comments c
-			INNER JOIN users u ON c.author_id = u.id
-			LEFT JOIN user_avatar_images avatar ON u.id = avatar.user_id
-			WHERE c.post_id = $1
-			ORDER BY c.create_datetime DESC, c.id DESC
-			LIMIT $2
-		`
-		rows, err = repository.DB.Query(ctx, query, postId, limit)
-	}
-
+	rows, err = repository.DB.Query(ctx, query, args...)
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to query comments", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
 	defer rows.Close()
 
-	comments := []model.ServerCommentResponse{}
-
+	var comments []model.ServerCommentResponse
 	for rows.Next() {
-		var comment model.ServerCommentResponse
-		err := rows.Scan(
-			&comment.Id,
-			&comment.AuthorId,
-			&comment.ParentId,
-			&comment.Content,
-			&comment.CreateDatetime,
-			&comment.UpdateDatetime,
-			&comment.AuthorName,
-			&comment.AuthorAvatar,
+		var resp model.ServerCommentResponse
+		var authorAvatarKey *string
+		var authorNickname, authorStatus string
+
+		err = rows.Scan(
+			&resp.Id, &resp.PostId, &resp.ParentId, &resp.Content, &resp.Author.UserId,
+			&resp.CreatedAt, &resp.UpdatedAt,
+			&authorNickname, &authorAvatarKey,
+			&authorStatus,
 		)
 		if err != nil {
 			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan comment row", zap.Error(err))
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
 			return nil, err
 		}
 
-		if comment.AuthorAvatar != nil {
-			*comment.AuthorAvatar = fmt.Sprintf("%s/%s", minioFullUrl, *comment.AuthorAvatar)
+		resp.Author.Nickname = authorNickname
+		resp.Author.Status = model.AuthorStatus(authorStatus)
+		if authorAvatarKey != nil {
+			avatarUrl := fmt.Sprintf("%s/%s", minioFullUrl, *authorAvatarKey)
+			resp.Author.AvatarImageUrl = &avatarUrl
 		}
+		resp.IsOwner = resp.Author.UserId == userId
 
-		comments = append(comments, comment)
+		comments = append(comments, resp)
 	}
 
 	return comments, nil
 }
 
-func (repository *PostRepository) CheckCommentOwnership(ctx context.Context, commentId uuid.UUID, userId uuid.UUID) (int, error) {
+func (repository *PostRepository) CheckCommentOwnership(ctx context.Context, commentId string, userId string) (int, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.CheckCommentOwnership")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CheckCommentOwnership")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.system", "postgres"),
 		attribute.String("db.operation", "SELECT"),
-		attribute.String("comment.id", commentId.String()),
-		attribute.String("user.id", userId.String()),
+		attribute.String("comment.id", commentId),
+		attribute.String("user.id", userId),
 	)
 
-	query := "SELECT 1 FROM server_post_comments WHERE id = $1 AND author_id = $2"
+	query := `SELECT COUNT(*) FROM server_post_comments WHERE id = $1 AND author_id = $2`
 
-	var exists int
-	err := repository.DB.QueryRow(ctx, query, commentId, userId).Scan(&exists)
+	var count int
+	err = repository.DB.QueryRow(ctx, query, commentId, userId).Scan(&count)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return exists, nil
-		}
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to check comment ownership", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return exists, err
+		return 0, err
 	}
 
-	return exists, nil
+	return count, nil
 }
 
-func (repository *PostRepository) DeleteComment(ctx context.Context, commentId uuid.UUID) error {
+func (repository *PostRepository) DeleteCommentHard(ctx context.Context, commentId string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	tr := otel.Tracer(serviceName + "-repository")
-	ctx, span := tr.Start(ctx, "repository.DeleteComment")
-	defer span.End()
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeleteCommentHard")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
 
 	span.SetAttributes(
-		attribute.String("db.system", repository.Config.String("DB_SYSTEM")),
+		attribute.String("db.system", "postgres"),
 		attribute.String("db.operation", "DELETE"),
-		attribute.String("comment.id", commentId.String()),
+		attribute.String("comment.id", commentId),
 	)
 
-	query := "DELETE FROM server_post_comments WHERE id = $1"
+	// FK ON DELETE CASCADE handles replies (parent_id chain): all descendants deleted.
+	query := `DELETE FROM server_post_comments WHERE id = $1`
 
-	_, err := repository.DB.Exec(ctx, query, commentId)
+	_, err = repository.DB.Exec(ctx, query, commentId)
 	if err != nil {
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete comment", zap.Error(err))
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to hard delete comment", zap.Error(err))
 		return err
 	}
 

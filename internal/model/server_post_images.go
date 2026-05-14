@@ -2,14 +2,16 @@ package model
 
 import (
 	"time"
-
 )
 
-type ServerPostImages struct {
-	Id             string
-	Bucket         string
-	ObjectKey      string
-	MimeType       string
-	Size           int64
-	Audit
+type ServerPostImage struct {
+	Id        string
+	Bucket    string
+	ObjectKey string
+	MimeType  string
+	Size      int64
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	CreatedBy string
+	UpdatedBy string
 }
