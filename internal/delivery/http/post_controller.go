@@ -1,15 +1,12 @@
 package http
 
 import (
-	"errors"
-
-	"github.com/ferdian3456/virdanproject/internal/constant"
 	"github.com/ferdian3456/virdanproject/internal/model"
 	"github.com/ferdian3456/virdanproject/internal/usecase"
 	"github.com/ferdian3456/virdanproject/internal/util"
 	"github.com/gofiber/fiber/v3"
-	"github.com/google/uuid"
 	"github.com/knadh/koanf/v2"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
 
@@ -35,35 +32,33 @@ func NewPostController(postUsecase *usecase.PostUsecase, zap *zap.Logger, koanf 
 // @Produce      json
 // @Param        Authorization header string true "Bearer access token"
 // @Param        serverId path string true "Server UUID"
-// @Param        image formData file true "Post image file"
+// @Param        image formData file false "Post image file"
 // @Param        caption formData string true "Post caption"
-// @Success      200   {object}  model.ServerPostResponse
-// @Failure      400   {object}  model.ValidationError
-// @Failure 	 500   {object}  model.ValidationError
+// @Success      201   {object}  model.ServerPostResponse
+// @Failure      400   {object}  model.BadRequestError
+// @Failure      403   {object}  model.ForbiddenError
+// @Failure      500   {object}  model.BadRequestError
 // @Router       /servers/{serverId}/posts [post]
 func (controller *PostController) CreatePost(ctx fiber.Ctx) error {
-	userId := ctx.Locals("userId").(uuid.UUID)
-
-	serverIdParam := ctx.Params("serverId")
-	serverId, err := uuid.Parse(serverIdParam)
-	if err != nil {
-		modelErr := &model.ValidationError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid server id",
-			Param:   "serverId",
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.CreatePost")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
-		return util.RecordAndSendValidationError(ctx, controller.Log, modelErr, "PostController.CreatePost")
-	}
+		span.End()
+	}()
 
-	var validationErr *model.ValidationError
+	userId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
 
-	response, err := controller.PostUsecase.CreatePost(ctx, serverId, userId)
+	var response model.ServerPostResponse
+	response, err = controller.PostUsecase.CreatePost(ctx, serverId, userId)
 	if err != nil {
-		if errors.As(err, &validationErr) {
-			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "PostController.CreatePost")
-		}
-
-		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+		return util.SendError(ctx, err)
 	}
 
 	return util.SendSuccessResponseWithData(ctx, response)
@@ -74,71 +69,121 @@ func (controller *PostController) CreatePost(ctx fiber.Ctx) error {
 // @Description.markdown update_post
 // @Tags         posts
 // @Accept       json
-// @Produce      jsonParam
+// @Produce      json
 // @Param        Authorization header string true "Bearer access token"
 // @Param        serverId path string true "Server UUID"
 // @Param        postId path string true "Post UUID"
 // @Param        body body model.ServerPostUpdateCaptionRequest true "Payload"
 // @Success      200   {object}  model.ServerPostResponse
-// @Failure      400   {object}  model.ValidationError
-// @Failure 	 500   {object}  model.ValidationError
+// @Failure      400   {object}  model.BadRequestError
+// @Failure      403   {object}  model.ForbiddenError
+// @Failure      500   {object}  model.BadRequestError
 // @Router       /servers/{serverId}/posts/{postId} [put]
 func (controller *PostController) UpdatePost(ctx fiber.Ctx) error {
-	userId := ctx.Locals("userId").(uuid.UUID)
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.UpdatePost")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
 
-	serverIdParam := ctx.Params("serverId")
-	postIdParam := ctx.Params("postId")
+	userId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
+	postId := ctx.Params("postId")
 
 	var payload model.ServerPostUpdateCaptionRequest
-	err := util.ReadRequestBody(ctx, &payload)
+	err = util.ReadRequestBody(ctx, &payload)
 	if err != nil {
-		modelErr := &model.ValidationError{
-			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
-			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
-		}
-		return util.RecordAndSendValidationError(ctx, controller.Log, modelErr, "PostController.UpdatePost")
+		return util.SendError(ctx, err)
 	}
 
-	var validationErr *model.ValidationError
-
-	response, err := controller.PostUsecase.UpdatePostCaption(ctx, serverIdParam, postIdParam, userId, payload)
+	var response model.ServerPostResponse
+	response, err = controller.PostUsecase.UpdatePostCaption(ctx, serverId, postId, userId, payload)
 	if err != nil {
-		if errors.As(err, &validationErr) {
-			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "PostController.UpdatePost")
-		}
+		return util.SendError(ctx, err)
+	}
 
-		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	return util.SendSuccessResponseWithData(ctx, response)
+}
+
+// GetServerPosts godoc
+// @Summary      Get posts from a server
+// @Description.markdown get_server_posts
+// @Tags         posts
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
+// @Param        limit query int false "Items per page"
+// @Param        cursor query string false "Pagination cursor"
+// @Success      200   {object}  model.ServerPostListResponse
+// @Failure      400   {object}  model.BadRequestError
+// @Failure      403   {object}  model.ForbiddenError
+// @Failure      500   {object}  model.BadRequestError
+// @Router       /servers/{serverId}/posts [get]
+func (controller *PostController) GetServerPosts(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.GetServerPosts")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
+
+	var response model.ServerPostListResponse
+	response, err = controller.PostUsecase.GetServerPosts(ctx, serverId, userId)
+	if err != nil {
+		return util.SendError(ctx, err)
 	}
 
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
 // GetServerPostForMe godoc
-// @Summary      Get server post for me
+// @Summary      Get my posts in a server
 // @Description.markdown get_server_post_for_me
 // @Tags         posts
-// @Accept       json
 // @Produce      json
 // @Param        Authorization header string true "Bearer access token"
 // @Param        serverId path string true "Server UUID"
-// @Success      200   {object}  model.ServerPostForMe
-// @Failure      400   {object}  model.ValidationError
-// @Failure 	 500   {object}  model.ValidationError
+// @Param        limit query int false "Items per page"
+// @Param        cursor query string false "Pagination cursor"
+// @Success      200   {object}  model.ServerPostListResponse
+// @Failure      400   {object}  model.BadRequestError
+// @Failure      403   {object}  model.ForbiddenError
+// @Failure      500   {object}  model.BadRequestError
 // @Router       /servers/{serverId}/posts/me [get]
 func (controller *PostController) GetServerPostForMe(ctx fiber.Ctx) error {
-	userId := ctx.Locals("userId").(uuid.UUID)
-
-	serverIdParam := ctx.Params("serverId")
-
-	var validationErr *model.ValidationError
-
-	response, err := controller.PostUsecase.GetServerPostForMe(ctx, serverIdParam, userId)
-	if err != nil {
-		if errors.As(err, &validationErr) {
-			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "PostController.GetServerPostForMe")
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.GetServerPostForMe")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
+		span.End()
+	}()
 
-		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	userId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
+
+	var response model.ServerPostListResponse
+	response, err = controller.PostUsecase.GetServerPostForMe(ctx, serverId, userId)
+	if err != nil {
+		return util.SendError(ctx, err)
 	}
 
 	return util.SendSuccessResponseWithData(ctx, response)
@@ -153,59 +198,33 @@ func (controller *PostController) GetServerPostForMe(ctx fiber.Ctx) error {
 // @Param        serverId path string true "Server UUID"
 // @Param        postId path string true "Post UUID"
 // @Success      200
-// @Failure      400   {object}  model.ValidationError
-// @Failure 	 500   {object}  model.ValidationError
+// @Failure      400   {object}  model.BadRequestError
+// @Failure      403   {object}  model.ForbiddenError
+// @Failure      500   {object}  model.BadRequestError
 // @Router       /servers/{serverId}/posts/{postId} [delete]
 func (controller *PostController) DeletePost(ctx fiber.Ctx) error {
-	userId := ctx.Locals("userId").(uuid.UUID)
-
-	serverIdParam := ctx.Params("serverId")
-	postIdParam := ctx.Params("postId")
-
-	var validationErr *model.ValidationError
-
-	err := controller.PostUsecase.DeletePost(ctx, serverIdParam, postIdParam, userId)
-	if err != nil {
-		if errors.As(err, &validationErr) {
-			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "PostController.DeletePost")
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.DeletePost")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
+		span.End()
+	}()
 
-		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	userId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
+	postId := ctx.Params("postId")
+
+	err = controller.PostUsecase.DeletePost(ctx, serverId, postId, userId)
+	if err != nil {
+		return util.SendError(ctx, err)
 	}
 
 	return util.SendSuccessResponseNoData(ctx)
-}
-
-// GetServerPosts godoc
-// @Summary      Get posts from a server
-// @Description.markdown get_server_posts
-// @Tags         posts
-// @Produce      json
-// @Param        Authorization header string true "Bearer access token"
-// @Param        serverId path string true "Server UUID"
-// @Param        limit query int false "Items per page"
-// @Param        cursor query string false "Pagination cursor"
-// @Success      200   {object}  model.ServerPostListResponse
-// @Failure      400   {object}  model.ValidationError
-// @Failure 	 500   {object}  model.ValidationError
-// @Router       /servers/{serverId}/posts [get]
-func (controller *PostController) GetServerPosts(ctx fiber.Ctx) error {
-	userId := ctx.Locals("userId").(uuid.UUID)
-
-	serverIdParam := ctx.Params("serverId")
-
-	var validationErr *model.ValidationError
-
-	response, err := controller.PostUsecase.GetServerPosts(ctx, serverIdParam, userId)
-	if err != nil {
-		if errors.As(err, &validationErr) {
-			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "PostController.GetServerPosts")
-		}
-
-		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
-	}
-
-	return util.SendSuccessResponseWithData(ctx, response)
 }
 
 // GetPost godoc
@@ -216,23 +235,31 @@ func (controller *PostController) GetServerPosts(ctx fiber.Ctx) error {
 // @Param        Authorization header string true "Bearer access token"
 // @Param        postId path string true "Post UUID"
 // @Success      200   {object}  model.ServerPostResponse
-// @Failure      400   {object}  model.ValidationError
-// @Failure 	 500   {object}  model.ValidationError
+// @Failure      400   {object}  model.BadRequestError
+// @Failure      403   {object}  model.ForbiddenError
+// @Failure      404   {object}  model.NotFoundError
+// @Failure      500   {object}  model.BadRequestError
 // @Router       /posts/{postId} [get]
 func (controller *PostController) GetPost(ctx fiber.Ctx) error {
-	userId := ctx.Locals("userId").(uuid.UUID)
-
-	postIdParam := ctx.Params("postId")
-
-	var validationErr *model.ValidationError
-
-	response, err := controller.PostUsecase.GetPost(ctx, postIdParam, userId)
-	if err != nil {
-		if errors.As(err, &validationErr) {
-			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "PostController.GetPost")
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.GetPost")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
+		span.End()
+	}()
 
-		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	userId := ctx.Locals("userId").(string)
+	postId := ctx.Params("postId")
+
+	var response model.ServerPostResponse
+	response, err = controller.PostUsecase.GetPost(ctx, postId, userId)
+	if err != nil {
+		return util.SendError(ctx, err)
 	}
 
 	return util.SendSuccessResponseWithData(ctx, response)
@@ -246,23 +273,30 @@ func (controller *PostController) GetPost(ctx fiber.Ctx) error {
 // @Param        Authorization header string true "Bearer access token"
 // @Param        postId path string true "Post UUID"
 // @Success      200   {object}  model.PostLikeResponse
-// @Failure      400   {object}  model.ValidationError
-// @Failure 	 500   {object}  model.ValidationError
+// @Failure      400   {object}  model.BadRequestError
+// @Failure      403   {object}  model.ForbiddenError
+// @Failure      500   {object}  model.BadRequestError
 // @Router       /posts/{postId}/likes [post]
 func (controller *PostController) LikePost(ctx fiber.Ctx) error {
-	userId := ctx.Locals("userId").(uuid.UUID)
-
-	postIdParam := ctx.Params("postId")
-
-	var validationErr *model.ValidationError
-
-	response, err := controller.PostUsecase.LikePost(ctx, postIdParam, userId)
-	if err != nil {
-		if errors.As(err, &validationErr) {
-			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "PostController.LikePost")
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.LikePost")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
+		span.End()
+	}()
 
-		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	userId := ctx.Locals("userId").(string)
+	postId := ctx.Params("postId")
+
+	var response model.PostLikeResponse
+	response, err = controller.PostUsecase.LikePost(ctx, postId, userId)
+	if err != nil {
+		return util.SendError(ctx, err)
 	}
 
 	return util.SendSuccessResponseWithData(ctx, response)
@@ -276,23 +310,30 @@ func (controller *PostController) LikePost(ctx fiber.Ctx) error {
 // @Param        Authorization header string true "Bearer access token"
 // @Param        postId path string true "Post UUID"
 // @Success      200   {object}  model.PostLikeResponse
-// @Failure      400   {object}  model.ValidationError
-// @Failure 	 500   {object}  model.ValidationError
+// @Failure      400   {object}  model.BadRequestError
+// @Failure      403   {object}  model.ForbiddenError
+// @Failure      500   {object}  model.BadRequestError
 // @Router       /posts/{postId}/likes [delete]
 func (controller *PostController) UnlikePost(ctx fiber.Ctx) error {
-	userId := ctx.Locals("userId").(uuid.UUID)
-
-	postIdParam := ctx.Params("postId")
-
-	var validationErr *model.ValidationError
-
-	response, err := controller.PostUsecase.UnlikePost(ctx, postIdParam, userId)
-	if err != nil {
-		if errors.As(err, &validationErr) {
-			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "PostController.UnlikePost")
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.UnlikePost")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
+		span.End()
+	}()
 
-		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	userId := ctx.Locals("userId").(string)
+	postId := ctx.Params("postId")
+
+	var response model.PostLikeResponse
+	response, err = controller.PostUsecase.UnlikePost(ctx, postId, userId)
+	if err != nil {
+		return util.SendError(ctx, err)
 	}
 
 	return util.SendSuccessResponseWithData(ctx, response)
@@ -307,35 +348,37 @@ func (controller *PostController) UnlikePost(ctx fiber.Ctx) error {
 // @Param        Authorization header string true "Bearer access token"
 // @Param        postId path string true "Post UUID"
 // @Param        body body model.ServerCommentCreateRequest true "Payload"
-// @Success      200   {object}  model.ServerCommentResponse
-// @Failure      400   {object}  model.ValidationError
-// @Failure 	 500   {object}  model.ValidationError
+// @Success      201   {object}  model.ServerCommentResponse
+// @Failure      400   {object}  model.BadRequestError
+// @Failure      403   {object}  model.ForbiddenError
+// @Failure      500   {object}  model.BadRequestError
 // @Router       /posts/{postId}/comments [post]
 func (controller *PostController) CreateComment(ctx fiber.Ctx) error {
-	userId := ctx.Locals("userId").(uuid.UUID)
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.CreateComment")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
 
-	postIdParam := ctx.Params("postId")
+	userId := ctx.Locals("userId").(string)
+	postId := ctx.Params("postId")
 
 	var payload model.ServerCommentCreateRequest
-	err := util.ReadRequestBody(ctx, &payload)
+	err = util.ReadRequestBody(ctx, &payload)
 	if err != nil {
-		controller.Log.Debug("what happened?", zap.Error(err))
-		modelErr := &model.ValidationError{
-			Code:    constant.ERR_INVALID_REQUEST_BODY_ERROR_CODE,
-			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
-		}
-		return util.RecordAndSendValidationError(ctx, controller.Log, modelErr, "PostController.CreateComment")
+		return util.SendError(ctx, err)
 	}
 
-	var validationErr *model.ValidationError
-
-	response, err := controller.PostUsecase.CreateComment(ctx, postIdParam, userId, payload)
+	var response model.ServerCommentResponse
+	response, err = controller.PostUsecase.CreateComment(ctx, postId, userId, payload)
 	if err != nil {
-		if errors.As(err, &validationErr) {
-			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "PostController.CreateComment")
-		}
-
-		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+		return util.SendError(ctx, err)
 	}
 
 	return util.SendSuccessResponseWithData(ctx, response)
@@ -351,23 +394,32 @@ func (controller *PostController) CreateComment(ctx fiber.Ctx) error {
 // @Param        limit query int false "Items per page"
 // @Param        cursor query string false "Pagination cursor"
 // @Success      200   {object}  model.ServerCommentListResponse
-// @Failure      400   {object}  model.ValidationError
-// @Failure 	 500   {object}  model.ValidationError
+// @Failure      400   {object}  model.BadRequestError
+// @Failure      403   {object}  model.ForbiddenError
+// @Failure      500   {object}  model.BadRequestError
 // @Router       /posts/{postId}/comments [get]
 func (controller *PostController) GetComments(ctx fiber.Ctx) error {
-	userId := ctx.Locals("userId").(uuid.UUID)
-
-	postIdParam := ctx.Params("postId")
-
-	var validationErr *model.ValidationError
-
-	response, err := controller.PostUsecase.GetComments(ctx, postIdParam, userId)
-	if err != nil {
-		if errors.As(err, &validationErr) {
-			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "PostController.GetComments")
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.GetComments")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
+		span.End()
+	}()
 
-		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	userId := ctx.Locals("userId").(string)
+	postId := ctx.Params("postId")
+	cursor := ctx.Query("cursor")
+	limit := ctx.Query("limit")
+
+	var response model.ServerCommentListResponse
+	response, err = controller.PostUsecase.GetComments(ctx, postId, userId, cursor, limit)
+	if err != nil {
+		return util.SendError(ctx, err)
 	}
 
 	return util.SendSuccessResponseWithData(ctx, response)
@@ -382,24 +434,30 @@ func (controller *PostController) GetComments(ctx fiber.Ctx) error {
 // @Param        postId path string true "Post UUID"
 // @Param        commentId path string true "Comment UUID"
 // @Success      200
-// @Failure      400   {object}  model.ValidationError
-// @Failure 	 500   {object}  model.ValidationError
+// @Failure      400   {object}  model.BadRequestError
+// @Failure      403   {object}  model.ForbiddenError
+// @Failure      500   {object}  model.BadRequestError
 // @Router       /posts/{postId}/comments/{commentId} [delete]
 func (controller *PostController) DeleteComment(ctx fiber.Ctx) error {
-	userId := ctx.Locals("userId").(uuid.UUID)
-
-	postIdParam := ctx.Params("postId")
-	commentIdParam := ctx.Params("commentId")
-
-	var validationErr *model.ValidationError
-
-	err := controller.PostUsecase.DeleteComment(ctx, postIdParam, commentIdParam, userId)
-	if err != nil {
-		if errors.As(err, &validationErr) {
-			return util.RecordAndSendValidationError(ctx, controller.Log, validationErr, "PostController.DeleteComment")
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.DeleteComment")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
 		}
+		span.End()
+	}()
 
-		return util.SendErrorResponseInternalServer(ctx, controller.Log, err)
+	userId := ctx.Locals("userId").(string)
+	postId := ctx.Params("postId")
+	commentId := ctx.Params("commentId")
+
+	err = controller.PostUsecase.DeleteComment(ctx, postId, commentId, userId)
+	if err != nil {
+		return util.SendError(ctx, err)
 	}
 
 	return util.SendSuccessResponseNoData(ctx)

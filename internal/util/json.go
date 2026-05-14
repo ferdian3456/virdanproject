@@ -18,61 +18,52 @@ func ReadRequestBody(ctx fiber.Ctx, result interface{}) error {
 }
 
 func SendSuccessResponseNoData(ctx fiber.Ctx) error {
-	err := ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status": "OK",
 	})
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func SendSuccessResponseWithData(ctx fiber.Ctx, data interface{}) error {
-	err := ctx.Status(fiber.StatusOK).JSON(data)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return ctx.Status(fiber.StatusOK).JSON(data)
 }
 
+// SendError writes the error response. Telemetry recording is delegated to
+// ObservabilityMiddleware via ctx.Locals("handler_error", err).
 func SendError(ctx fiber.Ctx, err error) error {
 	statusCode := fiber.StatusInternalServerError
 	errCode := constant.ERR_INTERNAL_SERVER_ERROR_CODE
+	message := err.Error()
 	param := ""
 
 	if apiErr, ok := err.(model.ApiError); ok {
 		statusCode = apiErr.StatusCode()
 		errCode = apiErr.GetCode()
 		param = apiErr.GetParam()
+	} else { // internal server error, failed to query into postgres
+		statusCode = fiber.StatusInternalServerError
+		errCode = constant.ERR_INTERNAL_SERVER_ERROR_CODE
+		message = constant.ERR_INTENRAL_SERVER_ERROR_MESSAGE
+		param = ""
 	}
 
-	if statusCode >= 400 && statusCode < 500 {
-		RecordErrorTelemetry(ctx.Context(), nil, err)
-	}
+	ctx.Locals("handler_error", err)
 
 	return ctx.Status(statusCode).JSON(fiber.Map{
 		"error": fiber.Map{
 			"code":    errCode,
-			"message": err.Error(),
+			"message": message,
 			"param":   param,
 		},
 	})
 }
 
-func ReadMultipartBody(ctx fiber.Ctx, payload any) error {
-	if len(ctx.Get("Content-Type")) < 19 || ctx.Get("Content-Type")[:19] != "multipart/form-data" {
+func ReadMultipartBody(ctx fiber.Ctx) error {
+	ct := ctx.Get("Content-Type")
+	if len(ct) < 19 || ct[:19] != "multipart/form-data" {
 		return &model.BadRequestError{
 			Code:    constant.ERR_BAD_REQUEST_CODE,
 			Message: constant.ERR_INVALID_CONTENT_TYPE_MESSAGE,
 			Param:   "Content-Type",
-		}
-	}
-
-	if err := ctx.Bind().Body(payload); err != nil {
-		return &model.BadRequestError{
-			Code:    constant.ERR_BAD_REQUEST_CODE,
-			Message: constant.ERR_INVALID_REQUEST_BODY_MESSAGE,
 		}
 	}
 	return nil

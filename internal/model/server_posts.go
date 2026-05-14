@@ -2,16 +2,18 @@ package model
 
 import (
 	"time"
-
 )
 
-type ServerPosts struct {
+type ServerPost struct {
 	Id          string
 	ServerId    string
 	AuthorId    string
-	PostImageId string
+	PostImageId *string
 	Caption     string
-	Audit
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	CreatedBy   string
+	UpdatedBy   string
 }
 
 type ServerPostUpdateCaptionRequest struct {
@@ -19,8 +21,8 @@ type ServerPostUpdateCaptionRequest struct {
 }
 
 type ServerPostCursor struct {
-	Id             string `json:"id"`
-	CreateDatetime time.Time `json:"createDatetime"`
+	Id        string    `json:"id"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 type ServerPostListResponse struct {
@@ -29,31 +31,21 @@ type ServerPostListResponse struct {
 }
 
 type ServerPostResponse struct {
-	OwnerId        string `json:"ownerId"`
-	OwnerName      string    `json:"ownerName"`
-	OwnerImageUrl  *string   `json:"ownerImageUrl"`
-	PostId         string `json:"postId"`
-	PostImageUrl   string    `json:"postImageUrl"`
-	Caption        string    `json:"caption"`
-	CommentCount   int       `json:"commentCount"`
-	LikeCount      int       `json:"likeCount"`
-	IsLiked        bool      `json:"isLiked"`
-	CreateDatetime time.Time `json:"createDatetime"`
-	UpdateDatetime time.Time `json:"updateDatetime"`
+	Id           string                `json:"id"`
+	ServerId     string                `json:"serverId"`
+	Caption      string                `json:"caption"`
+	ImageUrl     *string               `json:"imageUrl"`
+	Author       AuthorIdentityResponse `json:"author"`
+	LikeCount    int                   `json:"likeCount"`
+	CommentCount int                   `json:"commentCount"`
+	UserLiked    bool                  `json:"userLiked"`
+	IsOwner      bool                  `json:"isOwner"`
+	CreatedAt    time.Time             `json:"createdAt"`
+	UpdatedAt    time.Time             `json:"updatedAt"`
 }
 
-// PostLikeResponse represents response after like/unlike operation
 type PostLikeResponse struct {
-	LikeCount int `json:"likeCount"`
-}
-
-type ServerPostForMeResponse struct {
-	Data []ServerPostForMe `json:"data"`
-	Page Page              `json:"page"`
-}
-
-type ServerPostForMe struct {
-	PostId         string `json:"postId"`
-	PostImageUrl   string    `json:"postImageUrl"`
-	CreateDatetime time.Time `json:"createDatetime"`
+	PostId    string `json:"postId"`
+	UserLiked bool   `json:"userLiked"`
+	LikeCount int    `json:"likeCount"`
 }

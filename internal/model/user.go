@@ -28,14 +28,6 @@ type UsernameUpdateRequest struct {
 	Username string `json:"username"`
 }
 
-type FullnameUpdateRequest struct {
-	Fullname string `json:"fullname"`
-}
-
-type BioUpdateRequest struct {
-	Bio string `json:"bio"`
-}
-
 type UserSignupStartRequest struct {
 	Email string `json:"email"`
 }
@@ -68,12 +60,14 @@ type UserSignupStartResponse struct {
 	SessionId    string `json:"sessionId"`
 	OtpExpiresAt int64  `json:"otpExpiresAt"`
 }
+
 type UserResponse struct {
-	Id        string    `json:"id"`
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	Id        string                 `json:"id"`
+	Username  string                 `json:"username"`
+	Email     string                 `json:"email"`
+	Settings  sonic.NoCopyRawMessage `json:"settings"`
+	CreatedAt time.Time              `json:"createdAt"`
+	UpdatedAt time.Time              `json:"updatedAt"`
 }
 
 type UserSignupStatus struct {
@@ -82,12 +76,16 @@ type UserSignupStatus struct {
 }
 
 type User struct {
-	Id       string
-	Username string
-	Email    string
-	Password string
-	Settings sonic.NoCopyRawMessage
-	Audit
+	Id        string
+	Username  string
+	Email     string
+	Password  string
+	Settings  []byte
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	CreatedBy string
+	UpdatedBy string
+	DeletedAt *time.Time
 }
 
 type OTPSignupData struct {

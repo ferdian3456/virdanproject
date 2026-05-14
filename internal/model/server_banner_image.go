@@ -1,10 +1,17 @@
 package model
 
+import (
+	"time"
+)
+
 type ServerBannerImage struct {
 	Id        string
 	Bucket    string
 	ObjectKey string
 	MimeType  string
 	Size      int64
-	Audit
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	CreatedBy string
+	UpdatedBy string
 }

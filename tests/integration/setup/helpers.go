@@ -574,152 +574,152 @@ func CreateTestServer(t *testing.T, app *fiber.App, redisURL, token, name, short
 // This is the main entry point for parallel tests - no container startup needed
 // Each test gets its own database for complete isolation
 func SetupParallelTest(t *testing.T) (*fiber.App, *pgxpool.Pool, *redis.Client, *minio.Client) {
- t.Log("Setting up parallel test with singleton infrastructure...")
+	t.Log("Setting up parallel test with singleton infrastructure...")
 
- // Ensure singleton infrastructure is initialized
- // This uses sync.Once internally, so it's safe to call multiple times
- if err := EnsureSingletonInitialized(); err != nil {
-  t.Fatalf("Failed to initialize singleton infrastructure: %v", err)
- }
+	// Ensure singleton infrastructure is initialized
+	// This uses sync.Once internally, so it's safe to call multiple times
+	if err := EnsureSingletonInitialized(); err != nil {
+		t.Fatalf("Failed to initialize singleton infrastructure: %v", err)
+	}
 
- // Get global singleton infrastructure
- infra := GetGlobalInfra()
- if infra == nil {
-  t.Fatal("Global infrastructure not initialized after EnsureSingletonInitialized()")
- }
+	// Get global singleton infrastructure
+	infra := GetGlobalInfra()
+	if infra == nil {
+		t.Fatal("Global infrastructure not initialized after EnsureSingletonInitialized()")
+	}
 
- // Create a unique database for this test using test name
- // This provides isolation for parallel tests
- testDBName := sanitizeTestName(t.Name())
- createTestDatabase(t, infra.PgURL, testDBName)
+	// Create a unique database for this test using test name
+	// This provides isolation for parallel tests
+	testDBName := sanitizeTestName(t.Name())
+	createTestDatabase(t, infra.PgURL, testDBName)
 
- // Create connection string for the test database
- testPgURL := replaceDBName(infra.PgURL, testDBName)
+	// Create connection string for the test database
+	testPgURL := replaceDBName(infra.PgURL, testDBName)
 
- // Setup test app with isolated database
- app, db, redisClient, minioClient := SetupTestApp(t, testPgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
+	// Setup test app with isolated database
+	app, db, redisClient, minioClient := SetupTestApp(t, testPgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
 
- // Cleanup: Drop test database after test completes
- t.Cleanup(func() {
-  if db != nil {
-   db.Close()
-  }
-  dropTestDatabase(t, infra.PgURL, testDBName)
- })
+	// Cleanup: Drop test database after test completes
+	t.Cleanup(func() {
+		if db != nil {
+			db.Close()
+		}
+		dropTestDatabase(t, infra.PgURL, testDBName)
+	})
 
- return app, db, redisClient, minioClient
+	return app, db, redisClient, minioClient
 }
 
 // sanitizeTestName converts a test name to a valid database name
 func sanitizeTestName(testName string) string {
- // Replace special characters with underscores
- name := testName
- // Remove leading slash if present
- if strings.HasPrefix(name, "/") {
-  name = name[1:]
- }
- // Replace slashes and other special chars
- replacer := strings.NewReplacer(
-  "/", "_",
-  "\\", "_",
-  " ", "_",
-  "-", "_",
-  ".", "_",
- )
- name = replacer.Replace(name)
- // Limit length and add prefix
- if len(name) > 40 {
-  name = name[:40]
- }
- return "test_" + name
+	// Replace special characters with underscores
+	name := testName
+	// Remove leading slash if present
+	if strings.HasPrefix(name, "/") {
+		name = name[1:]
+	}
+	// Replace slashes and other special chars
+	replacer := strings.NewReplacer(
+		"/", "_",
+		"\\", "_",
+		" ", "_",
+		"-", "_",
+		".", "_",
+	)
+	name = replacer.Replace(name)
+	// Limit length and add prefix
+	if len(name) > 40 {
+		name = name[:40]
+	}
+	return "test_" + name
 }
 
 // replaceDBName replaces the database name in a PostgreSQL connection string
 func replaceDBName(pgURL, newDBName string) string {
- // Parse connection string and replace database name
- // Format: postgres://user:pass@host:port/dbname?options
- parts := strings.Split(pgURL, "/")
- if len(parts) >= 5 {
-  parts[len(parts)-1] = newDBName
-  // Add back query params if any
-  if idx := strings.Index(newDBName, "?"); idx > 0 {
-   parts[len(parts)-1] = newDBName
-  }
-  return strings.Join(parts, "/")
- }
- // Fallback: try to replace the last part
- lastSlash := strings.LastIndex(pgURL, "/")
- if lastSlash > 0 {
-  queryStart := strings.Index(pgURL[lastSlash+1:], "?")
-  if queryStart > 0 {
-   return pgURL[:lastSlash+1] + newDBName + pgURL[lastSlash+1+queryStart:]
-  }
-  return pgURL[:lastSlash+1] + newDBName
- }
- return pgURL
+	// Parse connection string and replace database name
+	// Format: postgres://user:pass@host:port/dbname?options
+	parts := strings.Split(pgURL, "/")
+	if len(parts) >= 5 {
+		parts[len(parts)-1] = newDBName
+		// Add back query params if any
+		if idx := strings.Index(newDBName, "?"); idx > 0 {
+			parts[len(parts)-1] = newDBName
+		}
+		return strings.Join(parts, "/")
+	}
+	// Fallback: try to replace the last part
+	lastSlash := strings.LastIndex(pgURL, "/")
+	if lastSlash > 0 {
+		queryStart := strings.Index(pgURL[lastSlash+1:], "?")
+		if queryStart > 0 {
+			return pgURL[:lastSlash+1] + newDBName + pgURL[lastSlash+1+queryStart:]
+		}
+		return pgURL[:lastSlash+1] + newDBName
+	}
+	return pgURL
 }
 
 // createTestDatabase creates a new database for the test
 func createTestDatabase(t *testing.T, pgURL, dbName string) {
- ctx := context.Background()
- // Connect to default postgres database to create new database
- adminURL := replaceDBName(pgURL, "postgres")
- pool, err := pgxpool.New(ctx, adminURL)
- require.NoError(t, err, "failed to connect to admin database")
- defer pool.Close()
+	ctx := context.Background()
+	// Connect to default postgres database to create new database
+	adminURL := replaceDBName(pgURL, "postgres")
+	pool, err := pgxpool.New(ctx, adminURL)
+	require.NoError(t, err, "failed to connect to admin database")
+	defer pool.Close()
 
- // First, drop database if exists (from previous failed test)
- _, _ = pool.Exec(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, dbName))
+	// First, drop database if exists (from previous failed test)
+	_, _ = pool.Exec(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, dbName))
 
- // Create database with proper quoting
- _, err = pool.Exec(ctx, fmt.Sprintf(`CREATE DATABASE "%s"`, dbName))
- require.NoError(t, err, "failed to create test database %s", dbName)
+	// Create database with proper quoting
+	_, err = pool.Exec(ctx, fmt.Sprintf(`CREATE DATABASE "%s"`, dbName))
+	require.NoError(t, err, "failed to create test database %s", dbName)
 
- t.Logf("Created test database: %s", dbName)
+	t.Logf("Created test database: %s", dbName)
 
- // Close the admin pool to ensure connections are released
- pool.Close()
+	// Close the admin pool to ensure connections are released
+	pool.Close()
 
- // Run migrations on the new database
- testPgURL := replaceDBName(pgURL, dbName)
- if err := RunMigration(testPgURL, t); err != nil {
-  t.Fatalf("failed to run migrations on test database %s: %v", dbName, err)
- }
+	// Run migrations on the new database
+	testPgURL := replaceDBName(pgURL, dbName)
+	if err := RunMigration(testPgURL, t); err != nil {
+		t.Fatalf("failed to run migrations on test database %s: %v", dbName, err)
+	}
 }
 
 // dropTestDatabase drops the test database
 func dropTestDatabase(t *testing.T, pgURL, dbName string) {
- ctx := context.Background()
- // Connect to default postgres database to drop test database
- adminURL := replaceDBName(pgURL, "postgres")
- pool, err := pgxpool.New(ctx, adminURL)
- if err != nil {
-  t.Logf("Warning: failed to connect to admin database for cleanup: %v", err)
-  return
- }
- defer pool.Close()
+	ctx := context.Background()
+	// Connect to default postgres database to drop test database
+	adminURL := replaceDBName(pgURL, "postgres")
+	pool, err := pgxpool.New(ctx, adminURL)
+	if err != nil {
+		t.Logf("Warning: failed to connect to admin database for cleanup: %v", err)
+		return
+	}
+	defer pool.Close()
 
- // Drop database with proper quoting
- // Also need to drop connections first
- _, _ = pool.Exec(ctx, fmt.Sprintf(`SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '%s' AND pid <> pg_backend_pid()`, dbName))
- _, err = pool.Exec(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, dbName))
- if err != nil {
-  t.Logf("Warning: failed to drop test database %s: %v", dbName, err)
-  return
- }
+	// Drop database with proper quoting
+	// Also need to drop connections first
+	_, _ = pool.Exec(ctx, fmt.Sprintf(`SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '%s' AND pid <> pg_backend_pid()`, dbName))
+	_, err = pool.Exec(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, dbName))
+	if err != nil {
+		t.Logf("Warning: failed to drop test database %s: %v", dbName, err)
+		return
+	}
 
- t.Logf("Dropped test database: %s", dbName)
+	t.Logf("Dropped test database: %s", dbName)
 }
 
 // mailhogSMTPSplit splits the mailhog SMTP string into host and port
 func mailhogSMTPSplit(smtpSMTP string) struct{ host, port string } {
- parts := strings.Split(smtpSMTP, ":")
- host := parts[0]
- port := "1025"
- if len(parts) > 1 {
-  port = parts[1]
- }
- return struct{ host, port string }{host: host, port: port}
+	parts := strings.Split(smtpSMTP, ":")
+	host := parts[0]
+	port := "1025"
+	if len(parts) > 1 {
+		port = parts[1]
+	}
+	return struct{ host, port string }{host: host, port: port}
 }
 
 // ============================================================================
@@ -729,136 +729,136 @@ func mailhogSMTPSplit(smtpSMTP string) struct{ host, port string } {
 
 // LoggedRequest wraps an HTTP request with logging
 type LoggedRequest struct {
- Method    string
- URL       string
- Header    http.Header
- Body      string
- Token     string
+	Method string
+	URL    string
+	Header http.Header
+	Body   string
+	Token  string
 }
 
 // LoggedResponse wraps an HTTP response with logging
 type LoggedResponse struct {
- StatusCode int
- Header     http.Header
- Body       string
+	StatusCode int
+	Header     http.Header
+	Body       string
 }
 
 // LogHTTPRequest logs the details of an HTTP request
 func LogHTTPRequest(t *testing.T, req *http.Request) {
- loggedReq := LoggedRequest{
-  Method: req.Method,
-  URL:    req.URL.String(),
-  Header: req.Header,
-  Token:  req.Header.Get("Authorization"),
- }
+	loggedReq := LoggedRequest{
+		Method: req.Method,
+		URL:    req.URL.String(),
+		Header: req.Header,
+		Token:  req.Header.Get("Authorization"),
+	}
 
- // Read body if present
- if req.Body != nil && req.Body != http.NoBody {
-  bodyBytes, _ := io.ReadAll(req.Body)
-  loggedReq.Body = string(bodyBytes)
-  // Restore body for subsequent reads
-  req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
- }
+	// Read body if present
+	if req.Body != nil && req.Body != http.NoBody {
+		bodyBytes, _ := io.ReadAll(req.Body)
+		loggedReq.Body = string(bodyBytes)
+		// Restore body for subsequent reads
+		req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	}
 
- t.Logf(">>> HTTP REQUEST <<<")
- t.Logf("  Method: %s", loggedReq.Method)
- t.Logf("  URL:    %s", loggedReq.URL)
+	t.Logf(">>> HTTP REQUEST <<<")
+	t.Logf("  Method: %s", loggedReq.Method)
+	t.Logf("  URL:    %s", loggedReq.URL)
 
- // Log headers (excluding very long ones)
- t.Logf("  Headers:")
- for key, values := range loggedReq.Header {
-  if key == "Authorization" && len(values) > 0 && len(values[0]) > 50 {
-   t.Logf("    %s: Bearer *** (truncated)", key)
-  } else {
-   t.Logf("    %s: %s", key, values)
-  }
- }
+	// Log headers (excluding very long ones)
+	t.Logf("  Headers:")
+	for key, values := range loggedReq.Header {
+		if key == "Authorization" && len(values) > 0 && len(values[0]) > 50 {
+			t.Logf("    %s: Bearer *** (truncated)", key)
+		} else {
+			t.Logf("    %s: %s", key, values)
+		}
+	}
 
- if loggedReq.Body != "" {
-  // Truncate body if too long
-  bodyPreview := loggedReq.Body
-  if len(bodyPreview) > 500 {
-   bodyPreview = bodyPreview[:500] + "... (truncated)"
-  }
-  t.Logf("  Body:   %s", bodyPreview)
- }
- t.Logf(">>> END REQUEST <<<")
+	if loggedReq.Body != "" {
+		// Truncate body if too long
+		bodyPreview := loggedReq.Body
+		if len(bodyPreview) > 500 {
+			bodyPreview = bodyPreview[:500] + "... (truncated)"
+		}
+		t.Logf("  Body:   %s", bodyPreview)
+	}
+	t.Logf(">>> END REQUEST <<<")
 }
 
 // LogHTTPResponse logs the details of an HTTP response
 func LogHTTPResponse(t *testing.T, resp *http.Response) {
- loggedResp := LoggedResponse{
-  StatusCode: resp.StatusCode,
-  Header:     resp.Header,
- }
+	loggedResp := LoggedResponse{
+		StatusCode: resp.StatusCode,
+		Header:     resp.Header,
+	}
 
- // Read body
- bodyBytes, err := io.ReadAll(resp.Body)
- if err == nil {
-  loggedResp.Body = string(bodyBytes)
-  // Restore body for subsequent reads
-  resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
- }
+	// Read body
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err == nil {
+		loggedResp.Body = string(bodyBytes)
+		// Restore body for subsequent reads
+		resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	}
 
- t.Logf("<<< HTTP RESPONSE <<<")
- t.Logf("  Status: %d %s", loggedResp.StatusCode, resp.Status)
+	t.Logf("<<< HTTP RESPONSE <<<")
+	t.Logf("  Status: %d %s", loggedResp.StatusCode, resp.Status)
 
- // Log key headers
- t.Logf("  Headers:")
- for key, values := range loggedResp.Header {
-  t.Logf("    %s: %s", key, values)
- }
+	// Log key headers
+	t.Logf("  Headers:")
+	for key, values := range loggedResp.Header {
+		t.Logf("    %s: %s", key, values)
+	}
 
- if loggedResp.Body != "" {
-  // Truncate body if too long
-  bodyPreview := loggedResp.Body
-  if len(bodyPreview) > 500 {
-   bodyPreview = bodyPreview[:500] + "... (truncated)"
-  }
-  t.Logf("  Body:   %s", bodyPreview)
- }
- t.Logf("<<< END RESPONSE <<<")
+	if loggedResp.Body != "" {
+		// Truncate body if too long
+		bodyPreview := loggedResp.Body
+		if len(bodyPreview) > 500 {
+			bodyPreview = bodyPreview[:500] + "... (truncated)"
+		}
+		t.Logf("  Body:   %s", bodyPreview)
+	}
+	t.Logf("<<< END RESPONSE <<<")
 
- // Also log error status
- if loggedResp.StatusCode >= 400 {
-  t.Logf("⚠️  ERROR RESPONSE: Status %d", loggedResp.StatusCode)
- }
+	// Also log error status
+	if loggedResp.StatusCode >= 400 {
+		t.Logf("⚠️  ERROR RESPONSE: Status %d", loggedResp.StatusCode)
+	}
 }
 
 // LogTestRequest logs both request and response with test context
 func LogTestRequest(t *testing.T, testName string, req *http.Request, resp *http.Response, err error) {
- t.Logf("===== %s =====", testName)
- if err != nil {
-  t.Logf("❌ REQUEST FAILED: %v", err)
- } else {
-  LogHTTPRequest(t, req)
-  LogHTTPResponse(t, resp)
- }
- t.Logf("==================")
+	t.Logf("===== %s =====", testName)
+	if err != nil {
+		t.Logf("❌ REQUEST FAILED: %v", err)
+	} else {
+		LogHTTPRequest(t, req)
+		LogHTTPResponse(t, resp)
+	}
+	t.Logf("==================")
 }
 
 // TestRequestWithLogging executes an HTTP request with full logging
 func TestRequestWithLogging(t *testing.T, app *fiber.App, req *http.Request) (*http.Response, error) {
- t.Logf("--- Executing Request: %s %s ---", req.Method, req.URL.Path)
- LogHTTPRequest(t, req)
+	t.Logf("--- Executing Request: %s %s ---", req.Method, req.URL.Path)
+	LogHTTPRequest(t, req)
 
- resp, err := app.Test(req)
+	resp, err := app.Test(req)
 
- if err != nil {
-  t.Logf("❌ Request Error: %v", err)
-  return nil, err
- }
+	if err != nil {
+		t.Logf("❌ Request Error: %v", err)
+		return nil, err
+	}
 
- LogHTTPResponse(t, resp)
+	LogHTTPResponse(t, resp)
 
- // Log success/error indication
- if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-  t.Logf("✅ Request Success: %d", resp.StatusCode)
- } else if resp.StatusCode >= 400 {
-  t.Logf("⚠️  Request Error Response: %d", resp.StatusCode)
- }
+	// Log success/error indication
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		t.Logf("✅ Request Success: %d", resp.StatusCode)
+	} else if resp.StatusCode >= 400 {
+		t.Logf("⚠️  Request Error Response: %d", resp.StatusCode)
+	}
 
- return resp, nil
+	return resp, nil
 }
 
 // ============================================================================
@@ -869,117 +869,117 @@ func TestRequestWithLogging(t *testing.T, app *fiber.App, req *http.Request) (*h
 // RequireStatusWithLog checks response status and logs full request/response on failure
 // This replaces RequireStatus for better debugging
 func RequireStatusWithLog(t *testing.T, req *http.Request, resp *http.Response, expected int) {
- if resp.StatusCode != expected {
-  // Log the request that caused the failure
-  t.Logf("❌ Status Code Mismatch!")
-  t.Logf("   Expected: %d, Got: %d", expected, resp.StatusCode)
+	if resp.StatusCode != expected {
+		// Log the request that caused the failure
+		t.Logf("❌ Status Code Mismatch!")
+		t.Logf("   Expected: %d, Got: %d", expected, resp.StatusCode)
 
-  // Log full request details
-  LogHTTPRequest(t, req)
+		// Log full request details
+		LogHTTPRequest(t, req)
 
-  // Read and log response body
-  bodyBytes, _ := io.ReadAll(resp.Body)
-  if len(bodyBytes) > 0 {
-   bodyPreview := string(bodyBytes)
-   if len(bodyPreview) > 500 {
-    bodyPreview = bodyPreview[:500] + "... (truncated)"
-   }
-   t.Logf("❌ Response Body:")
-   t.Logf("   %s", bodyPreview)
-  }
+		// Read and log response body
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		if len(bodyBytes) > 0 {
+			bodyPreview := string(bodyBytes)
+			if len(bodyPreview) > 500 {
+				bodyPreview = bodyPreview[:500] + "... (truncated)"
+			}
+			t.Logf("❌ Response Body:")
+			t.Logf("   %s", bodyPreview)
+		}
 
-  // Restore body for subsequent reads
-  resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		// Restore body for subsequent reads
+		resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 
-  t.Fatalf("Expected status %d, got %d", expected, resp.StatusCode)
- }
+		t.Fatalf("Expected status %d, got %d", expected, resp.StatusCode)
+	}
 }
 
 // RequireJSONWithLog executes a request, checks status, and parses JSON
 // Returns parsed JSON and logs full details on any error
 func RequireJSONWithLog(t *testing.T, app *fiber.App, req *http.Request, expectedStatus int) map[string]interface{} {
- t.Logf("--- Executing Request: %s %s ---", req.Method, req.URL.Path)
- LogHTTPRequest(t, req)
+	t.Logf("--- Executing Request: %s %s ---", req.Method, req.URL.Path)
+	LogHTTPRequest(t, req)
 
- resp, err := app.Test(req)
- if err != nil {
-  t.Logf("❌ Request Failed: %v", err)
-  t.Fatalf("Request failed: %v", err)
- }
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Logf("❌ Request Failed: %v", err)
+		t.Fatalf("Request failed: %v", err)
+	}
 
- // Read body before checking status
- bodyBytes, _ := io.ReadAll(resp.Body)
- resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	// Read body before checking status
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 
- // Check status first
- if resp.StatusCode != expectedStatus {
-  t.Logf("❌ Status Code Mismatch!")
-  t.Logf("   Expected: %d, Got: %d", expectedStatus, resp.StatusCode)
+	// Check status first
+	if resp.StatusCode != expectedStatus {
+		t.Logf("❌ Status Code Mismatch!")
+		t.Logf("   Expected: %d, Got: %d", expectedStatus, resp.StatusCode)
 
-  bodyPreview := string(bodyBytes)
-  if len(bodyPreview) > 500 {
-   bodyPreview = bodyPreview[:500] + "... (truncated)"
-  }
-  t.Logf("❌ Response Body:")
-  t.Logf("   %s", bodyPreview)
+		bodyPreview := string(bodyBytes)
+		if len(bodyPreview) > 500 {
+			bodyPreview = bodyPreview[:500] + "... (truncated)"
+		}
+		t.Logf("❌ Response Body:")
+		t.Logf("   %s", bodyPreview)
 
-  t.Fatalf("Expected status %d, got %d", expectedStatus, resp.StatusCode)
- }
+		t.Fatalf("Expected status %d, got %d", expectedStatus, resp.StatusCode)
+	}
 
- // Parse JSON
- if len(bodyBytes) == 0 {
-  t.Logf("❌ Empty response body")
-  t.Fatalf("Response body is empty for status %d", resp.StatusCode)
- }
+	// Parse JSON
+	if len(bodyBytes) == 0 {
+		t.Logf("❌ Empty response body")
+		t.Fatalf("Response body is empty for status %d", resp.StatusCode)
+	}
 
- var result map[string]interface{}
- err = json.Unmarshal(bodyBytes, &result)
- if err != nil {
-  t.Logf("❌ Failed to parse JSON response")
-  t.Logf("   Error: %v", err)
-  t.Logf("   Raw Body: %s", string(bodyBytes))
-  t.Fatalf("Failed to parse JSON: %v", err)
- }
+	var result map[string]interface{}
+	err = json.Unmarshal(bodyBytes, &result)
+	if err != nil {
+		t.Logf("❌ Failed to parse JSON response")
+		t.Logf("   Error: %v", err)
+		t.Logf("   Raw Body: %s", string(bodyBytes))
+		t.Fatalf("Failed to parse JSON: %v", err)
+	}
 
- // Log success
- t.Logf("✅ Request Successful: %d", resp.StatusCode)
- if len(bodyBytes) < 500 {
-  t.Logf("   Response: %s", string(bodyBytes))
- } else {
-  t.Logf("   Response: %s... (truncated)", string(bodyBytes[:500]))
- }
+	// Log success
+	t.Logf("✅ Request Successful: %d", resp.StatusCode)
+	if len(bodyBytes) < 500 {
+		t.Logf("   Response: %s", string(bodyBytes))
+	} else {
+		t.Logf("   Response: %s... (truncated)", string(bodyBytes[:500]))
+	}
 
- return result
+	return result
 }
 
 // AssertNoError is a helper that logs details before calling require.NoError
 func AssertNoError(t *testing.T, err error, msg string, args ...interface{}) {
- if err != nil {
-  t.Logf("❌ Error: %s", fmt.Sprintf(msg, args...))
-  t.Logf("   Error details: %v", err)
-  require.NoError(t, err, fmt.Sprintf(msg, args...))
- }
+	if err != nil {
+		t.Logf("❌ Error: %s", fmt.Sprintf(msg, args...))
+		t.Logf("   Error details: %v", err)
+		require.NoError(t, err, fmt.Sprintf(msg, args...))
+	}
 }
 
 // LogTestStep logs a test step for better traceability
 func LogTestStep(t *testing.T, step string, args ...interface{}) {
- t.Logf("📌 %s", fmt.Sprintf(step, args...))
+	t.Logf("📌 %s", fmt.Sprintf(step, args...))
 }
 
 // LogTestStart marks the start of a test case
 func LogTestStart(t *testing.T, testName string) {
- t.Logf("========================================")
- t.Logf("🧪 Starting: %s", testName)
- t.Logf("========================================")
+	t.Logf("========================================")
+	t.Logf("🧪 Starting: %s", testName)
+	t.Logf("========================================")
 }
 
 // LogTestPass marks a test as passed
 func LogTestPass(t *testing.T, testName string) {
- t.Logf("✅ %s PASSED", testName)
+	t.Logf("✅ %s PASSED", testName)
 }
 
 // LogTestFail marks a test as failed with reason
 func LogTestFail(t *testing.T, testName, reason string, args ...interface{}) {
- t.Logf("❌ %s FAILED", testName)
- t.Logf("   Reason: %s", fmt.Sprintf(reason, args...))
+	t.Logf("❌ %s FAILED", testName)
+	t.Logf("   Reason: %s", fmt.Sprintf(reason, args...))
 }

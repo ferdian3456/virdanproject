@@ -64,7 +64,6 @@ func StartInfra(ctx context.Context, t *testing.T) (*TestInfra, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get redis host: %w", err)
 	}
-
 	redisPort, err := redisContainer.MappedPort(ctx, "6379")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get redis port: %w", err)

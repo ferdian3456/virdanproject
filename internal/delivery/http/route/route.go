@@ -11,14 +11,15 @@ import (
 )
 
 type RouteConfig struct {
-	App              *fiber.App
-	AuthMiddleware   *middleware.AuthMiddleware
-	UserController   *http.UserController
-	ServerController *http.ServerController
-	PostController   *http.PostController
-	DB               *pgxpool.Pool
-	DBCache          *redis.Client
-	MinIO            *minio.Client
+	App               *fiber.App
+	AuthMiddleware    *middleware.AuthMiddleware
+	UserController    *http.UserController
+	ServerController  *http.ServerController
+	PostController    *http.PostController
+	ProfileController *http.ProfileController
+	DB                *pgxpool.Pool
+	DBCache           *redis.Client
+	MinIO             *minio.Client
 }
 
 func (c *RouteConfig) SetupRoute() {
@@ -78,13 +79,8 @@ func (c *RouteConfig) SetupRoute() {
 
 	userGroup := api.Group("/users", c.AuthMiddleware.ProtectedRoute())
 	userGroup.Get("/me", c.UserController.GetUserInfo)
+	userGroup.Delete("/me", c.UserController.DeleteAccount)
 	userGroup.Post("/logout", c.UserController.Logout)
-	// userGroup.Put("/username", c.UserController.UpdateUsername)
-	userGroup.Put("/fullname", c.UserController.UpdateFullname)
-	userGroup.Put("/bio", c.UserController.UpdateBio)
-	userGroup.Put("/avatar", c.UserController.UpdateAvatar)
-	//userGroup.Patch("/password", c.UserController.ChangePassword)
-	//userGroup.Delete("/account", c.UserController.DeleteAccount)
 
 	// Public server routes (NO AUTH) - must be defined BEFORE protected routes
 	// to ensure Fiber matches these routes first
@@ -121,7 +117,14 @@ func (c *RouteConfig) SetupRoute() {
 	serverGroup.Put("/:id/description", c.ServerController.UpdateServerDescription)
 	serverGroup.Put("/:id/settings", c.ServerController.UpdateServerSettings)
 	serverGroup.Delete("/:id", c.ServerController.DeleteServer)
+	serverGroup.Delete("/:serverId/membership", c.ServerController.LeaveServer)
 	serverGroup.Get("/:serverId/posts/me", c.PostController.GetServerPostForMe)
+
+	profileGroup := api.Group("", c.AuthMiddleware.ProtectedRoute())
+	profileGroup.Get("/profiles/history", c.ProfileController.GetProfileHistory)
+	profileGroup.Get("/servers/:serverId/profile/me", c.ProfileController.GetServerProfileMe)
+	profileGroup.Put("/servers/:serverId/profile", c.ProfileController.UpdateServerProfile)
+	profileGroup.Put("/servers/:serverId/profile/avatar", c.ProfileController.UpdateServerProfileAvatar)
 
 	postGroup := api.Group("/posts", c.AuthMiddleware.ProtectedRoute())
 	postGroup.Get("/:postId", c.PostController.GetPost)

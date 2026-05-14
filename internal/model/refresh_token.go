@@ -11,7 +11,10 @@ type RefreshToken struct {
 	TokenFamily string
 	ExpiresAt   time.Time
 	RevokedAt   *time.Time
-	Audit
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	CreatedBy   string
+	UpdatedBy   string
 }
 
 type RefreshTokenRefreshRequest struct {

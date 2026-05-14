@@ -17,6 +17,8 @@ import (
 
 	"github.com/ferdian3456/virdanproject/internal/constant"
 	"github.com/ferdian3456/virdanproject/internal/model"
+	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/h2non/bimg"
 )
 
@@ -83,6 +85,15 @@ func (v *Validator) Reset() {
 
 // Err returns the first validation error encountered, or nil if all validations passed.
 func (v *Validator) Err() *model.BadRequestError {
+	return v.err
+}
+
+// Validate returns the first validation error as an error interface, or nil.
+// Avoids the typed-nil interface trap when assigning to a `var err error`.
+func (v *Validator) Validate() error {
+	if v.err == nil {
+		return nil
+	}
 	return v.err
 }
 
@@ -160,6 +171,12 @@ type StringChain struct {
 	v     *Validator
 	field string
 	value string
+}
+
+// UUID initiates a validation chain for a UUID string value.
+// Shorthand for v.String(field, value).UUID().
+func (v *Validator) UUID(field, value string) *StringChain {
+	return v.String(field, value).UUID()
 }
 
 // String initiates a validation chain for a string value.
@@ -273,6 +290,42 @@ func (c *StringChain) Custom(fn func(string) bool, message string) *StringChain 
 	}
 	if !fn(c.value) {
 		c.v.setError(constant.ERR_VALIDATION_CODE, c.field+" "+message, c.field)
+	}
+	return c
+}
+
+// Nickname validates string matches nickname pattern: letters, digits, underscore, dash.
+// Skip kalau already failed atau value kosong (Required handles empty).
+func (c *StringChain) Nickname() *StringChain {
+	if c.v.err != nil || c.value == "" {
+		return c
+	}
+	if !nicknameRegex.MatchString(c.value) {
+		c.v.setError(constant.ERR_VALIDATION_CODE, c.field+" only allows letters, digits, underscore, dash", c.field)
+	}
+	return c
+}
+
+// Regex validates string against a pre-compiled regex. Escape hatch untuk one-off pattern.
+// Caller WAJIB pass pre-compiled *regexp.Regexp (compile-per-call diharamkan di hot path).
+func (c *StringChain) Regex(re *regexp.Regexp, message string) *StringChain {
+	if c.v.err != nil || c.value == "" {
+		return c
+	}
+	if !re.MatchString(c.value) {
+		c.v.setError(constant.ERR_VALIDATION_CODE, message, c.field)
+	}
+	return c
+}
+
+// UUID validates string is a valid UUID format.
+// Skip if value empty (caller should chain .Required() if mandatory).
+func (c *StringChain) UUID() *StringChain {
+	if c.v.err != nil || c.value == "" {
+		return c
+	}
+	if _, err := uuid.Parse(c.value); err != nil {
+		c.v.setError(constant.ERR_VALIDATION_CODE, c.field+" is not a valid UUID", c.field)
 	}
 	return c
 }
@@ -868,6 +921,20 @@ func ValidateImage(ctx context.Context, fileHeader *multipart.FileHeader, fieldN
 	}
 
 	return bytes.NewReader(webpBytes), int64(len(webpBytes)), nil
+}
+
+// ExtractAndValidateImage extracts multipart file header from fiber.Ctx,
+// validates size/extension/MIME, converts to WebP. Returns reader + final size.
+func ExtractAndValidateImage(ctx fiber.Ctx, ctxContext context.Context, fieldName string) (*bytes.Reader, int64, error) {
+	fileHeader, err := ctx.FormFile(fieldName)
+	if err != nil {
+		return nil, 0, &model.BadRequestError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: fieldName + " is required",
+			Param:   fieldName,
+		}
+	}
+	return ValidateImage(ctxContext, fileHeader, fieldName)
 }
 
 // ConvertToWebP converts image data to WebP format using bimg.

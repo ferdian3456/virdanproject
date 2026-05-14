@@ -2,16 +2,18 @@ package model
 
 import (
 	"time"
-
 )
 
-type ServerPostComments struct {
-	Id             string
-	PostId         string
-	AuthorId       string
-	ParentId       *string
-	Content        string
-	Audit
+type ServerPostComment struct {
+	Id        string
+	PostId    string
+	AuthorId  string
+	ParentId  *string
+	Content   string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	CreatedBy string
+	UpdatedBy string
 }
 
 type ServerCommentCreateRequest struct {
@@ -30,11 +32,12 @@ type ServerCommentListResponse struct {
 }
 
 type ServerCommentResponse struct {
-	Id             string  `json:"id"`
-	AuthorId       string  `json:"authorId"`
-	AuthorName     string     `json:"authorName"`
-	AuthorAvatar   *string    `json:"authorAvatar"`
-	ParentId       *string `json:"parentId"`
-	Content  string `json:"content"`
-	Audit
+	Id        string                `json:"id"`
+	PostId    string                `json:"postId"`
+	ParentId  *string               `json:"parentId"`
+	Content   string                `json:"content"`
+	Author    AuthorIdentityResponse `json:"author"`
+	IsOwner   bool                  `json:"isOwner"`
+	CreatedAt time.Time             `json:"createdAt"`
+	UpdatedAt time.Time             `json:"updatedAt"`
 }

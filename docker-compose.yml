@@ -59,7 +59,7 @@ services:
     container_name: virdanproject-otel-collector
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
-      - ./observability-config/otel-collector.yaml:/etc/otel-collector-config.yaml
+      - ./observability-config/otel-collector/otel-collector.yaml:/etc/otel-collector-config.yaml
     ports:
       - "4317:4317" # OTLP gRPC
       - "4318:4318" # OTLP HTTP
@@ -76,7 +76,7 @@ services:
     container_name: virdanproject-loki
     command: -config.file=/etc/loki/local-config.yaml
     volumes:
-      - ./observability-config/loki.yaml:/etc/loki/local-config.yaml
+      - ./observability-config/loki/loki.yaml:/etc/loki/local-config.yaml
       - loki_data:/loki
     ports:
       - "3102:3100"
@@ -88,7 +88,7 @@ services:
     container_name: virdanproject-tempo
     command: ["-config.file=/etc/tempo.yaml"]
     volumes:
-      - ./observability-config/tempo.yaml:/etc/tempo.yaml
+      - ./observability-config/tempo/tempo.yaml:/etc/tempo.yaml
       - tempo_data:/var/tempo
     ports:
       - "3200:3200"
@@ -99,7 +99,7 @@ services:
     image: prom/prometheus:latest
     container_name: virdanproject-prometheus
     volumes:
-      - ./observability-config/prometheus.yaml:/etc/prometheus/prometheus.yml
+      - ./observability-config/prometheus/prometheus.yaml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -116,9 +116,8 @@ services:
       - "3001:3000"
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./observability-config/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
-      - ./observability-config/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/provider.yaml
-      - ./dashboard/virdan-dashboard.json:/etc/grafana/dashboards/virdan-dashboard.json
+      - ./observability-config/grafana/provisioning:/etc/grafana/provisioning
+      - ./observability-config/grafana/dashboard:/var/lib/grafana/dashboards
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
