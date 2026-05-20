@@ -178,8 +178,8 @@ type ServerCategoryListResponse struct {
 }
 
 type ServerCategoryResponse struct {
-	Id   int    `json:"id"`
-	Name string `json:"name"`
+	Id           int    `json:"id"`
+	CategoryName string `json:"categoryName"`
 }
 
 type ServerCategoryCursor struct {

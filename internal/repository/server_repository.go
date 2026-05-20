@@ -1320,7 +1320,7 @@ func (repository *ServerRepository) GetServerCategories(ctx context.Context, lim
 
 	for rows.Next() {
 		var category model.ServerCategoryResponse
-		err = rows.Scan(&category.Id, &category.Name)
+		err = rows.Scan(&category.Id, &category.CategoryName)
 		if err != nil {
 			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan server category row", zap.Error(err))
 			return nil, err

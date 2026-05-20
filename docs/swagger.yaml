@@ -96,10 +96,10 @@ definitions:
     type: object
   model.ServerCategoryResponse:
     properties:
+      categoryName:
+        type: string
       id:
         type: integer
-      name:
-        type: string
     type: object
   model.ServerCommentCreateRequest:
     properties:
