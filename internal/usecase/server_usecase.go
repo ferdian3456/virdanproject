@@ -69,7 +69,6 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 	isPrivateStr := ctx.FormValue("isPrivate")
 	nickname := ctx.FormValue("nickname")
 	bio := ctx.FormValue("bio")
-	avatarImageIdRaw := ctx.FormValue("avatarImageId")
 
 	v := util.NewValidator()
 	v.String("name", name).Required().MinLen(3).MaxLen(40)
@@ -78,10 +77,7 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 	v.String("categoryId", categoryIdStr).Required()
 	v.String("isPrivate", isPrivateStr).Required()
 	v.String("nickname", nickname).Required().MinLen(3).MaxLen(50)
-	v.String("bio", bio).MaxLen(500)
-	if avatarImageIdRaw != "" {
-		v.UUID("avatarImageId", avatarImageIdRaw)
-	}
+	v.String("bio", bio).MaxLen(150)
 	err = v.Validate()
 	if err != nil {
 		return response, err
@@ -105,26 +101,12 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 		return response, err
 	}
 
-	var avatarImageIdPtr *string
-	if avatarImageIdRaw != "" {
-		var owned bool
-		owned, err = usecase.ProfileRepository.CheckProfileAvatarImageOwnership(ctxContext, userId, avatarImageIdRaw)
-		if err != nil {
-			return response, err
-		}
-		if !owned {
-			err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "Avatar image is not owned by you", Param: "avatarImageId"}
-			return response, err
-		}
-		avatarImageIdPtr = util.ToPtr(avatarImageIdRaw)
-	}
-
 	var serverAvatarFile *bytes.Reader
 	var serverAvatarSize int64
 	var serverAvatarImageId *string
-	fh, fhErr := ctx.FormFile("avatar")
+	fh, fhErr := ctx.FormFile("serverAvatar")
 	if fhErr == nil && fh != nil {
-		serverAvatarFile, serverAvatarSize, err = util.ValidateImage(ctxContext, fh, "avatar")
+		serverAvatarFile, serverAvatarSize, err = util.ValidateImage(ctxContext, fh, "serverAvatar")
 		if err != nil {
 			return response, err
 		}
@@ -141,6 +123,19 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 
 	now := time.Now().UTC()
 	serverId := uuid.New().String()
+
+	var avatarImageIdPtr *string
+	avatarImageIdPtr, err = util.ResolveProfileAvatar(
+		ctxContext, tx, ctx,
+		usecase.ProfileRepository,
+		usecase.Config,
+		usecase.Log,
+		userId,
+		now,
+	)
+	if err != nil {
+		return response, err
+	}
 
 	if serverAvatarImageId != nil {
 		avatarImage := model.ServerAvatarImage{
