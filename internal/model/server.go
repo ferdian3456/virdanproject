@@ -65,12 +65,6 @@ type ServerUpdateSettingsRequest struct {
 	IsPrivate bool `json:"isPrivate"`
 }
 
-type ServerJoinDirectRequest struct {
-	Nickname      string  `json:"nickname"`
-	Bio           *string `json:"bio"`
-	AvatarImageId *string `json:"avatarImageId"`
-}
-
 type ServerJoinByInviteRequest struct {
 	InviteCode    string  `json:"inviteCode"`
 	Nickname      string  `json:"nickname"`

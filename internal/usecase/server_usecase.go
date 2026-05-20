@@ -284,7 +284,7 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 	return response, nil
 }
 
-func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string, payload model.ServerJoinDirectRequest) error {
+func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string) error {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
 	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.JoinServer")
@@ -302,16 +302,21 @@ func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string,
 		attribute.String("server.id", serverId),
 	)
 
+	nickname := ctx.FormValue("nickname")
+	bio := ctx.FormValue("bio")
+
 	v := util.NewValidator()
 	v.UUID("serverId", serverId).Required()
-	v.String("nickname", payload.Nickname).Required().MinLen(3).MaxLen(50)
-	v.String("bio", util.Deref(payload.Bio, "")).MaxLen(500)
-	if payload.AvatarImageId != nil && *payload.AvatarImageId != "" {
-		v.UUID("avatarImageId", *payload.AvatarImageId)
-	}
+	v.String("nickname", nickname).Required().MinLen(3).MaxLen(50)
+	v.String("bio", bio).MaxLen(150)
 	err = v.Validate()
 	if err != nil {
 		return err
+	}
+
+	var bioPtr *string
+	if bio != "" {
+		bioPtr = util.ToPtr(bio)
 	}
 
 	var serverInfo model.ServerCheckEligibleInfo
@@ -338,18 +343,6 @@ func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string,
 		return err
 	}
 
-	if payload.AvatarImageId != nil && *payload.AvatarImageId != "" {
-		var owned bool
-		owned, err = usecase.ProfileRepository.CheckProfileAvatarImageOwnership(ctxContext, userId, *payload.AvatarImageId)
-		if err != nil {
-			return err
-		}
-		if !owned {
-			err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "Avatar image is not owned by you", Param: "avatarImageId"}
-			return err
-		}
-	}
-
 	var memberRoleId string
 	memberRoleId, err = usecase.ServerRepository.GetRoleByName(ctxContext, serverId, "Member")
 	if err != nil {
@@ -366,6 +359,19 @@ func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string,
 
 	now := time.Now().UTC()
 
+	var avatarImageIdPtr *string
+	avatarImageIdPtr, err = util.ResolveProfileAvatar(
+		ctxContext, tx, ctx,
+		usecase.ProfileRepository,
+		usecase.Config,
+		usecase.Log,
+		userId,
+		now,
+	)
+	if err != nil {
+		return err
+	}
+
 	var existingProfileId string
 	var profileExists bool
 	existingProfileId, profileExists, err = usecase.ProfileRepository.TryGetServerMemberProfileId(ctxContext, tx, serverId, userId)
@@ -375,7 +381,7 @@ func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string,
 
 	if profileExists {
 		err = usecase.ProfileRepository.UpdateServerProfileFull(ctxContext, tx, existingProfileId,
-			payload.Nickname, payload.Bio, payload.AvatarImageId, userId, now)
+			nickname, bioPtr, avatarImageIdPtr, userId, now)
 		if err != nil {
 			return err
 		}
@@ -384,9 +390,9 @@ func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string,
 			Id:            uuid.New().String(),
 			ServerId:      serverId,
 			UserId:        userId,
-			Nickname:      payload.Nickname,
-			Bio:           payload.Bio,
-			AvatarImageId: payload.AvatarImageId,
+			Nickname:      nickname,
+			Bio:           bioPtr,
+			AvatarImageId: avatarImageIdPtr,
 			CreatedAt:     now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
 		}
 		err = usecase.ProfileRepository.CreateServerMemberProfile(ctxContext, tx, profile)

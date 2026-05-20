@@ -65,7 +65,7 @@ type UserResponse struct {
 	Id        string                 `json:"id"`
 	Username  string                 `json:"username"`
 	Email     string                 `json:"email"`
-	Settings  sonic.NoCopyRawMessage `json:"settings"`
+	Settings  sonic.NoCopyRawMessage `json:"settings" swaggertype:"object"`
 	CreatedAt time.Time              `json:"createdAt"`
 	UpdatedAt time.Time              `json:"updatedAt"`
 }

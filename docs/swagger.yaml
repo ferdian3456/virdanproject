@@ -1,8 +1,42 @@
 basePath: /api
 definitions:
-  model.BioUpdateRequest:
+  model.AuthorIdentityResponse:
     properties:
-      bio:
+      avatarImageUrl:
+        type: string
+      nickname:
+        type: string
+      status:
+        $ref: '#/definitions/model.AuthorStatus'
+      userId:
+        type: string
+    type: object
+  model.AuthorStatus:
+    enum:
+    - active
+    - user_left
+    - user_deleted
+    type: string
+    x-enum-varnames:
+    - AuthorStatusActive
+    - AuthorStatusUserLeft
+    - AuthorStatusUserDeleted
+  model.BadRequestError:
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+      param:
+        type: string
+    type: object
+  model.ConflictError:
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+      param:
         type: string
     type: object
   model.DiscoveryServerResponse:
@@ -14,9 +48,22 @@ definitions:
       page:
         $ref: '#/definitions/model.Page'
     type: object
-  model.FullnameUpdateRequest:
+  model.ForbiddenError:
     properties:
-      fullname:
+      code:
+        type: string
+      message:
+        type: string
+      param:
+        type: string
+    type: object
+  model.NotFoundError:
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+      param:
         type: string
     type: object
   model.Page:
@@ -28,6 +75,10 @@ definitions:
     properties:
       likeCount:
         type: integer
+      postId:
+        type: string
+      userLiked:
+        type: boolean
     type: object
   model.RefreshTokenRefreshRequest:
     properties:
@@ -45,10 +96,10 @@ definitions:
     type: object
   model.ServerCategoryResponse:
     properties:
-      categoryName:
-        type: string
       id:
         type: integer
+      name:
+        type: string
     type: object
   model.ServerCommentCreateRequest:
     properties:
@@ -68,60 +119,29 @@ definitions:
     type: object
   model.ServerCommentResponse:
     properties:
-      authorAvatar:
-        type: string
-      authorId:
-        type: string
-      authorName:
-        type: string
+      author:
+        $ref: '#/definitions/model.AuthorIdentityResponse'
       content:
         type: string
-      createDatetime:
+      createdAt:
         type: string
       id:
         type: string
+      isOwner:
+        type: boolean
       parentId:
         type: string
-      updateDatetime:
+      postId:
         type: string
-    type: object
-  model.ServerCreateRequest:
-    properties:
-      categoryId:
-        type: integer
-      description:
-        type: string
-      name:
-        type: string
-      settings:
-        $ref: '#/definitions/model.ServerSettingsCreateRequest'
-      shortName:
+      updatedAt:
         type: string
     type: object
   model.ServerCreateResponse:
     properties:
-      categoryId:
-        type: integer
-      createDatetime:
-        type: string
-      createUserId:
-        type: string
-      description:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      ownerId:
-        type: string
-      settings:
-        type: object
-      shortName:
-        type: string
-      updateDatetime:
-        type: string
-      updateUserId:
-        type: string
+      identity:
+        $ref: '#/definitions/model.ServerMemberProfileResponse'
+      server:
+        $ref: '#/definitions/model.ServerDetailResponse'
     type: object
   model.ServerDetailResponse:
     properties:
@@ -129,46 +149,68 @@ definitions:
         type: string
       bannerImageUrl:
         type: string
+      categoryId:
+        type: integer
       categoryName:
         type: string
-      createDatetime:
-        type: string
-      createdBy:
+      createdAt:
         type: string
       description:
         type: string
       id:
         type: string
+      isMember:
+        type: boolean
+      memberCount:
+        type: integer
       name:
         type: string
+      ownerId:
+        type: string
+      ownerNickname:
+        type: string
+      settings:
+        type: object
       shortName:
+        type: string
+      updatedAt:
         type: string
     type: object
   model.ServerInfoForInviteResponse:
     properties:
-      avatarImageId:
+      code:
         type: string
-      bannerImageId:
+      expiresAt:
         type: string
-      description:
+      memberCount:
+        type: integer
+      ownerNickname:
         type: string
-      ownerName:
+      serverAvatarUrl:
+        type: string
+      serverId:
         type: string
       serverName:
         type: string
     type: object
   model.ServerInfoResponse:
     properties:
-      avatarImageUrl:
+      avatarUrl:
         type: string
-      bannerImageUrl:
+      bannerUrl:
         type: string
+      categoryId:
+        type: integer
       categoryName:
+        type: string
+      createdAt:
         type: string
       description:
         type: string
       id:
         type: string
+      memberCount:
+        type: integer
       name:
         type: string
       shortName:
@@ -176,21 +218,50 @@ definitions:
     type: object
   model.ServerInviteLinkRequest:
     properties:
-      expiresInMinutes:
-        type: integer
+      expiresAt:
+        type: string
       maxUses:
         type: integer
     type: object
   model.ServerInviteLinkResponse:
     properties:
+      code:
+        type: string
       expiresAt:
         type: string
+      inviteUrl:
+        type: string
+      maxUses:
+        type: integer
+    type: object
+  model.ServerJoinByInviteRequest:
+    properties:
+      avatarImageId:
+        type: string
+      bio:
+        type: string
       inviteCode:
         type: string
+      nickname:
+        type: string
     type: object
-  model.ServerJoinRequest:
+  model.ServerMemberProfileResponse:
     properties:
-      inviteCode:
+      avatarImageId:
+        type: string
+      avatarImageUrl:
+        type: string
+      bio:
+        type: string
+      createdAt:
+        type: string
+      nickname:
+        type: string
+      profileId:
+        type: string
+      serverId:
+        type: string
+      updatedAt:
         type: string
     type: object
   model.ServerPostListResponse:
@@ -204,38 +275,33 @@ definitions:
     type: object
   model.ServerPostResponse:
     properties:
+      author:
+        $ref: '#/definitions/model.AuthorIdentityResponse'
       caption:
         type: string
       commentCount:
         type: integer
-      createDatetime:
+      createdAt:
         type: string
-      isLiked:
+      id:
+        type: string
+      imageUrl:
+        type: string
+      isOwner:
         type: boolean
       likeCount:
         type: integer
-      ownerId:
+      serverId:
         type: string
-      ownerImageUrl:
+      updatedAt:
         type: string
-      ownerName:
-        type: string
-      postId:
-        type: string
-      postImageUrl:
-        type: string
-      updateDatetime:
-        type: string
+      userLiked:
+        type: boolean
     type: object
   model.ServerPostUpdateCaptionRequest:
     properties:
       caption:
         type: string
-    type: object
-  model.ServerSettingsCreateRequest:
-    properties:
-      isPrivate:
-        type: boolean
     type: object
   model.ServerUpdateCategoryRequest:
     properties:
@@ -254,32 +320,15 @@ definitions:
     type: object
   model.ServerUpdateResponse:
     properties:
-      avatarImageId:
-        type: string
-      bannerImageId:
-        type: string
-      categoryId:
-        type: integer
-      createDatetime:
-        type: string
-      createUserId:
-        type: string
-      description:
-        type: string
       id:
         type: string
-      name:
+      updatedAt:
         type: string
-      ownerId:
-        type: string
-      settings:
-        type: object
-      shortName:
-        type: string
-      updateDatetime:
-        type: string
-      updateUserId:
-        type: string
+    type: object
+  model.ServerUpdateSettingsRequest:
+    properties:
+      isPrivate:
+        type: boolean
     type: object
   model.ServerUpdateShortNameRequest:
     properties:
@@ -297,9 +346,21 @@ definitions:
     type: object
   model.ServerUserResponse:
     properties:
-      avatarImageUrl:
+      avatarUrl:
+        type: string
+      categoryId:
+        type: integer
+      categoryName:
         type: string
       id:
+        type: string
+      joinedAt:
+        type: string
+      memberCount:
+        type: integer
+      myAvatarUrl:
+        type: string
+      myNickname:
         type: string
       name:
         type: string
@@ -342,19 +403,15 @@ definitions:
     type: object
   model.UserResponse:
     properties:
-      avatarImage:
-        type: string
-      bio:
-        type: string
-      createDatetime:
+      createdAt:
         type: string
       email:
         type: string
-      fullname:
-        type: string
       id:
         type: string
-      updateDatetime:
+      settings:
+        type: object
+      updatedAt:
         type: string
       username:
         type: string
@@ -513,11 +570,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Login user
       tags:
       - auth
@@ -526,7 +583,6 @@ paths:
       consumes:
       - application/json
       description: |
-        Use refresh token to get new access token (with token rotation)
         ## Refresh Token Flow
 
         ### Overview
@@ -667,7 +723,7 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
         "401":
           description: Unauthorized
           schema:
@@ -675,7 +731,7 @@ paths:
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Refresh access token
       tags:
       - auth
@@ -734,11 +790,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.NotFoundError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Get signup session status
       tags:
       - auth
@@ -816,11 +876,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Verify OTP code
       tags:
       - auth
@@ -946,11 +1006,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/model.ConflictError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Verify password and complete signup
       tags:
       - auth
@@ -1048,11 +1112,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Resend OTP code
       tags:
       - auth
@@ -1155,11 +1219,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/model.ConflictError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Start signup process
       tags:
       - auth
@@ -1240,11 +1308,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/model.ConflictError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Verify and set username
       tags:
       - auth
@@ -1348,11 +1420,19 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.NotFoundError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Get a single post
       tags:
       - posts
@@ -1452,11 +1532,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Get comments on a post
       tags:
       - post-interactions
@@ -1539,18 +1623,22 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Created
           schema:
             $ref: '#/definitions/model.ServerCommentResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Create a comment on a post
       tags:
       - post-interactions
@@ -1629,11 +1717,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Delete a comment
       tags:
       - post-interactions
@@ -1725,11 +1817,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Unlike a post
       tags:
       - post-interactions
@@ -1823,11 +1919,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Like a post
       tags:
       - post-interactions
@@ -2000,6 +2100,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/model.ValidationError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ValidationError'
         "500":
           description: Internal Server Error
           schema:
@@ -2084,6 +2188,10 @@ paths:
             $ref: '#/definitions/model.ServerDetailResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/model.ValidationError'
         "500":
@@ -2202,6 +2310,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/model.ValidationError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ValidationError'
         "500":
           description: Internal Server Error
           schema:
@@ -2310,6 +2422,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/model.ValidationError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ValidationError'
         "500":
           description: Internal Server Error
           schema:
@@ -2401,6 +2517,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/model.ValidationError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ValidationError'
         "500":
           description: Internal Server Error
           schema:
@@ -2482,6 +2602,10 @@ paths:
             $ref: '#/definitions/model.ServerUpdateResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/model.ValidationError'
         "500":
@@ -2575,6 +2699,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/model.ValidationError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ValidationError'
         "500":
           description: Internal Server Error
           schema:
@@ -2646,14 +2774,20 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/model.ServerSettingsCreateRequest'
+          $ref: '#/definitions/model.ServerUpdateSettingsRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/model.ServerUpdateResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/model.ValidationError'
         "500":
@@ -2743,6 +2877,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/model.ValidationError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ValidationError'
         "500":
           description: Internal Server Error
           schema:
@@ -2828,6 +2966,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/model.ValidationError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ValidationError'
         "500":
           description: Internal Server Error
           schema:
@@ -2837,6 +2979,8 @@ paths:
       - server-invites
   /servers/{serverId}/join:
     post:
+      consumes:
+      - multipart/form-data
       description: |
         ## Join Server Flow
 
@@ -2924,6 +3068,23 @@ paths:
         name: serverId
         required: true
         type: string
+      - description: Your nickname in this server
+        in: formData
+        name: nickname
+        required: true
+        type: string
+      - description: Your bio in this server
+        in: formData
+        name: bio
+        type: string
+      - description: Existing avatar image ID (picker)
+        in: formData
+        name: avatarImageId
+        type: string
+      - description: New profile avatar image (per-server)
+        in: formData
+        name: profileAvatar
+        type: file
       produces:
       - application/json
       responses:
@@ -2933,11 +3094,53 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/model.ValidationError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/model.ValidationError'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/model.ValidationError'
       summary: Join a public server
+      tags:
+      - servers
+  /servers/{serverId}/membership:
+    delete:
+      description: Leave a server the user is currently a member of.
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Leave a server
       tags:
       - servers
   /servers/{serverId}/posts:
@@ -3076,11 +3279,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Get posts from a server
       tags:
       - posts
@@ -3178,7 +3385,6 @@ paths:
       - description: Post image file
         in: formData
         name: image
-        required: true
         type: file
       - description: Post caption
         in: formData
@@ -3188,18 +3394,22 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Created
           schema:
             $ref: '#/definitions/model.ServerPostResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Create a new post
       tags:
       - posts
@@ -3300,11 +3510,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Delete a post
       tags:
       - posts
@@ -3405,12 +3619,60 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Update post caption
+      tags:
+      - posts
+  /servers/{serverId}/posts/me:
+    get:
+      description: Get posts for the authenticated user across joined servers.
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerPostListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+      summary: Get my posts in a server
       tags:
       - posts
   /servers/categories:
@@ -3464,11 +3726,6 @@ paths:
         Request → Auth Middleware → Parse Query Params → Validate Limit → Decode Cursor → Query Categories (DB) → Build Next Cursor → Response
         ```
       parameters:
-      - description: Bearer access token
-        in: header
-        name: Authorization
-        required: true
-        type: string
       - description: Items per page
         in: query
         name: limit
@@ -3498,7 +3755,7 @@ paths:
   /servers/create:
     post:
       consumes:
-      - application/json
+      - multipart/form-data
       description: |
         ## Create Server Flow
 
@@ -3572,12 +3829,50 @@ paths:
         name: Authorization
         required: true
         type: string
-      - description: Payload
-        in: body
-        name: body
+      - description: Server name
+        in: formData
+        name: name
         required: true
-        schema:
-          $ref: '#/definitions/model.ServerCreateRequest'
+        type: string
+      - description: Short name (max 10 chars)
+        in: formData
+        name: shortName
+        required: true
+        type: string
+      - description: Category ID
+        in: formData
+        name: categoryId
+        required: true
+        type: integer
+      - description: Description
+        in: formData
+        name: description
+        type: string
+      - description: Private server
+        in: formData
+        name: isPrivate
+        type: boolean
+      - description: Your nickname in this server
+        in: formData
+        name: nickname
+        required: true
+        type: string
+      - description: Your bio in this server
+        in: formData
+        name: bio
+        type: string
+      - description: Existing avatar image ID
+        in: formData
+        name: avatarImageId
+        type: string
+      - description: Server avatar image
+        in: formData
+        name: serverAvatar
+        type: file
+      - description: New profile avatar image (per-server)
+        in: formData
+        name: profileAvatar
+        type: file
       produces:
       - application/json
       responses:
@@ -3658,6 +3953,10 @@ paths:
             $ref: '#/definitions/model.ServerInfoForInviteResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/model.ValidationError'
         "500":
@@ -3760,7 +4059,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/model.ServerJoinRequest'
+          $ref: '#/definitions/model.ServerJoinByInviteRequest'
       produces:
       - application/json
       responses:
@@ -3768,6 +4067,10 @@ paths:
           description: OK
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "409":
+          description: Conflict
           schema:
             $ref: '#/definitions/model.ValidationError'
         "500":
@@ -3865,253 +4168,6 @@ paths:
       summary: Get servers the user belongs to
       tags:
       - servers
-  /users/avatar:
-    put:
-      consumes:
-      - multipart/form-data
-      description: |
-        ## Update Avatar Flow
-
-        ### Overview
-        Updates the authenticated user's avatar image. Accepts a multipart form file upload. The image is validated, converted to WebP, and stored in MinIO object storage.
-
-        ### Auth
-        Requires `Authorization` header with Bearer JWT access token.
-
-        ### Business Logic
-        1. Get `userId` from context (set by auth middleware)
-        2. Read `avatar` field from multipart form data
-        3. Validate the image file (format, size)
-        4. Begin database transaction
-        5. Check if user already has an avatar image
-        6. If old avatar exists:
-           - Delete old avatar record from database
-           - Delete old avatar file from MinIO
-        7. Create new avatar image record in database (with new UUID, bucket, object key)
-        8. Upload new avatar file to MinIO (`user/avatar/{imageId}.webp`)
-        9. Commit transaction
-        10. Return success with no data
-
-        ### Database Operations
-
-        #### PostgreSQL — Get Existing Avatar (inside TX)
-        ```sql
-        SELECT object_key FROM user_avatar_images WHERE user_id = $1 LIMIT 1
-        ```
-        - **Table**: `user_avatar_images`
-        - **Column**: `object_key` (path in MinIO)
-
-        #### PostgreSQL — Delete Old Avatar Record (inside TX)
-        ```sql
-        DELETE FROM user_avatar_images WHERE user_id = $1
-        ```
-
-        #### PostgreSQL — Insert New Avatar Record (inside TX)
-        ```sql
-        INSERT INTO user_avatar_images (id, user_id, bucket, object_key, mime_type, size, create_datetime, update_datetime, create_user_id, update_user_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        ```
-        - **Table**: `user_avatar_images`
-        - **Columns**: `id` (UUID), `user_id`, `bucket` (MinIO bucket name), `object_key` (e.g., `user/avatar/{imageId}.webp`), `mime_type` (`image/webp`), `size` (bytes), timestamps, audit IDs
-
-        #### MinIO — Upload Avatar
-        ```
-        PUT {bucket}/user/avatar/{imageId}.webp
-        Content-Type: image/webp
-        Cache-Control: public, max-age=31536000, immutable
-        ```
-
-        #### MinIO — Delete Old Avatar (if exists)
-        ```
-        DELETE {bucket}/{old_object_key}
-        ```
-
-        ### Error Cases
-        - No/invalid auth token → `404` (handled by auth middleware)
-        - Missing avatar file → `400` with "Avatar is required to not be empty"
-        - Invalid image format/size → `400` validation error
-        - MinIO upload failure → `500` internal server error
-
-        ### Flow
-        ```
-        Request → Auth Middleware → Get Avatar File → Validate Image → Begin TX → Check Old Avatar → Delete Old (DB + MinIO) → Create New Record (DB) → Upload (MinIO) → Commit TX → Response
-        ```
-      parameters:
-      - description: Bearer access token
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: Avatar image file
-        in: formData
-        name: avatar
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/model.ValidationError'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/model.ValidationError'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/model.ValidationError'
-      summary: Update user avatar
-      tags:
-      - users
-  /users/bio:
-    put:
-      consumes:
-      - application/json
-      description: |
-        ## Update Bio Flow
-
-        ### Overview
-        Updates the authenticated user's bio. Sending an empty string will set the bio to NULL in the database.
-
-        ### Auth
-        Requires `Authorization` header with Bearer JWT access token.
-
-        ### Business Logic
-        1. Get `userId` from context (set by auth middleware)
-        2. Parse request body for `bio` field
-        3. If bio is empty string, set to NULL in database; otherwise set to provided value
-        4. Update bio in database
-        5. Return success with no data
-
-        ### Database Operations
-
-        #### PostgreSQL — Update Bio
-        ```sql
-        UPDATE users SET bio = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
-        ```
-        - **Table**: `users`
-        - **Columns updated**: `bio` (nullable TEXT), `update_datetime`, `update_user_id`
-        - **Filter**: `id = {userId}`
-        - **Note**: `$1` can be NULL (when bio is empty string) or the bio text
-
-        ### Error Cases
-        - No/invalid auth token → `404` (handled by auth middleware)
-        - Invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
-
-        ### Flow
-        ```
-        Request → Auth Middleware → Parse Body → Update Bio (DB) → Response (no data)
-        ```
-      parameters:
-      - description: Bearer access token
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: Payload
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/model.BioUpdateRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/model.ValidationError'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/model.ValidationError'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/model.ValidationError'
-      summary: Update user bio
-      tags:
-      - users
-  /users/fullname:
-    put:
-      consumes:
-      - application/json
-      description: |
-        ## Update Fullname Flow
-
-        ### Overview
-        Updates the authenticated user's display name (fullname).
-
-        ### Auth
-        Requires `Authorization` header with Bearer JWT access token.
-
-        ### Business Logic
-        1. Get `userId` from context (set by auth middleware)
-        2. Parse request body for `fullname` field
-        3. Validate fullname is not empty
-        4. Validate fullname length (4–40 characters)
-        5. Update fullname in database
-        6. Return success with no data
-
-        ### Database Operations
-
-        #### PostgreSQL — Update Fullname
-        ```sql
-        UPDATE users SET fullname = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
-        ```
-        - **Table**: `users`
-        - **Columns updated**: `fullname`, `update_datetime`, `update_user_id`
-        - **Filter**: `id = {userId}`
-
-        ### Error Cases
-        - No/invalid auth token → `404` (handled by auth middleware)
-        - Invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
-        - Fullname empty → `400` with "Fullname is required to not be empty"
-        - Fullname < 4 chars → `400` with "Fullname must be at least 4 characters"
-        - Fullname > 40 chars → `400` with "Fullname must be at most 40 characters"
-
-        ### Flow
-        ```
-        Request → Auth Middleware → Parse Body → Validate Fullname → Update (DB) → Response (no data)
-        ```
-      parameters:
-      - description: Bearer access token
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: Payload
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/model.FullnameUpdateRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/model.ValidationError'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/model.ValidationError'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/model.ValidationError'
-      summary: Update user fullname
-      tags:
-      - users
   /users/logout:
     post:
       description: |
@@ -4175,18 +4231,46 @@ paths:
       responses:
         "200":
           description: OK
-        "404":
-          description: Not Found
+        "401":
+          description: Unauthorized
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.UnauthorizedError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Logout user
       tags:
       - users
   /users/me:
+    delete:
+      description: Delete the current user account.
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.UnauthorizedError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.NotFoundError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+      summary: Delete current user account
+      tags:
+      - users
     get:
       description: |
         ## Get User Info Flow
@@ -4256,18 +4340,18 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/model.UserResponse'
-        "400":
-          description: Bad Request
+        "401":
+          description: Unauthorized
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.UnauthorizedError'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.NotFoundError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ValidationError'
+            $ref: '#/definitions/model.BadRequestError'
       summary: Get current user info
       tags:
       - users

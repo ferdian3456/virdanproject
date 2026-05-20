@@ -118,3 +118,11 @@ func (e *ConflictError) GetCode() string {
 func (e *ConflictError) GetParam() string {
 	return e.Param
 }
+
+// ValidationError is kept for swagger annotation compatibility.
+// Runtime code uses BadRequestError, NotFoundError, ConflictError, etc.
+type ValidationError struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Param   string `json:"param,omitempty"`
+}
