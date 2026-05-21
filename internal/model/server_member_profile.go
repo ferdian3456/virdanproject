@@ -18,27 +18,27 @@ type ServerMemberProfile struct {
 }
 
 type ServerMemberProfileResponse struct {
-	ProfileId      string    `json:"profileId"`
-	ServerId       string    `json:"serverId"`
-	Nickname       string    `json:"nickname"`
-	Bio            *string   `json:"bio"`
-	AvatarImageId  *string   `json:"avatarImageId"`
-	AvatarImageUrl *string   `json:"avatarImageUrl"`
-	CreatedAt      time.Time `json:"createdAt"`
-	UpdatedAt      time.Time `json:"updatedAt"`
+	ProfileId     string    `json:"profileId"`
+	ServerId      string    `json:"serverId"`
+	Nickname      string    `json:"nickname"`
+	Bio           *string   `json:"bio"`
+	AvatarImageId *string   `json:"avatarImageId"`
+	AvatarUrl     *string   `json:"avatarUrl"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
 type GetProfileHistoryResponseItem struct {
-	ProfileId      string    `json:"profileId"`
-	ServerId       string    `json:"serverId"`
-	ServerName     string    `json:"serverName"`
-	Nickname       string    `json:"nickname"`
-	Bio            *string   `json:"bio"`
-	AvatarImageId  *string   `json:"avatarImageId"`
-	AvatarImageUrl *string   `json:"avatarImageUrl"`
-	IsStillMember  bool      `json:"isStillMember"`
-	CreatedAt      time.Time `json:"createdAt"`
-	UpdatedAt      time.Time `json:"updatedAt"`
+	ProfileId     string    `json:"profileId"`
+	ServerId      string    `json:"serverId"`
+	ServerName    string    `json:"serverName"`
+	Nickname      string    `json:"nickname"`
+	Bio           *string   `json:"bio"`
+	AvatarImageId *string   `json:"avatarImageId"`
+	AvatarUrl     *string   `json:"avatarUrl"`
+	IsStillMember bool      `json:"isStillMember"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
 type GetProfileHistoryResponse struct {
@@ -67,8 +67,8 @@ type ProfileUpdateRequest struct {
 }
 
 type AuthorIdentityResponse struct {
-	UserId         string       `json:"userId"`
-	Nickname       string       `json:"nickname"`
-	AvatarImageUrl *string      `json:"avatarImageUrl"`
-	Status         AuthorStatus `json:"status"`
+	UserId    string       `json:"userId"`
+	Nickname  string       `json:"nickname"`
+	AvatarUrl *string      `json:"avatarUrl"`
+	Status    AuthorStatus `json:"status"`
 }

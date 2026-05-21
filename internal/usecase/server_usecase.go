@@ -271,7 +271,7 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 	if serverAvatarImageId != nil {
 		minioFullUrl := usecase.Config.String("MINIO_HTTP") + usecase.Config.String("MINIO_URL")
 		url := fmt.Sprintf("%s/%s/server/avatar/%s.webp", minioFullUrl, usecase.Config.String("MINIO_BUCKET_NAME"), *serverAvatarImageId)
-		response.Server.AvatarImageUrl = &url
+		response.Server.AvatarUrl = &url
 	}
 	response.Identity = model.ServerMemberProfileResponse{
 		ProfileId:     profileId,

@@ -267,7 +267,7 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId string, us
 		&resp.UpdatedAt,
 		&resp.ImageUrl,
 		&resp.Author.Nickname,
-		&resp.Author.AvatarImageUrl,
+		&resp.Author.AvatarUrl,
 		&authorStatus,
 		&resp.LikeCount,
 		&resp.CommentCount,
@@ -288,8 +288,8 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId string, us
 	if resp.ImageUrl != nil {
 		*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
 	}
-	if resp.Author.AvatarImageUrl != nil {
-		*resp.Author.AvatarImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarImageUrl)
+	if resp.Author.AvatarUrl != nil {
+		*resp.Author.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarUrl)
 	}
 
 	return resp, nil
@@ -369,7 +369,7 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 			&resp.UpdatedAt,
 			&resp.ImageUrl,
 			&resp.Author.Nickname,
-			&resp.Author.AvatarImageUrl,
+			&resp.Author.AvatarUrl,
 			&authorStatus,
 			&resp.LikeCount,
 			&resp.CommentCount,
@@ -386,8 +386,8 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 		if resp.ImageUrl != nil {
 			*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
 		}
-		if resp.Author.AvatarImageUrl != nil {
-			*resp.Author.AvatarImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarImageUrl)
+		if resp.Author.AvatarUrl != nil {
+			*resp.Author.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarUrl)
 		}
 
 		posts = append(posts, resp)
@@ -462,7 +462,7 @@ func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit 
 			&resp.UpdatedAt,
 			&resp.ImageUrl,
 			&resp.Author.Nickname,
-			&resp.Author.AvatarImageUrl,
+			&resp.Author.AvatarUrl,
 			&resp.LikeCount,
 			&resp.CommentCount,
 			&resp.UserLiked,
@@ -478,8 +478,8 @@ func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit 
 		if resp.ImageUrl != nil {
 			*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
 		}
-		if resp.Author.AvatarImageUrl != nil {
-			*resp.Author.AvatarImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarImageUrl)
+		if resp.Author.AvatarUrl != nil {
+			*resp.Author.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarUrl)
 		}
 
 		posts = append(posts, resp)
@@ -762,7 +762,7 @@ func (repository *PostRepository) GetCommentById(ctx context.Context, commentId 
 	resp.Author.Status = model.AuthorStatus(authorStatus)
 	if authorAvatarKey != nil {
 		avatarUrl := fmt.Sprintf("%s/%s", minioFullUrl, *authorAvatarKey)
-		resp.Author.AvatarImageUrl = &avatarUrl
+		resp.Author.AvatarUrl = &avatarUrl
 	}
 	resp.IsOwner = resp.Author.UserId == userId
 
@@ -846,7 +846,7 @@ func (repository *PostRepository) GetComments(ctx context.Context, limit int, po
 		resp.Author.Status = model.AuthorStatus(authorStatus)
 		if authorAvatarKey != nil {
 			avatarUrl := fmt.Sprintf("%s/%s", minioFullUrl, *authorAvatarKey)
-			resp.Author.AvatarImageUrl = &avatarUrl
+			resp.Author.AvatarUrl = &avatarUrl
 		}
 		resp.IsOwner = resp.Author.UserId == userId
 

@@ -1080,11 +1080,11 @@ func (repository *ServerRepository) GetServerById(ctx context.Context, serverId,
 	resp.Description = description
 	if avatarKey != nil {
 		url := fmt.Sprintf("%s/%s", minioFullUrl, *avatarKey)
-		resp.AvatarImageUrl = &url
+		resp.AvatarUrl = &url
 	}
 	if bannerKey != nil {
 		url := fmt.Sprintf("%s/%s", minioFullUrl, *bannerKey)
-		resp.BannerImageUrl = &url
+		resp.BannerUrl = &url
 	}
 
 	return resp, nil

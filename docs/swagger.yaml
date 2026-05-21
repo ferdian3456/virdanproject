@@ -2,7 +2,7 @@ basePath: /api
 definitions:
   model.AuthorIdentityResponse:
     properties:
-      avatarImageUrl:
+      avatarUrl:
         type: string
       nickname:
         type: string
@@ -145,9 +145,9 @@ definitions:
     type: object
   model.ServerDetailResponse:
     properties:
-      avatarImageUrl:
+      avatarUrl:
         type: string
-      bannerImageUrl:
+      bannerUrl:
         type: string
       categoryId:
         type: integer
@@ -249,7 +249,7 @@ definitions:
     properties:
       avatarImageId:
         type: string
-      avatarImageUrl:
+      avatarUrl:
         type: string
       bio:
         type: string

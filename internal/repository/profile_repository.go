@@ -314,7 +314,7 @@ func (repository *ProfileRepository) GetServerMemberProfile(ctx context.Context,
 
 	err = repository.DB.QueryRow(ctx, query, serverId, userId).Scan(
 		&resp.ProfileId, &resp.ServerId, &resp.Nickname, &resp.Bio,
-		&resp.AvatarImageId, &resp.AvatarImageUrl,
+		&resp.AvatarImageId, &resp.AvatarUrl,
 		&resp.CreatedAt, &resp.UpdatedAt,
 	)
 	if err != nil {
@@ -330,8 +330,8 @@ func (repository *ProfileRepository) GetServerMemberProfile(ctx context.Context,
 		return resp, err
 	}
 
-	if resp.AvatarImageUrl != nil {
-		*resp.AvatarImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.AvatarImageUrl)
+	if resp.AvatarUrl != nil {
+		*resp.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.AvatarUrl)
 	}
 
 	return resp, nil
@@ -446,7 +446,7 @@ func (repository *ProfileRepository) GetProfileHistory(ctx context.Context, user
 		err = rows.Scan(
 			&item.ProfileId, &item.ServerId, &item.ServerName,
 			&item.Nickname, &item.Bio,
-			&item.AvatarImageId, &item.AvatarImageUrl,
+			&item.AvatarImageId, &item.AvatarUrl,
 			&item.IsStillMember,
 			&item.CreatedAt, &item.UpdatedAt,
 		)
@@ -454,8 +454,8 @@ func (repository *ProfileRepository) GetProfileHistory(ctx context.Context, user
 			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan profile history row", zap.Error(err))
 			return nil, err
 		}
-		if item.AvatarImageUrl != nil {
-			*item.AvatarImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *item.AvatarImageUrl)
+		if item.AvatarUrl != nil {
+			*item.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *item.AvatarUrl)
 		}
 		items = append(items, item)
 	}
