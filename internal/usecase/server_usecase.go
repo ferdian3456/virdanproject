@@ -1265,13 +1265,17 @@ func (usecase *ServerUsecase) GetDiscoveryServer(ctx fiber.Ctx, userId, cursor, 
 		}
 	}
 
-	var categoryId int
+	// Nil = no category filter (returns all public servers); non-nil = filter.
+	// Must be a pointer so pgx sends SQL NULL — a plain int 0 would be matched
+	// against B.id and silently return zero rows.
+	var categoryId *int
 	if categoryStr != "" {
-		categoryId, err = strconv.Atoi(categoryStr)
-		if err != nil {
+		parsed, parseErr := strconv.Atoi(categoryStr)
+		if parseErr != nil {
 			err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "categoryId must be int", Param: "categoryId"}
 			return response, err
 		}
+		categoryId = &parsed
 	}
 
 	minioFullUrl := usecase.Config.String("MINIO_HTTP") + usecase.Config.String("MINIO_URL") + "/" + usecase.Config.String("MINIO_BUCKET_NAME")

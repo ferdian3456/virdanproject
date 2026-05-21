@@ -158,7 +158,7 @@ func (repository *ServerRepository) CreateServerMember(ctx context.Context, tx p
 		attribute.String("user.id", serverMember.UserId),
 	)
 
-	query := `INSERT INTO server_members (id, server_id, user_id, server_role_id, joined_datetime, created_at, updated_at, created_by, updated_by)
+	query := `INSERT INTO server_members (id, server_id, user_id, server_role_id, joined_at, created_at, updated_at, created_by, updated_by)
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
 	_, err = tx.Exec(ctx, query,
@@ -1090,7 +1090,7 @@ func (repository *ServerRepository) GetServerById(ctx context.Context, serverId,
 	return resp, nil
 }
 
-func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limit, categoryId int, cursor *model.ServerDiscoveryCursor, minioFullUrl string) ([]model.ServerInfoResponse, error) {
+func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limit int, categoryId *int, cursor *model.ServerDiscoveryCursor, minioFullUrl string) ([]model.ServerInfoResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerDiscovery")
 	var err error
@@ -1209,7 +1209,7 @@ func (repository *ServerRepository) GetUserServers(ctx context.Context, userId s
             SELECT B.id, B.name, B.short_name, B.category_id, C.name AS category_name,
                    D.object_key AS avatar_key,
                    (SELECT COUNT(*) FROM server_members sm WHERE sm.server_id = B.id) AS member_count,
-                   A.joined_datetime,
+                   A.joined_at,
                    smp.nickname AS my_nickname,
                    pimg.object_key AS my_avatar_key
             FROM server_members A
@@ -1218,9 +1218,9 @@ func (repository *ServerRepository) GetUserServers(ctx context.Context, userId s
             LEFT JOIN server_avatar_images D ON B.avatar_image_id = D.id
             LEFT JOIN server_member_profiles smp ON smp.server_id = A.server_id AND smp.user_id = A.user_id
             LEFT JOIN profile_avatar_images pimg ON smp.avatar_image_id = pimg.id
-            WHERE (A.joined_datetime < $1 OR (A.joined_datetime = $1 AND A.server_id < $2))
+            WHERE (A.joined_at < $1 OR (A.joined_at = $1 AND A.server_id < $2))
               AND A.user_id = $3
-            ORDER BY A.joined_datetime DESC, A.server_id DESC
+            ORDER BY A.joined_at DESC, A.server_id DESC
             LIMIT $4
         `
 		rows, err = repository.DB.Query(ctx, query, cursor.JoinedAt, cursor.ServerId, userId, limit)
@@ -1229,7 +1229,7 @@ func (repository *ServerRepository) GetUserServers(ctx context.Context, userId s
             SELECT B.id, B.name, B.short_name, B.category_id, C.name AS category_name,
                    D.object_key AS avatar_key,
                    (SELECT COUNT(*) FROM server_members sm WHERE sm.server_id = B.id) AS member_count,
-                   A.joined_datetime,
+                   A.joined_at,
                    smp.nickname AS my_nickname,
                    pimg.object_key AS my_avatar_key
             FROM server_members A
@@ -1239,7 +1239,7 @@ func (repository *ServerRepository) GetUserServers(ctx context.Context, userId s
             LEFT JOIN server_member_profiles smp ON smp.server_id = A.server_id AND smp.user_id = A.user_id
             LEFT JOIN profile_avatar_images pimg ON smp.avatar_image_id = pimg.id
             WHERE A.user_id = $1
-            ORDER BY A.joined_datetime DESC, A.server_id DESC
+            ORDER BY A.joined_at DESC, A.server_id DESC
             LIMIT $2
         `
 		rows, err = repository.DB.Query(ctx, query, userId, limit)
