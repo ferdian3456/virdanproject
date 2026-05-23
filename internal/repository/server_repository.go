@@ -158,7 +158,7 @@ func (repository *ServerRepository) CreateServerMember(ctx context.Context, tx p
 		attribute.String("user.id", serverMember.UserId),
 	)
 
-	query := `INSERT INTO server_members (id, server_id, user_id, server_role_id, joined_datetime, created_at, updated_at, created_by, updated_by)
+	query := `INSERT INTO server_members (id, server_id, user_id, server_role_id, joined_at, created_at, updated_at, created_by, updated_by)
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
 	_, err = tx.Exec(ctx, query,
@@ -1080,17 +1080,17 @@ func (repository *ServerRepository) GetServerById(ctx context.Context, serverId,
 	resp.Description = description
 	if avatarKey != nil {
 		url := fmt.Sprintf("%s/%s", minioFullUrl, *avatarKey)
-		resp.AvatarImageUrl = &url
+		resp.AvatarUrl = &url
 	}
 	if bannerKey != nil {
 		url := fmt.Sprintf("%s/%s", minioFullUrl, *bannerKey)
-		resp.BannerImageUrl = &url
+		resp.BannerUrl = &url
 	}
 
 	return resp, nil
 }
 
-func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limit, categoryId int, cursor *model.ServerDiscoveryCursor, minioFullUrl string) ([]model.ServerInfoResponse, error) {
+func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, userId string, limit int, categoryId *int, cursor *model.ServerDiscoveryCursor, minioFullUrl string) ([]model.ServerInfoResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerDiscovery")
 	var err error
@@ -1105,6 +1105,7 @@ func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limi
 	span.SetAttributes(
 		attribute.String("db.system", "postgres"),
 		attribute.String("db.operation", "SELECT"),
+		attribute.String("user.id", userId),
 		attribute.Int("query.limit", limit),
 	)
 
@@ -1116,6 +1117,7 @@ func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limi
                    C.object_key AS avatar_key, D.object_key AS banner_key,
                    A.description,
                    (SELECT COUNT(*) FROM server_members sm WHERE sm.server_id = A.id) AS member_count,
+                   EXISTS (SELECT 1 FROM server_members sm WHERE sm.server_id = A.id AND sm.user_id = $5) AS is_member,
                    A.created_at
             FROM servers A
             LEFT JOIN server_categories B ON A.category_id = B.id
@@ -1127,13 +1129,14 @@ func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limi
             ORDER BY A.created_at DESC, A.id DESC
             LIMIT $4
         `
-		rows, err = repository.DB.Query(ctx, query, cursor.CreatedAt, cursor.Id, categoryId, limit)
+		rows, err = repository.DB.Query(ctx, query, cursor.CreatedAt, cursor.Id, categoryId, limit, userId)
 	} else {
 		query := `
             SELECT A.id, A.name, A.short_name, A.category_id, B.name AS category_name,
                    C.object_key AS avatar_key, D.object_key AS banner_key,
                    A.description,
                    (SELECT COUNT(*) FROM server_members sm WHERE sm.server_id = A.id) AS member_count,
+                   EXISTS (SELECT 1 FROM server_members sm WHERE sm.server_id = A.id AND sm.user_id = $3) AS is_member,
                    A.created_at
             FROM servers A
             LEFT JOIN server_categories B ON A.category_id = B.id
@@ -1144,7 +1147,7 @@ func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limi
             ORDER BY A.created_at DESC, A.id DESC
             LIMIT $2
         `
-		rows, err = repository.DB.Query(ctx, query, categoryId, limit)
+		rows, err = repository.DB.Query(ctx, query, categoryId, limit, userId)
 	}
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to query server discovery", zap.Error(err))
@@ -1161,7 +1164,7 @@ func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limi
 			&server.Id, &server.Name, &server.ShortName,
 			&server.CategoryId, &server.CategoryName,
 			&avatarKey, &bannerKey,
-			&server.Description, &server.MemberCount,
+			&server.Description, &server.MemberCount, &server.IsMember,
 			&server.CreatedAt,
 		)
 		if err != nil {
@@ -1209,7 +1212,7 @@ func (repository *ServerRepository) GetUserServers(ctx context.Context, userId s
             SELECT B.id, B.name, B.short_name, B.category_id, C.name AS category_name,
                    D.object_key AS avatar_key,
                    (SELECT COUNT(*) FROM server_members sm WHERE sm.server_id = B.id) AS member_count,
-                   A.joined_datetime,
+                   A.joined_at,
                    smp.nickname AS my_nickname,
                    pimg.object_key AS my_avatar_key
             FROM server_members A
@@ -1218,9 +1221,9 @@ func (repository *ServerRepository) GetUserServers(ctx context.Context, userId s
             LEFT JOIN server_avatar_images D ON B.avatar_image_id = D.id
             LEFT JOIN server_member_profiles smp ON smp.server_id = A.server_id AND smp.user_id = A.user_id
             LEFT JOIN profile_avatar_images pimg ON smp.avatar_image_id = pimg.id
-            WHERE (A.joined_datetime < $1 OR (A.joined_datetime = $1 AND A.server_id < $2))
+            WHERE (A.joined_at < $1 OR (A.joined_at = $1 AND A.server_id < $2))
               AND A.user_id = $3
-            ORDER BY A.joined_datetime DESC, A.server_id DESC
+            ORDER BY A.joined_at DESC, A.server_id DESC
             LIMIT $4
         `
 		rows, err = repository.DB.Query(ctx, query, cursor.JoinedAt, cursor.ServerId, userId, limit)
@@ -1229,7 +1232,7 @@ func (repository *ServerRepository) GetUserServers(ctx context.Context, userId s
             SELECT B.id, B.name, B.short_name, B.category_id, C.name AS category_name,
                    D.object_key AS avatar_key,
                    (SELECT COUNT(*) FROM server_members sm WHERE sm.server_id = B.id) AS member_count,
-                   A.joined_datetime,
+                   A.joined_at,
                    smp.nickname AS my_nickname,
                    pimg.object_key AS my_avatar_key
             FROM server_members A
@@ -1239,7 +1242,7 @@ func (repository *ServerRepository) GetUserServers(ctx context.Context, userId s
             LEFT JOIN server_member_profiles smp ON smp.server_id = A.server_id AND smp.user_id = A.user_id
             LEFT JOIN profile_avatar_images pimg ON smp.avatar_image_id = pimg.id
             WHERE A.user_id = $1
-            ORDER BY A.joined_datetime DESC, A.server_id DESC
+            ORDER BY A.joined_at DESC, A.server_id DESC
             LIMIT $2
         `
 		rows, err = repository.DB.Query(ctx, query, userId, limit)
@@ -1320,7 +1323,7 @@ func (repository *ServerRepository) GetServerCategories(ctx context.Context, lim
 
 	for rows.Next() {
 		var category model.ServerCategoryResponse
-		err = rows.Scan(&category.Id, &category.Name)
+		err = rows.Scan(&category.Id, &category.CategoryName)
 		if err != nil {
 			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan server category row", zap.Error(err))
 			return nil, err

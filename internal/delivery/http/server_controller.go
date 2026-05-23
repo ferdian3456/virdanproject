@@ -39,7 +39,8 @@ func NewServerController(serverUsecase *usecase.ServerUsecase, zap *zap.Logger, 
 // @Param        nickname formData string true "Your nickname in this server"
 // @Param        bio formData string false "Your bio in this server"
 // @Param        avatarImageId formData string false "Existing avatar image ID"
-// @Param        avatar formData file false "Server avatar image"
+// @Param        serverAvatar formData file false "Server avatar image"
+// @Param        profileAvatar formData file false "New profile avatar image (per-server)"
 // @Success      200   {object}  model.ServerCreateResponse
 // @Failure      400   {object}  model.ValidationError
 // @Failure      500   {object}  model.ValidationError
@@ -228,11 +229,14 @@ func (controller *ServerController) GetServerById(ctx fiber.Ctx) error {
 // @Summary      Join a public server
 // @Description.markdown join_server
 // @Tags         servers
-// @Accept       json
+// @Accept       multipart/form-data
 // @Produce      json
 // @Param        Authorization header string true "Bearer access token"
 // @Param        serverId path string true "Server UUID"
-// @Param        body body model.ServerJoinDirectRequest true "Payload"
+// @Param        nickname formData string true "Your nickname in this server"
+// @Param        bio formData string false "Your bio in this server"
+// @Param        avatarImageId formData string false "Existing avatar image ID (picker)"
+// @Param        profileAvatar formData file false "New profile avatar image (per-server)"
 // @Success      200
 // @Failure      400   {object}  model.ValidationError
 // @Failure      409   {object}  model.ValidationError
@@ -251,16 +255,15 @@ func (controller *ServerController) JoinServer(ctx fiber.Ctx) error {
 		span.End()
 	}()
 
-	userId := ctx.Locals("userId").(string)
-	serverId := ctx.Params("serverId")
-
-	var payload model.ServerJoinDirectRequest
-	err = util.ReadRequestBody(ctx, &payload)
+	err = util.ReadMultipartBody(ctx)
 	if err != nil {
 		return util.SendError(ctx, err)
 	}
 
-	err = controller.ServerUsecase.JoinServer(ctx, userId, serverId, payload)
+	userId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
+
+	err = controller.ServerUsecase.JoinServer(ctx, userId, serverId)
 	if err != nil {
 		return util.SendError(ctx, err)
 	}

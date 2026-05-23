@@ -1,0 +1,1 @@
+Leave a server the user is currently a member of.

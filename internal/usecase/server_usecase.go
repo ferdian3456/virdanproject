@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -68,8 +69,8 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 	categoryIdStr := ctx.FormValue("categoryId")
 	isPrivateStr := ctx.FormValue("isPrivate")
 	nickname := ctx.FormValue("nickname")
+	username := ctx.FormValue("username")
 	bio := ctx.FormValue("bio")
-	avatarImageIdRaw := ctx.FormValue("avatarImageId")
 
 	v := util.NewValidator()
 	v.String("name", name).Required().MinLen(3).MaxLen(40)
@@ -78,14 +79,14 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 	v.String("categoryId", categoryIdStr).Required()
 	v.String("isPrivate", isPrivateStr).Required()
 	v.String("nickname", nickname).Required().MinLen(3).MaxLen(50)
-	v.String("bio", bio).MaxLen(500)
-	if avatarImageIdRaw != "" {
-		v.UUID("avatarImageId", avatarImageIdRaw)
-	}
+	v.String("username", username).Required().MinLen(3).MaxLen(22).Regex(util.UsernameRegex, util.UsernameErrorText)
+	v.String("bio", bio).MaxLen(150)
 	err = v.Validate()
 	if err != nil {
 		return response, err
 	}
+
+	username = strings.ToLower(strings.TrimSpace(username))
 
 	var categoryId int
 	categoryId, err = strconv.Atoi(categoryIdStr)
@@ -105,26 +106,12 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 		return response, err
 	}
 
-	var avatarImageIdPtr *string
-	if avatarImageIdRaw != "" {
-		var owned bool
-		owned, err = usecase.ProfileRepository.CheckProfileAvatarImageOwnership(ctxContext, userId, avatarImageIdRaw)
-		if err != nil {
-			return response, err
-		}
-		if !owned {
-			err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "Avatar image is not owned by you", Param: "avatarImageId"}
-			return response, err
-		}
-		avatarImageIdPtr = util.ToPtr(avatarImageIdRaw)
-	}
-
 	var serverAvatarFile *bytes.Reader
 	var serverAvatarSize int64
 	var serverAvatarImageId *string
-	fh, fhErr := ctx.FormFile("avatar")
+	fh, fhErr := ctx.FormFile("serverAvatar")
 	if fhErr == nil && fh != nil {
-		serverAvatarFile, serverAvatarSize, err = util.ValidateImage(ctxContext, fh, "avatar")
+		serverAvatarFile, serverAvatarSize, err = util.ValidateImage(ctxContext, fh, "serverAvatar")
 		if err != nil {
 			return response, err
 		}
@@ -141,6 +128,19 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 
 	now := time.Now().UTC()
 	serverId := uuid.New().String()
+
+	var avatarImageIdPtr *string
+	avatarImageIdPtr, err = util.ResolveProfileAvatar(
+		ctxContext, tx, ctx,
+		usecase.ProfileRepository,
+		usecase.Config,
+		usecase.Log,
+		userId,
+		now,
+	)
+	if err != nil {
+		return response, err
+	}
 
 	if serverAvatarImageId != nil {
 		avatarImage := model.ServerAvatarImage{
@@ -235,6 +235,7 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 		ServerId:      serverId,
 		UserId:        userId,
 		Nickname:      nickname,
+		Username:      username,
 		Bio:           bioPtr,
 		AvatarImageId: avatarImageIdPtr,
 		CreatedAt:     now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
@@ -276,11 +277,12 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 	if serverAvatarImageId != nil {
 		minioFullUrl := usecase.Config.String("MINIO_HTTP") + usecase.Config.String("MINIO_URL")
 		url := fmt.Sprintf("%s/%s/server/avatar/%s.webp", minioFullUrl, usecase.Config.String("MINIO_BUCKET_NAME"), *serverAvatarImageId)
-		response.Server.AvatarImageUrl = &url
+		response.Server.AvatarUrl = &url
 	}
 	response.Identity = model.ServerMemberProfileResponse{
 		ProfileId:     profileId,
 		Nickname:      nickname,
+		Username:      username,
 		Bio:           bioPtr,
 		AvatarImageId: avatarImageIdPtr,
 		CreatedAt:     now, UpdatedAt: now,
@@ -289,7 +291,7 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 	return response, nil
 }
 
-func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string, payload model.ServerJoinDirectRequest) error {
+func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string) error {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
 	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.JoinServer")
@@ -307,16 +309,25 @@ func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string,
 		attribute.String("server.id", serverId),
 	)
 
+	nickname := ctx.FormValue("nickname")
+	username := ctx.FormValue("username")
+	bio := ctx.FormValue("bio")
+
 	v := util.NewValidator()
 	v.UUID("serverId", serverId).Required()
-	v.String("nickname", payload.Nickname).Required().MinLen(3).MaxLen(50)
-	v.String("bio", util.Deref(payload.Bio, "")).MaxLen(500)
-	if payload.AvatarImageId != nil && *payload.AvatarImageId != "" {
-		v.UUID("avatarImageId", *payload.AvatarImageId)
-	}
+	v.String("nickname", nickname).Required().MinLen(3).MaxLen(50)
+	v.String("username", username).Required().MinLen(3).MaxLen(22).Regex(util.UsernameRegex, util.UsernameErrorText)
+	v.String("bio", bio).MaxLen(150)
 	err = v.Validate()
 	if err != nil {
 		return err
+	}
+
+	username = strings.ToLower(strings.TrimSpace(username))
+
+	var bioPtr *string
+	if bio != "" {
+		bioPtr = util.ToPtr(bio)
 	}
 
 	var serverInfo model.ServerCheckEligibleInfo
@@ -343,18 +354,6 @@ func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string,
 		return err
 	}
 
-	if payload.AvatarImageId != nil && *payload.AvatarImageId != "" {
-		var owned bool
-		owned, err = usecase.ProfileRepository.CheckProfileAvatarImageOwnership(ctxContext, userId, *payload.AvatarImageId)
-		if err != nil {
-			return err
-		}
-		if !owned {
-			err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "Avatar image is not owned by you", Param: "avatarImageId"}
-			return err
-		}
-	}
-
 	var memberRoleId string
 	memberRoleId, err = usecase.ServerRepository.GetRoleByName(ctxContext, serverId, "Member")
 	if err != nil {
@@ -371,6 +370,19 @@ func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string,
 
 	now := time.Now().UTC()
 
+	var avatarImageIdPtr *string
+	avatarImageIdPtr, err = util.ResolveProfileAvatar(
+		ctxContext, tx, ctx,
+		usecase.ProfileRepository,
+		usecase.Config,
+		usecase.Log,
+		userId,
+		now,
+	)
+	if err != nil {
+		return err
+	}
+
 	var existingProfileId string
 	var profileExists bool
 	existingProfileId, profileExists, err = usecase.ProfileRepository.TryGetServerMemberProfileId(ctxContext, tx, serverId, userId)
@@ -380,7 +392,7 @@ func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string,
 
 	if profileExists {
 		err = usecase.ProfileRepository.UpdateServerProfileFull(ctxContext, tx, existingProfileId,
-			payload.Nickname, payload.Bio, payload.AvatarImageId, userId, now)
+			nickname, username, bioPtr, avatarImageIdPtr, userId, now)
 		if err != nil {
 			return err
 		}
@@ -389,9 +401,10 @@ func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string,
 			Id:            uuid.New().String(),
 			ServerId:      serverId,
 			UserId:        userId,
-			Nickname:      payload.Nickname,
-			Bio:           payload.Bio,
-			AvatarImageId: payload.AvatarImageId,
+			Nickname:      nickname,
+			Username:      username,
+			Bio:           bioPtr,
+			AvatarImageId: avatarImageIdPtr,
 			CreatedAt:     now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
 		}
 		err = usecase.ProfileRepository.CreateServerMemberProfile(ctxContext, tx, profile)
@@ -443,6 +456,7 @@ func (usecase *ServerUsecase) JoinServerFromInvite(ctx fiber.Ctx, userId string,
 	v := util.NewValidator()
 	v.String("inviteCode", payload.InviteCode).Required().MinLen(8).MaxLen(8)
 	v.String("nickname", payload.Nickname).Required().MinLen(3).MaxLen(50)
+	v.String("username", payload.Username).Required().MinLen(3).MaxLen(22).Regex(util.UsernameRegex, util.UsernameErrorText)
 	v.String("bio", util.Deref(payload.Bio, "")).MaxLen(500)
 	if payload.AvatarImageId != nil && *payload.AvatarImageId != "" {
 		v.UUID("avatarImageId", *payload.AvatarImageId)
@@ -451,6 +465,8 @@ func (usecase *ServerUsecase) JoinServerFromInvite(ctx fiber.Ctx, userId string,
 	if err != nil {
 		return err
 	}
+
+	payload.Username = strings.ToLower(strings.TrimSpace(payload.Username))
 
 	var serverId string
 	serverId, err = usecase.ServerRepository.ValidateAndConsumeInvite(ctxContext, payload.InviteCode)
@@ -507,7 +523,7 @@ func (usecase *ServerUsecase) JoinServerFromInvite(ctx fiber.Ctx, userId string,
 
 	if profileExists {
 		err = usecase.ProfileRepository.UpdateServerProfileFull(ctxContext, tx, existingProfileId,
-			payload.Nickname, payload.Bio, payload.AvatarImageId, userId, now)
+			payload.Nickname, payload.Username, payload.Bio, payload.AvatarImageId, userId, now)
 		if err != nil {
 			return err
 		}
@@ -515,7 +531,7 @@ func (usecase *ServerUsecase) JoinServerFromInvite(ctx fiber.Ctx, userId string,
 		profile := model.ServerMemberProfile{
 			Id:       uuid.New().String(),
 			ServerId: serverId, UserId: userId,
-			Nickname: payload.Nickname, Bio: payload.Bio, AvatarImageId: payload.AvatarImageId,
+			Nickname: payload.Nickname, Username: payload.Username, Bio: payload.Bio, AvatarImageId: payload.AvatarImageId,
 			CreatedAt: now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
 		}
 		err = usecase.ProfileRepository.CreateServerMemberProfile(ctxContext, tx, profile)
@@ -1264,18 +1280,22 @@ func (usecase *ServerUsecase) GetDiscoveryServer(ctx fiber.Ctx, userId, cursor, 
 		}
 	}
 
-	var categoryId int
+	// Nil = no category filter (returns all public servers); non-nil = filter.
+	// Must be a pointer so pgx sends SQL NULL — a plain int 0 would be matched
+	// against B.id and silently return zero rows.
+	var categoryId *int
 	if categoryStr != "" {
-		categoryId, err = strconv.Atoi(categoryStr)
-		if err != nil {
+		parsed, parseErr := strconv.Atoi(categoryStr)
+		if parseErr != nil {
 			err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "categoryId must be int", Param: "categoryId"}
 			return response, err
 		}
+		categoryId = &parsed
 	}
 
 	minioFullUrl := usecase.Config.String("MINIO_HTTP") + usecase.Config.String("MINIO_URL") + "/" + usecase.Config.String("MINIO_BUCKET_NAME")
 	var servers []model.ServerInfoResponse
-	servers, err = usecase.ServerRepository.GetServerDiscovery(ctxContext, limit+1, categoryId, cursorObj, minioFullUrl)
+	servers, err = usecase.ServerRepository.GetServerDiscovery(ctxContext, userId, limit+1, categoryId, cursorObj, minioFullUrl)
 	if err != nil {
 		return response, err
 	}

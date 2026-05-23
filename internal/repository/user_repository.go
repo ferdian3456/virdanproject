@@ -62,21 +62,21 @@ func (repository *UserRepository) Register(ctx context.Context, tx pgx.Tx, user 
 		attribute.String("db.system", "postgres"),
 		attribute.String("db.operation", "INSERT"),
 		attribute.String("user.id", user.Id),
-		attribute.String("user.username", user.Username),
 	)
 
-	query := `INSERT INTO users (id, username, email, password, settings, created_at, updated_at, created_by, updated_by)
-			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	query := `INSERT INTO users (id, email, password, settings, created_at, updated_at, created_by, updated_by)
+			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 
 	_, err = tx.Exec(ctx, query,
-		user.Id, user.Username, user.Email, user.Password, user.Settings,
+		user.Id, user.Email, user.Password, user.Settings,
 		user.CreatedAt, user.UpdatedAt, user.CreatedBy, user.UpdatedBy)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			err = &model.ConflictError{
 				Code:    constant.ERR_CONFLICT_CODE,
-				Message: "Username or email already exists",
+				Message: "Email already exists",
+				Param:   "email",
 			}
 			return err
 		}
@@ -85,88 +85,6 @@ func (repository *UserRepository) Register(ctx context.Context, tx pgx.Tx, user 
 	}
 
 	return nil
-}
-
-// CheckUsernameOrEmailUnique iterates rows (0/1/2 from OR-match) to detect which is taken.
-// Filters deleted_at IS NULL so soft-deleted accounts free up their username/email.
-func (repository *UserRepository) CheckUsernameOrEmailUnique(ctx context.Context, username string, email string) (usernameTaken bool, emailTaken bool, err error) {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CheckUsernameOrEmailUnique")
-
-	defer func() {
-		if err != nil {
-			util.RecordErrorTelemetry(ctx, span, err)
-		}
-		span.End()
-	}()
-
-	span.SetAttributes(
-		attribute.String("db.system", "postgres"),
-		attribute.String("db.operation", "SELECT"),
-		attribute.String("user.username", username),
-		attribute.String("user.email", email),
-	)
-
-	query := `SELECT username, email FROM users
-			  WHERE (username = $1 OR email = $2) AND deleted_at IS NULL`
-
-	var rows pgx.Rows
-	rows, err = repository.DB.Query(ctx, query, username, email)
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to query username/email uniqueness", zap.Error(err))
-		return false, false, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var u, e string
-		err = rows.Scan(&u, &e)
-		if err != nil {
-			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan row", zap.Error(err))
-			return false, false, err
-		}
-		if u == username {
-			usernameTaken = true
-		}
-		if e == email {
-			emailTaken = true
-		}
-	}
-
-	return usernameTaken, emailTaken, nil
-}
-
-func (repository *UserRepository) CheckUsernameUnique(ctx context.Context, username string) (int, error) {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CheckUsernameUnique")
-	var err error
-
-	defer func() {
-		if err != nil {
-			util.RecordErrorTelemetry(ctx, span, err)
-		}
-		span.End()
-	}()
-
-	span.SetAttributes(
-		attribute.String("db.system", "postgres"),
-		attribute.String("db.operation", "SELECT"),
-		attribute.String("user.username", username),
-	)
-
-	query := `SELECT 1 FROM users WHERE username = $1 AND deleted_at IS NULL LIMIT 1`
-
-	var exists int
-	err = repository.DB.QueryRow(ctx, query, username).Scan(&exists)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return 0, nil
-		}
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to check username uniqueness", zap.Error(err))
-		return 0, err
-	}
-
-	return exists, nil
 }
 
 func (repository *UserRepository) CheckEmailUnique(ctx context.Context, email string) (bool, error) {
@@ -202,9 +120,9 @@ func (repository *UserRepository) CheckEmailUnique(ctx context.Context, email st
 	return true, nil
 }
 
-func (repository *UserRepository) GetUserAuth(ctx context.Context, username string) (string, string, error) {
+func (repository *UserRepository) GetUserAuthByEmail(ctx context.Context, email string) (string, string, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetUserAuth")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetUserAuthByEmail")
 	var err error
 
 	defer func() {
@@ -217,23 +135,23 @@ func (repository *UserRepository) GetUserAuth(ctx context.Context, username stri
 	span.SetAttributes(
 		attribute.String("db.system", "postgres"),
 		attribute.String("db.operation", "SELECT"),
-		attribute.String("db.user.username", username),
+		attribute.String("user.email", email),
 	)
 
-	query := `SELECT id, password FROM users WHERE username = $1 AND deleted_at IS NULL LIMIT 1`
+	query := `SELECT id, password FROM users WHERE email = $1 AND deleted_at IS NULL LIMIT 1`
 
 	var id, passwordHash string
-	err = repository.DB.QueryRow(ctx, query, username).Scan(&id, &passwordHash)
+	err = repository.DB.QueryRow(ctx, query, email).Scan(&id, &passwordHash)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			err = &model.BadRequestError{
 				Code:    constant.ERR_VALIDATION_CODE,
-				Message: "Username is not found",
-				Param:   "username",
+				Message: "Email is not found",
+				Param:   "email",
 			}
 			return "", "", err
 		}
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get user auth by username", zap.Error(err))
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get user auth by email", zap.Error(err))
 		return "", "", err
 	}
 
@@ -258,12 +176,12 @@ func (repository *UserRepository) GetUserInfo(ctx context.Context, id string) (m
 		attribute.String("user.id", id),
 	)
 
-	query := `SELECT id, username, email, settings, created_at, updated_at FROM users
+	query := `SELECT id, email, settings, created_at, updated_at FROM users
 			  WHERE id = $1 AND deleted_at IS NULL LIMIT 1`
 
 	var resp model.UserResponse
 	err = repository.DB.QueryRow(ctx, query, id).Scan(
-		&resp.Id, &resp.Username, &resp.Email, &resp.Settings, &resp.CreatedAt, &resp.UpdatedAt,
+		&resp.Id, &resp.Email, &resp.Settings, &resp.CreatedAt, &resp.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -744,39 +662,6 @@ func (repository *UserRepository) SetVerificationOTPState(ctx context.Context, s
 	return nil
 }
 
-func (repository *UserRepository) SetVerificationUsernameState(ctx context.Context, sessionId string, username string) error {
-	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.SetVerificationUsernameState")
-	var err error
-
-	defer func() {
-		if err != nil {
-			util.RecordErrorTelemetry(ctx, span, err)
-		}
-		span.End()
-	}()
-
-	span.SetAttributes(
-		attribute.String("db.system", "redis"),
-		attribute.String("db.operation", "HSET"),
-		attribute.String("signup.session_id", sessionId),
-		attribute.String("user.username", username),
-	)
-
-	key := fmt.Sprintf("signup:%s", sessionId)
-
-	err = repository.DBCache.HSet(ctx, key, map[string]interface{}{
-		"step":     model.SignupStepUsernameSet,
-		"username": username,
-	}).Err()
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to set verification username state in cache", zap.Error(err))
-		return err
-	}
-
-	return nil
-}
-
 func (repository *UserRepository) GetAllSessionData(ctx context.Context, sessionId string) (map[string]string, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetAllSessionData")
@@ -1248,4 +1133,285 @@ func (repository *UserRepository) RevokeAllRefreshTokensByUserIdTx(ctx context.C
 	}
 
 	return nil
+}
+
+func (repository *UserRepository) GetPasswordHashById(ctx context.Context, userId string) (string, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetPasswordHashById")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("user.id", userId),
+	)
+
+	query := `SELECT password FROM users WHERE id = $1 AND deleted_at IS NULL LIMIT 1`
+
+	var hash string
+	err = repository.DB.QueryRow(ctx, query, userId).Scan(&hash)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			err = &model.NotFoundError{
+				Code:    constant.ERR_NOT_FOUND_CODE,
+				Message: "User not found",
+				Param:   "userId",
+			}
+			return "", err
+		}
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get password hash", zap.Error(err))
+		return "", err
+	}
+	return hash, nil
+}
+
+func (repository *UserRepository) UpdatePasswordHash(ctx context.Context, userId, newHash string, updatedAt time.Time) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.UpdatePasswordHash")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("user.id", userId),
+	)
+
+	query := `UPDATE users SET password = $1, updated_at = $2, updated_by = $3 WHERE id = $4 AND deleted_at IS NULL`
+	_, err = repository.DB.Exec(ctx, query, newHash, updatedAt, userId, userId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to update password hash", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+// =============================================================================
+// Email change (Redis session + Postgres email update)
+// =============================================================================
+
+// SetEmailChangeSession stashes a pending email-change request in Redis. Key
+// shape: email_change:{userId} → hash { newEmail, otpHash, attempts="0" }.
+// TTL = 10 min. Overwrites any existing pending request.
+func (repository *UserRepository) SetEmailChangeSession(ctx context.Context, userId, newEmail, otpHash string, ttl time.Duration) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.SetEmailChangeSession")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "HSET"),
+		attribute.String("user.id", userId),
+	)
+
+	key := fmt.Sprintf("email_change:%s", userId)
+	pipe := repository.DBCache.TxPipeline()
+	pipe.Del(ctx, key)
+	pipe.HSet(ctx, key, map[string]interface{}{
+		"newEmail": newEmail,
+		"otpHash":  otpHash,
+		"attempts": "0",
+	})
+	pipe.Expire(ctx, key, ttl)
+	_, err = pipe.Exec(ctx)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to set email change session", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+func (repository *UserRepository) GetEmailChangeSessionTTL(ctx context.Context, userId string) (time.Duration, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetEmailChangeSessionTTL")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "TTL"),
+		attribute.String("user.id", userId),
+	)
+	key := fmt.Sprintf("email_change:%s", userId)
+	var ttl time.Duration
+	ttl, err = repository.DBCache.TTL(ctx, key).Result()
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to read email change session TTL", zap.Error(err))
+		return 0, err
+	}
+	return ttl, nil
+}
+
+func (repository *UserRepository) GetEmailChangeSession(ctx context.Context, userId string) (newEmail, otpHash string, attempts int, err error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetEmailChangeSession")
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "HMGET"),
+		attribute.String("user.id", userId),
+	)
+	key := fmt.Sprintf("email_change:%s", userId)
+	var data []interface{}
+	data, err = repository.DBCache.HMGet(ctx, key, "newEmail", "otpHash", "attempts").Result()
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get email change session", zap.Error(err))
+		return "", "", 0, err
+	}
+	if data[0] == nil || data[1] == nil {
+		return "", "", 0, nil
+	}
+	newEmail, _ = data[0].(string)
+	otpHash, _ = data[1].(string)
+	if data[2] != nil {
+		if s, ok := data[2].(string); ok {
+			if n, convErr := strconv.Atoi(s); convErr == nil {
+				attempts = n
+			}
+		}
+	}
+	return newEmail, otpHash, attempts, nil
+}
+
+func (repository *UserRepository) IncrementEmailChangeAttempts(ctx context.Context, userId string) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.IncrementEmailChangeAttempts")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "HINCRBY"),
+		attribute.String("user.id", userId),
+	)
+	key := fmt.Sprintf("email_change:%s", userId)
+	_, err = repository.DBCache.HIncrBy(ctx, key, "attempts", 1).Result()
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to bump email change attempts", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+func (repository *UserRepository) DeleteEmailChangeSession(ctx context.Context, userId string) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.DeleteEmailChangeSession")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+	span.SetAttributes(
+		attribute.String("db.system", "redis"),
+		attribute.String("db.operation", "DEL"),
+		attribute.String("user.id", userId),
+	)
+	key := fmt.Sprintf("email_change:%s", userId)
+	_, err = repository.DBCache.Del(ctx, key).Result()
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete email change session", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+func (repository *UserRepository) UpdateEmail(ctx context.Context, userId, newEmail string, updatedAt time.Time) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.UpdateEmail")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("user.id", userId),
+	)
+	query := `UPDATE users SET email = $1, updated_at = $2, updated_by = $3 WHERE id = $4 AND deleted_at IS NULL`
+	_, err = repository.DB.Exec(ctx, query, newEmail, updatedAt, userId, userId)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			err = &model.ConflictError{
+				Code:    constant.ERR_CONFLICT_CODE,
+				Message: "Email already in use",
+				Param:   "newEmail",
+			}
+			return err
+		}
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to update user email", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+func (repository *UserRepository) GetUserEmail(ctx context.Context, userId string) (string, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetUserEmail")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("user.id", userId),
+	)
+	query := `SELECT email FROM users WHERE id = $1 AND deleted_at IS NULL LIMIT 1`
+	var email string
+	err = repository.DB.QueryRow(ctx, query, userId).Scan(&email)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			err = &model.NotFoundError{
+				Code:    constant.ERR_NOT_FOUND_CODE,
+				Message: "User not found",
+				Param:   "userId",
+			}
+			return "", err
+		}
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get user email", zap.Error(err))
+		return "", err
+	}
+	return email, nil
 }

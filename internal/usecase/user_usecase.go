@@ -60,20 +60,20 @@ func (usecase *UserUsecase) Login(ctx fiber.Ctx, payload model.UserLoginRequest)
 
 	var response model.TokenResponse
 
-	span.SetAttributes(attribute.String("user.username", payload.Username))
+	span.SetAttributes(attribute.String("user.email", payload.Email))
 
 	v := util.NewValidator()
-	v.String("username", payload.Username).Required().MinLen(4).MaxLen(22)
+	v.String("email", payload.Email).Required().Email().MaxLen(255)
 	v.String("password", payload.Password).Required().MinLen(5).MaxLen(20)
 	err = v.Validate()
 	if err != nil {
 		return response, err
 	}
 
-	payload.Username = strings.ToLower(payload.Username)
+	payload.Email = strings.ToLower(payload.Email)
 
 	var userId, passwordHash string
-	userId, passwordHash, err = usecase.UserRepository.GetUserAuth(ctxContext, payload.Username)
+	userId, passwordHash, err = usecase.UserRepository.GetUserAuthByEmail(ctxContext, payload.Email)
 	if err != nil {
 		return response, err
 	}
@@ -426,88 +426,6 @@ func (usecase *UserUsecase) ResendOtp(ctx fiber.Ctx, payload model.UserResendOTP
 	return response, nil
 }
 
-// VerifyUsername stores a unique username in the signup session.
-func (usecase *UserUsecase) VerifyUsername(ctx fiber.Ctx, payload model.UserVerifyUsernameRequest) error {
-	ctxContext := ctx.Context()
-	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.VerifyUsername")
-	var err error
-
-	defer func() {
-		if err != nil {
-			util.RecordErrorTelemetry(ctxContext, span, err)
-		}
-		span.End()
-	}()
-
-	span.SetAttributes(
-		attribute.String("signup.session_id", payload.SessionId),
-		attribute.String("user.username", payload.Username),
-	)
-
-	v := util.NewValidator()
-	v.String("sessionId", payload.SessionId).Required().UUID()
-	v.String("username", payload.Username).Required().MinLen(4).MaxLen(22)
-	err = v.Validate()
-	if err != nil {
-		return err
-	}
-
-	payload.Username = strings.ToLower(payload.Username)
-
-	var data []interface{}
-	data, err = usecase.UserRepository.GetSignupState(ctxContext, payload.SessionId)
-	if err != nil {
-		return err
-	}
-
-	if len(data) == 0 || data[0] == nil {
-		err = &model.BadRequestError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Signup session is expired or does not exist",
-			Param:   "sessionId",
-		}
-		return err
-	}
-
-	stepRaw, ok := data[0].(string)
-	if !ok {
-		err = fmt.Errorf("invalid signup step format from session data")
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Session data corrupt", zap.Error(err))
-		return err
-	}
-
-	if stepRaw == model.SignupStepStart {
-		err = &model.BadRequestError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid signup step. Verify OTP first.",
-			Param:   "sessionId",
-		}
-		return err
-	}
-
-	var taken int
-	taken, err = usecase.UserRepository.CheckUsernameUnique(ctxContext, payload.Username)
-	if err != nil {
-		return err
-	}
-	if taken > 0 {
-		err = &model.ConflictError{
-			Code:    constant.ERR_CONFLICT_CODE,
-			Message: "Username is already taken",
-			Param:   "username",
-		}
-		return err
-	}
-
-	err = usecase.UserRepository.SetVerificationUsernameState(ctxContext, payload.SessionId, payload.Username)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // VerifyPassword completes the signup flow by creating the user and issuing tokens.
 func (usecase *UserUsecase) VerifyPassword(ctx fiber.Ctx, payload model.UserVerifyPasswordRequest) (model.TokenResponse, error) {
 	ctxContext := ctx.Context()
@@ -548,26 +466,18 @@ func (usecase *UserUsecase) VerifyPassword(ctx fiber.Ctx, payload model.UserVeri
 		return response, err
 	}
 
-	if sessionData["step"] != model.SignupStepUsernameSet {
+	if sessionData["step"] != model.SignupStepOTPVerified {
 		err = &model.BadRequestError{
 			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid signup step. Set username first.",
+			Message: "Invalid signup step. Verify OTP first.",
 			Param:   "sessionId",
 		}
 		return response, err
 	}
 
-	var usernameTaken, emailTaken bool
-	usernameTaken, emailTaken, err = usecase.UserRepository.CheckUsernameOrEmailUnique(ctxContext, sessionData["username"], sessionData["email"])
+	var emailTaken bool
+	emailTaken, err = usecase.UserRepository.CheckEmailUnique(ctxContext, sessionData["email"])
 	if err != nil {
-		return response, err
-	}
-	if usernameTaken {
-		err = &model.ConflictError{
-			Code:    constant.ERR_CONFLICT_CODE,
-			Message: "Username has been taken since you started signup. Please restart.",
-			Param:   "username",
-		}
 		return response, err
 	}
 	if emailTaken {
@@ -610,7 +520,6 @@ func (usecase *UserUsecase) VerifyPassword(ctx fiber.Ctx, payload model.UserVeri
 
 	user := model.User{
 		Id:        userId,
-		Username:  sessionData["username"],
 		Email:     sessionData["email"],
 		Password:  string(hashedPassword),
 		Settings:  []byte("{}"),
@@ -1039,5 +948,307 @@ func (usecase *UserUsecase) DeleteAccount(ctx fiber.Ctx, userId string) error {
 		return err
 	}
 
+	return nil
+}
+
+// VerifyCurrentPassword checks if the supplied password matches the user's
+// stored hash. Used by the FE change-password flow's "verify current" step.
+func (usecase *UserUsecase) VerifyCurrentPassword(ctx fiber.Ctx, userId string, payload model.UserVerifyCurrentPasswordRequest) error {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.VerifyCurrentPassword")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(attribute.String("user.id", userId))
+
+	v := util.NewValidator()
+	v.String("password", payload.Password).Required().MinLen(5).MaxLen(72)
+	err = v.Validate()
+	if err != nil {
+		return err
+	}
+
+	var hash string
+	hash, err = usecase.UserRepository.GetPasswordHashById(ctxContext, userId)
+	if err != nil {
+		return err
+	}
+
+	if bcryptErr := bcrypt.CompareHashAndPassword([]byte(hash), []byte(payload.Password)); bcryptErr != nil {
+		err = &model.BadRequestError{
+			Code:    constant.ERR_BAD_REQUEST_CODE,
+			Message: "Current password is incorrect",
+			Param:   "password",
+		}
+		return err
+	}
+	return nil
+}
+
+// ChangePassword verifies the current password and atomically swaps it with a
+// fresh bcrypt hash of newPassword. Does NOT revoke existing refresh tokens —
+// that's a separate decision (TD-007 multi-device).
+func (usecase *UserUsecase) ChangePassword(ctx fiber.Ctx, userId string, payload model.UserChangePasswordRequest) error {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.ChangePassword")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(attribute.String("user.id", userId))
+
+	v := util.NewValidator()
+	v.String("currentPassword", payload.CurrentPassword).Required().MinLen(5).MaxLen(72)
+	v.String("newPassword", payload.NewPassword).Required().MinLen(8).MaxLen(72)
+	v.String("newPassword", payload.NewPassword).NotEqual(payload.CurrentPassword, "currentPassword")
+	err = v.Validate()
+	if err != nil {
+		return err
+	}
+
+	var hash string
+	hash, err = usecase.UserRepository.GetPasswordHashById(ctxContext, userId)
+	if err != nil {
+		return err
+	}
+
+	if bcryptErr := bcrypt.CompareHashAndPassword([]byte(hash), []byte(payload.CurrentPassword)); bcryptErr != nil {
+		err = &model.BadRequestError{
+			Code:    constant.ERR_BAD_REQUEST_CODE,
+			Message: "Current password is incorrect",
+			Param:   "currentPassword",
+		}
+		return err
+	}
+
+	var newHash []byte
+	newHash, err = bcrypt.GenerateFromPassword([]byte(payload.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to hash new password", zap.Error(err))
+		return err
+	}
+
+	now := time.Now().UTC()
+	err = usecase.UserRepository.UpdatePasswordHash(ctxContext, userId, string(newHash), now)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+const (
+	emailChangeTTL      = 10 * time.Minute
+	emailChangeCooldown = 60 * time.Second
+	emailChangeMaxTries = 5
+)
+
+// RequestEmailChange validates the new address, rate-limits the user, then
+// emails an OTP to the user's CURRENT email and stashes a pending session in
+// Redis. The new email is committed only after ConfirmEmailChange.
+func (usecase *UserUsecase) RequestEmailChange(ctx fiber.Ctx, userId string, payload model.UserChangeEmailRequestRequest) (model.UserChangeEmailRequestResponse, error) {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.RequestEmailChange")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	var response model.UserChangeEmailRequestResponse
+
+	v := util.NewValidator()
+	v.String("newEmail", payload.NewEmail).Required().Email().MaxLen(255)
+	err = v.Validate()
+	if err != nil {
+		return response, err
+	}
+
+	newEmail := strings.ToLower(strings.TrimSpace(payload.NewEmail))
+	span.SetAttributes(
+		attribute.String("user.id", userId),
+		attribute.String("email.new", newEmail),
+	)
+
+	// Rate-limit per user: refuse a second request while the previous OTP
+	// has more than (TTL - cooldown) remaining (i.e. less than 60s has passed
+	// since the last request).
+	var ttl time.Duration
+	ttl, err = usecase.UserRepository.GetEmailChangeSessionTTL(ctxContext, userId)
+	if err != nil {
+		return response, err
+	}
+	if ttl > emailChangeTTL-emailChangeCooldown {
+		secondsLeft := int((ttl - (emailChangeTTL - emailChangeCooldown)).Seconds())
+		err = &model.BadRequestError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: fmt.Sprintf("Please wait %ds before requesting another code", secondsLeft),
+			Param:   "newEmail",
+		}
+		return response, err
+	}
+
+	var currentEmail string
+	currentEmail, err = usecase.UserRepository.GetUserEmail(ctxContext, userId)
+	if err != nil {
+		return response, err
+	}
+	if currentEmail == newEmail {
+		err = &model.BadRequestError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "New email must differ from current email",
+			Param:   "newEmail",
+		}
+		return response, err
+	}
+
+	var emailTaken bool
+	emailTaken, err = usecase.UserRepository.CheckEmailUnique(ctxContext, newEmail)
+	if err != nil {
+		return response, err
+	}
+	if emailTaken {
+		err = &model.ConflictError{
+			Code:    constant.ERR_CONFLICT_CODE,
+			Message: "Email is already registered",
+			Param:   "newEmail",
+		}
+		return response, err
+	}
+
+	var otp string
+	otp, err = util.GenerateOTP()
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate OTP", zap.Error(err))
+		return response, err
+	}
+	otpHash := util.HashSHA256(otp)
+	expiresAt := time.Now().UTC().Add(emailChangeTTL).Unix()
+
+	var tmpl *template.Template
+	tmpl, err = template.ParseFS(util.TemplateFS, "template/otp.html")
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to parse OTP template", zap.Error(err))
+		return response, err
+	}
+
+	var bodyBuf bytes.Buffer
+	err = tmpl.Execute(&bodyBuf, model.OTPTemplateData{OTP: otp, ExpiresIn: int64(emailChangeTTL.Minutes())})
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to execute OTP template", zap.Error(err))
+		return response, err
+	}
+
+	// Send OTP to the OLD email so an attacker who knows the password
+	// cannot move the account by swapping the email.
+	emailCtx, emailSpan := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.RequestEmailChange.SendEmail")
+	err = util.SendEmail(
+		usecase.Config.String("SMTP_HOST"),
+		usecase.Config.Int("SMTP_PORT"),
+		usecase.Config.String("SENDER_NAME"),
+		usecase.Config.String("SENDER_EMAIL"),
+		usecase.Config.String("SENDER_PASSWORD"),
+		currentEmail,
+		"Confirm your email change",
+		bodyBuf.String(),
+	)
+	if err != nil {
+		util.RecordErrorTelemetry(emailCtx, emailSpan, err)
+		emailSpan.End()
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to send OTP email", zap.Error(err))
+		return response, err
+	}
+	emailSpan.End()
+
+	err = usecase.UserRepository.SetEmailChangeSession(ctxContext, userId, newEmail, otpHash, emailChangeTTL)
+	if err != nil {
+		return response, err
+	}
+
+	response.OtpExpiresAt = expiresAt
+	return response, nil
+}
+
+// ConfirmEmailChange validates the OTP, commits the email swap, and clears
+// the Redis session.
+func (usecase *UserUsecase) ConfirmEmailChange(ctx fiber.Ctx, userId string, payload model.UserChangeEmailConfirmRequest) error {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.ConfirmEmailChange")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(attribute.String("user.id", userId))
+
+	v := util.NewValidator()
+	v.String("otp", payload.OTP).Required().Len(6)
+	err = v.Validate()
+	if err != nil {
+		return err
+	}
+
+	var newEmail, otpHash string
+	var attempts int
+	newEmail, otpHash, attempts, err = usecase.UserRepository.GetEmailChangeSession(ctxContext, userId)
+	if err != nil {
+		return err
+	}
+	if newEmail == "" || otpHash == "" {
+		err = &model.BadRequestError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "No pending email change. Request a new code.",
+			Param:   "otp",
+		}
+		return err
+	}
+	if attempts >= emailChangeMaxTries {
+		_ = usecase.UserRepository.DeleteEmailChangeSession(ctxContext, userId)
+		err = &model.BadRequestError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Too many attempts. Request a new code.",
+			Param:   "otp",
+		}
+		return err
+	}
+
+	if subtle.ConstantTimeCompare([]byte(otpHash), []byte(util.HashSHA256(payload.OTP))) != 1 {
+		_ = usecase.UserRepository.IncrementEmailChangeAttempts(ctxContext, userId)
+		err = &model.BadRequestError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Invalid code",
+			Param:   "otp",
+		}
+		return err
+	}
+
+	now := time.Now().UTC()
+	err = usecase.UserRepository.UpdateEmail(ctxContext, userId, newEmail, now)
+	if err != nil {
+		return err
+	}
+
+	_ = usecase.UserRepository.DeleteEmailChangeSession(ctxContext, userId)
 	return nil
 }

@@ -1,0 +1,1 @@
+Delete the current user account.

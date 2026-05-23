@@ -65,15 +65,10 @@ type ServerUpdateSettingsRequest struct {
 	IsPrivate bool `json:"isPrivate"`
 }
 
-type ServerJoinDirectRequest struct {
-	Nickname      string  `json:"nickname"`
-	Bio           *string `json:"bio"`
-	AvatarImageId *string `json:"avatarImageId"`
-}
-
 type ServerJoinByInviteRequest struct {
 	InviteCode    string  `json:"inviteCode"`
 	Nickname      string  `json:"nickname"`
+	Username      string  `json:"username"`
 	Bio           *string `json:"bio"`
 	AvatarImageId *string `json:"avatarImageId"`
 }
@@ -96,57 +91,58 @@ type ServerUpdateResponse struct {
 }
 
 type ServerDetailResponse struct {
-	Id             string                 `json:"id"`
-	OwnerId        string                 `json:"ownerId"`
-	OwnerNickname  string                 `json:"ownerNickname"`
-	Name           string                 `json:"name"`
-	ShortName      string                 `json:"shortName"`
-	CategoryId     *int                   `json:"categoryId"`
-	CategoryName   *string                `json:"categoryName"`
-	AvatarImageUrl *string                `json:"avatarImageUrl"`
-	BannerImageUrl *string                `json:"bannerImageUrl"`
-	Description    *string                `json:"description"`
-	Settings       sonic.NoCopyRawMessage `json:"settings" swaggertype:"object"`
-	MemberCount    int                    `json:"memberCount"`
-	IsMember       bool                   `json:"isMember"`
-	CreatedAt      time.Time              `json:"createdAt"`
-	UpdatedAt      time.Time              `json:"updatedAt"`
+	Id            string                 `json:"id"`
+	OwnerId       string                 `json:"ownerId"`
+	OwnerNickname string                 `json:"ownerNickname"`
+	Name          string                 `json:"name"`
+	ShortName     string                 `json:"shortName"`
+	CategoryId    *int                   `json:"categoryId"`
+	CategoryName  *string                `json:"categoryName"`
+	AvatarUrl     *string                `json:"avatarUrl"`
+	BannerUrl     *string                `json:"bannerUrl"`
+	Description   *string                `json:"description"`
+	Settings      sonic.NoCopyRawMessage `json:"settings" swaggertype:"object"`
+	MemberCount   int                    `json:"memberCount"`
+	IsMember      bool                   `json:"isMember"`
+	CreatedAt     time.Time              `json:"createdAt"`
+	UpdatedAt     time.Time              `json:"updatedAt"`
 }
 
 type ServerInfoResponse struct {
-	Id          string    `json:"id"`
-	Name        string    `json:"name"`
-	ShortName   string    `json:"shortName"`
-	CategoryId  *int      `json:"categoryId"`
-	CategoryName *string  `json:"categoryName"`
-	AvatarUrl   *string   `json:"avatarUrl"`
-	BannerUrl   *string   `json:"bannerUrl"`
-	MemberCount int       `json:"memberCount"`
-	Description *string   `json:"description"`
-	CreatedAt   time.Time `json:"createdAt"`
+	Id           string    `json:"id"`
+	Name         string    `json:"name"`
+	ShortName    string    `json:"shortName"`
+	CategoryId   *int      `json:"categoryId"`
+	CategoryName *string   `json:"categoryName"`
+	AvatarUrl    *string   `json:"avatarUrl"`
+	BannerUrl    *string   `json:"bannerUrl"`
+	MemberCount  int       `json:"memberCount"`
+	IsMember     bool      `json:"isMember"`
+	Description  *string   `json:"description"`
+	CreatedAt    time.Time `json:"createdAt"`
 }
 
 type ServerUserResponse struct {
-	Id          string    `json:"id"`
-	Name        string    `json:"name"`
-	ShortName   string    `json:"shortName"`
-	AvatarUrl   *string   `json:"avatarUrl"`
-	CategoryId  *int      `json:"categoryId"`
-	CategoryName *string  `json:"categoryName"`
-	MemberCount int       `json:"memberCount"`
-	JoinedAt    time.Time `json:"joinedAt"`
-	MyNickname  string    `json:"myNickname"`
-	MyAvatarUrl *string   `json:"myAvatarUrl"`
+	Id           string    `json:"id"`
+	Name         string    `json:"name"`
+	ShortName    string    `json:"shortName"`
+	AvatarUrl    *string   `json:"avatarUrl"`
+	CategoryId   *int      `json:"categoryId"`
+	CategoryName *string   `json:"categoryName"`
+	MemberCount  int       `json:"memberCount"`
+	JoinedAt     time.Time `json:"joinedAt"`
+	MyNickname   string    `json:"myNickname"`
+	MyAvatarUrl  *string   `json:"myAvatarUrl"`
 }
 
 type ServerInfoForInviteResponse struct {
-	Code          string     `json:"code"`
-	ServerId      string     `json:"serverId"`
-	ServerName    string     `json:"serverName"`
-	ServerAvatarUrl *string  `json:"serverAvatarUrl"`
-	OwnerNickname string     `json:"ownerNickname"`
-	MemberCount   int        `json:"memberCount"`
-	ExpiresAt     *time.Time `json:"expiresAt"`
+	Code            string     `json:"code"`
+	ServerId        string     `json:"serverId"`
+	ServerName      string     `json:"serverName"`
+	ServerAvatarUrl *string    `json:"serverAvatarUrl"`
+	OwnerNickname   string     `json:"ownerNickname"`
+	MemberCount     int        `json:"memberCount"`
+	ExpiresAt       *time.Time `json:"expiresAt"`
 }
 
 type ServerInviteLinkResponse struct {
@@ -184,8 +180,8 @@ type ServerCategoryListResponse struct {
 }
 
 type ServerCategoryResponse struct {
-	Id   int    `json:"id"`
-	Name string `json:"name"`
+	Id           int    `json:"id"`
+	CategoryName string `json:"categoryName"`
 }
 
 type ServerCategoryCursor struct {

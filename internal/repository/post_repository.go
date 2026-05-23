@@ -238,6 +238,7 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId string, us
 			sp.created_at, sp.updated_at,
 			spi.object_key,
 			smp.nickname,
+			smp.username,
 			pai.object_key,
 			CASE
 				WHEN u.deleted_at IS NOT NULL THEN 'user_deleted'
@@ -267,7 +268,8 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId string, us
 		&resp.UpdatedAt,
 		&resp.ImageUrl,
 		&resp.Author.Nickname,
-		&resp.Author.AvatarImageUrl,
+		&resp.Author.Username,
+		&resp.Author.AvatarUrl,
 		&authorStatus,
 		&resp.LikeCount,
 		&resp.CommentCount,
@@ -288,8 +290,8 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId string, us
 	if resp.ImageUrl != nil {
 		*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
 	}
-	if resp.Author.AvatarImageUrl != nil {
-		*resp.Author.AvatarImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarImageUrl)
+	if resp.Author.AvatarUrl != nil {
+		*resp.Author.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarUrl)
 	}
 
 	return resp, nil
@@ -318,6 +320,7 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 			sp.created_at, sp.updated_at,
 			spi.object_key,
 			smp.nickname,
+			smp.username,
 			pai.object_key,
 			CASE
 				WHEN u.deleted_at IS NOT NULL THEN 'user_deleted'
@@ -369,7 +372,8 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 			&resp.UpdatedAt,
 			&resp.ImageUrl,
 			&resp.Author.Nickname,
-			&resp.Author.AvatarImageUrl,
+			&resp.Author.Username,
+			&resp.Author.AvatarUrl,
 			&authorStatus,
 			&resp.LikeCount,
 			&resp.CommentCount,
@@ -386,8 +390,8 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 		if resp.ImageUrl != nil {
 			*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
 		}
-		if resp.Author.AvatarImageUrl != nil {
-			*resp.Author.AvatarImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarImageUrl)
+		if resp.Author.AvatarUrl != nil {
+			*resp.Author.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarUrl)
 		}
 
 		posts = append(posts, resp)
@@ -419,6 +423,7 @@ func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit 
 			sp.created_at, sp.updated_at,
 			spi.object_key,
 			smp.nickname,
+			smp.username,
 			pai.object_key,
 			(SELECT COUNT(*) FROM server_post_likes WHERE post_id = sp.id) AS like_count,
 			(SELECT COUNT(*) FROM server_post_comments WHERE post_id = sp.id) AS comment_count,
@@ -462,7 +467,8 @@ func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit 
 			&resp.UpdatedAt,
 			&resp.ImageUrl,
 			&resp.Author.Nickname,
-			&resp.Author.AvatarImageUrl,
+			&resp.Author.Username,
+			&resp.Author.AvatarUrl,
 			&resp.LikeCount,
 			&resp.CommentCount,
 			&resp.UserLiked,
@@ -478,8 +484,8 @@ func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit 
 		if resp.ImageUrl != nil {
 			*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
 		}
-		if resp.Author.AvatarImageUrl != nil {
-			*resp.Author.AvatarImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarImageUrl)
+		if resp.Author.AvatarUrl != nil {
+			*resp.Author.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarUrl)
 		}
 
 		posts = append(posts, resp)
@@ -724,6 +730,7 @@ func (repository *PostRepository) GetCommentById(ctx context.Context, commentId 
 			c.id, c.post_id, c.parent_id, c.content, c.author_id,
 			c.created_at, c.updated_at,
 			smp.nickname AS author_nickname,
+			smp.username AS author_username,
 			pai.object_key AS author_avatar_key,
 			CASE
 				WHEN u.deleted_at IS NOT NULL THEN 'user_deleted'
@@ -741,12 +748,12 @@ func (repository *PostRepository) GetCommentById(ctx context.Context, commentId 
 
 	var resp model.ServerCommentResponse
 	var authorAvatarKey *string
-	var authorNickname, authorStatus string
+	var authorNickname, authorUsername, authorStatus string
 
 	err = repository.DB.QueryRow(ctx, query, commentId).Scan(
 		&resp.Id, &resp.PostId, &resp.ParentId, &resp.Content, &resp.Author.UserId,
 		&resp.CreatedAt, &resp.UpdatedAt,
-		&authorNickname, &authorAvatarKey,
+		&authorNickname, &authorUsername, &authorAvatarKey,
 		&authorStatus,
 	)
 	if err != nil {
@@ -759,10 +766,11 @@ func (repository *PostRepository) GetCommentById(ctx context.Context, commentId 
 	}
 
 	resp.Author.Nickname = authorNickname
+	resp.Author.Username = authorUsername
 	resp.Author.Status = model.AuthorStatus(authorStatus)
 	if authorAvatarKey != nil {
 		avatarUrl := fmt.Sprintf("%s/%s", minioFullUrl, *authorAvatarKey)
-		resp.Author.AvatarImageUrl = &avatarUrl
+		resp.Author.AvatarUrl = &avatarUrl
 	}
 	resp.IsOwner = resp.Author.UserId == userId
 
@@ -791,6 +799,7 @@ func (repository *PostRepository) GetComments(ctx context.Context, limit int, po
 			c.id, c.post_id, c.parent_id, c.content, c.author_id,
 			c.created_at, c.updated_at,
 			smp.nickname AS author_nickname,
+			smp.username AS author_username,
 			pai.object_key AS author_avatar_key,
 			CASE
 				WHEN u.deleted_at IS NOT NULL THEN 'user_deleted'
@@ -829,12 +838,12 @@ func (repository *PostRepository) GetComments(ctx context.Context, limit int, po
 	for rows.Next() {
 		var resp model.ServerCommentResponse
 		var authorAvatarKey *string
-		var authorNickname, authorStatus string
+		var authorNickname, authorUsername, authorStatus string
 
 		err = rows.Scan(
 			&resp.Id, &resp.PostId, &resp.ParentId, &resp.Content, &resp.Author.UserId,
 			&resp.CreatedAt, &resp.UpdatedAt,
-			&authorNickname, &authorAvatarKey,
+			&authorNickname, &authorUsername, &authorAvatarKey,
 			&authorStatus,
 		)
 		if err != nil {
@@ -843,10 +852,11 @@ func (repository *PostRepository) GetComments(ctx context.Context, limit int, po
 		}
 
 		resp.Author.Nickname = authorNickname
+		resp.Author.Username = authorUsername
 		resp.Author.Status = model.AuthorStatus(authorStatus)
 		if authorAvatarKey != nil {
 			avatarUrl := fmt.Sprintf("%s/%s", minioFullUrl, *authorAvatarKey)
-			resp.Author.AvatarImageUrl = &avatarUrl
+			resp.Author.AvatarUrl = &avatarUrl
 		}
 		resp.IsOwner = resp.Author.UserId == userId
 

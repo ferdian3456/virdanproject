@@ -9,23 +9,17 @@ import (
 const (
 	SignupStepStart       = "start_signup"
 	SignupStepOTPVerified = "otp_verified"
-	SignupStepUsernameSet = "username_set"
 	SignupStepPasswordSet = "password_set"
 )
 
 type UserCreateRequest struct {
-	Username string `json:"username"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
 type UserLoginRequest struct {
-	Username string `json:"username"`
+	Email    string `json:"email"`
 	Password string `json:"password"`
-}
-
-type UsernameUpdateRequest struct {
-	Username string `json:"username"`
 }
 
 type UserSignupStartRequest struct {
@@ -51,11 +45,6 @@ type UserResendOTPRequest struct {
 	SessionId string `json:"sessionId"`
 }
 
-type UserVerifyUsernameRequest struct {
-	SessionId string `json:"sessionId"`
-	Username  string `json:"username"`
-}
-
 type UserSignupStartResponse struct {
 	SessionId    string `json:"sessionId"`
 	OtpExpiresAt int64  `json:"otpExpiresAt"`
@@ -63,9 +52,8 @@ type UserSignupStartResponse struct {
 
 type UserResponse struct {
 	Id        string                 `json:"id"`
-	Username  string                 `json:"username"`
 	Email     string                 `json:"email"`
-	Settings  sonic.NoCopyRawMessage `json:"settings"`
+	Settings  sonic.NoCopyRawMessage `json:"settings" swaggertype:"object"`
 	CreatedAt time.Time              `json:"createdAt"`
 	UpdatedAt time.Time              `json:"updatedAt"`
 }
@@ -77,7 +65,6 @@ type UserSignupStatus struct {
 
 type User struct {
 	Id        string
-	Username  string
 	Email     string
 	Password  string
 	Settings  []byte
@@ -86,6 +73,27 @@ type User struct {
 	CreatedBy string
 	UpdatedBy string
 	DeletedAt *time.Time
+}
+
+type UserVerifyCurrentPasswordRequest struct {
+	Password string `json:"password"`
+}
+
+type UserChangePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
+type UserChangeEmailRequestRequest struct {
+	NewEmail string `json:"newEmail"`
+}
+
+type UserChangeEmailConfirmRequest struct {
+	OTP string `json:"otp"`
+}
+
+type UserChangeEmailRequestResponse struct {
+	OtpExpiresAt int64 `json:"otpExpiresAt"`
 }
 
 type OTPSignupData struct {

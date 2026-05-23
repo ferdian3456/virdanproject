@@ -67,7 +67,6 @@ func (c *RouteConfig) SetupRoute() {
 	authGroup := api.Group("/auth")
 	authGroup.Post("/signup/start", c.UserController.StartSignup)
 	authGroup.Post("/signup/otp", c.UserController.VerifyOtp)
-	authGroup.Post("/signup/username", c.UserController.VerifyUsername)
 	authGroup.Post("/signup/password", c.UserController.VerifyPassword)
 	authGroup.Get("/signup/:sessionId/status", c.UserController.GetSignupStatus)
 	authGroup.Post("/signup/resend-otp", c.UserController.ResendOtp)
@@ -81,6 +80,10 @@ func (c *RouteConfig) SetupRoute() {
 	userGroup.Get("/me", c.UserController.GetUserInfo)
 	userGroup.Delete("/me", c.UserController.DeleteAccount)
 	userGroup.Post("/logout", c.UserController.Logout)
+	userGroup.Post("/password/verify", c.UserController.VerifyCurrentPassword)
+	userGroup.Put("/password", c.UserController.ChangePassword)
+	userGroup.Post("/email/change/request", c.UserController.RequestEmailChange)
+	userGroup.Post("/email/change/confirm", c.UserController.ConfirmEmailChange)
 
 	// Public server routes (NO AUTH) - must be defined BEFORE protected routes
 	// to ensure Fiber matches these routes first
@@ -124,7 +127,6 @@ func (c *RouteConfig) SetupRoute() {
 	profileGroup.Get("/profiles/history", c.ProfileController.GetProfileHistory)
 	profileGroup.Get("/servers/:serverId/profile/me", c.ProfileController.GetServerProfileMe)
 	profileGroup.Put("/servers/:serverId/profile", c.ProfileController.UpdateServerProfile)
-	profileGroup.Put("/servers/:serverId/profile/avatar", c.ProfileController.UpdateServerProfileAvatar)
 
 	postGroup := api.Group("/posts", c.AuthMiddleware.ProtectedRoute())
 	postGroup.Get("/:postId", c.PostController.GetPost)

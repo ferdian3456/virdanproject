@@ -1,0 +1,1 @@
+Get posts for the authenticated user across joined servers.

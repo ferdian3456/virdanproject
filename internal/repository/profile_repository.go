@@ -62,11 +62,11 @@ func (repository *ProfileRepository) CreateServerMemberProfile(ctx context.Conte
 	)
 
 	query := `INSERT INTO server_member_profiles
-              (id, server_id, user_id, nickname, bio, avatar_image_id, created_at, updated_at, created_by, updated_by)
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
+              (id, server_id, user_id, nickname, username, bio, avatar_image_id, created_at, updated_at, created_by, updated_by)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 
 	_, err = tx.Exec(ctx, query,
-		profile.Id, profile.ServerId, profile.UserId, profile.Nickname,
+		profile.Id, profile.ServerId, profile.UserId, profile.Nickname, profile.Username,
 		profile.Bio, profile.AvatarImageId,
 		profile.CreatedAt, profile.UpdatedAt, profile.CreatedBy, profile.UpdatedBy)
 	if err != nil {
@@ -78,6 +78,12 @@ func (repository *ProfileRepository) CreateServerMemberProfile(ctx context.Conte
 					Code:    constant.ERR_CONFLICT_CODE,
 					Message: "Nickname is already taken in this server",
 					Param:   "nickname",
+				}
+			case "idx_server_member_profiles_uk_03":
+				err = &model.ConflictError{
+					Code:    constant.ERR_CONFLICT_CODE,
+					Message: "Username is already taken in this server",
+					Param:   "username",
 				}
 			case "idx_server_member_profiles_uk_01":
 				err = &model.ConflictError{
@@ -101,7 +107,7 @@ func (repository *ProfileRepository) CreateServerMemberProfile(ctx context.Conte
 	return nil
 }
 
-func (repository *ProfileRepository) UpdateServerProfileFull(ctx context.Context, tx pgx.Tx, profileId, nickname string, bio *string, avatarImageId *string, updatedBy string, updatedAt time.Time) error {
+func (repository *ProfileRepository) UpdateServerProfileFull(ctx context.Context, tx pgx.Tx, profileId, nickname, username string, bio *string, avatarImageId *string, updatedBy string, updatedAt time.Time) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UpdateServerProfileFull")
 	var err error
@@ -119,18 +125,26 @@ func (repository *ProfileRepository) UpdateServerProfileFull(ctx context.Context
 	)
 
 	query := `UPDATE server_member_profiles
-              SET nickname = $1, bio = $2, avatar_image_id = $3, updated_at = $4, updated_by = $5
-              WHERE id = $6`
+              SET nickname = $1, username = $2, bio = $3, avatar_image_id = $4, updated_at = $5, updated_by = $6
+              WHERE id = $7`
 
-	_, err = tx.Exec(ctx, query, nickname, bio, avatarImageId, updatedAt, updatedBy, profileId)
+	_, err = tx.Exec(ctx, query, nickname, username, bio, avatarImageId, updatedAt, updatedBy, profileId)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			if pgErr.ConstraintName == "idx_server_member_profiles_uk_02" {
+			switch pgErr.ConstraintName {
+			case "idx_server_member_profiles_uk_02":
 				err = &model.ConflictError{
 					Code:    constant.ERR_CONFLICT_CODE,
 					Message: "Nickname is already taken in this server",
 					Param:   "nickname",
+				}
+				return err
+			case "idx_server_member_profiles_uk_03":
+				err = &model.ConflictError{
+					Code:    constant.ERR_CONFLICT_CODE,
+					Message: "Username is already taken in this server",
+					Param:   "username",
 				}
 				return err
 			}
@@ -141,7 +155,61 @@ func (repository *ProfileRepository) UpdateServerProfileFull(ctx context.Context
 	return nil
 }
 
-func (repository *ProfileRepository) UpdateServerProfileNickBio(ctx context.Context, profileId, nickname string, bio *string, updatedBy string, updatedAt time.Time) error {
+// UpdateServerProfileNickBioTx is the tx-aware variant of
+// UpdateServerProfileNickBio. Used by the consolidated multipart
+// UpdateServerProfile endpoint when no new avatar was supplied — the
+// profile update runs inside the same transaction that ResolveProfileAvatar
+// would have opened, even though it stays a no-op there.
+func (repository *ProfileRepository) UpdateServerProfileNickBioTx(ctx context.Context, tx pgx.Tx, profileId, nickname, username string, bio *string, updatedBy string, updatedAt time.Time) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UpdateServerProfileNickBioTx")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("profile.id", profileId),
+	)
+
+	query := `UPDATE server_member_profiles
+              SET nickname = $1, username = $2, bio = $3, updated_at = $4, updated_by = $5
+              WHERE id = $6`
+
+	_, err = tx.Exec(ctx, query, nickname, username, bio, updatedAt, updatedBy, profileId)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			switch pgErr.ConstraintName {
+			case "idx_server_member_profiles_uk_02":
+				err = &model.ConflictError{
+					Code:    constant.ERR_CONFLICT_CODE,
+					Message: "Nickname is already taken in this server",
+					Param:   "nickname",
+				}
+				return err
+			case "idx_server_member_profiles_uk_03":
+				err = &model.ConflictError{
+					Code:    constant.ERR_CONFLICT_CODE,
+					Message: "Username is already taken in this server",
+					Param:   "username",
+				}
+				return err
+			}
+		}
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to update server_member_profile (tx)", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+func (repository *ProfileRepository) UpdateServerProfileNickBio(ctx context.Context, profileId, nickname, username string, bio *string, updatedBy string, updatedAt time.Time) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UpdateServerProfileNickBio")
 	var err error
@@ -160,18 +228,26 @@ func (repository *ProfileRepository) UpdateServerProfileNickBio(ctx context.Cont
 	)
 
 	query := `UPDATE server_member_profiles
-              SET nickname = $1, bio = $2, updated_at = $3, updated_by = $4
-              WHERE id = $5`
+              SET nickname = $1, username = $2, bio = $3, updated_at = $4, updated_by = $5
+              WHERE id = $6`
 
-	_, err = repository.DB.Exec(ctx, query, nickname, bio, updatedAt, updatedBy, profileId)
+	_, err = repository.DB.Exec(ctx, query, nickname, username, bio, updatedAt, updatedBy, profileId)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			if pgErr.ConstraintName == "idx_server_member_profiles_uk_02" {
+			switch pgErr.ConstraintName {
+			case "idx_server_member_profiles_uk_02":
 				err = &model.ConflictError{
 					Code:    constant.ERR_CONFLICT_CODE,
 					Message: "Nickname is already taken in this server",
 					Param:   "nickname",
+				}
+				return err
+			case "idx_server_member_profiles_uk_03":
+				err = &model.ConflictError{
+					Code:    constant.ERR_CONFLICT_CODE,
+					Message: "Username is already taken in this server",
+					Param:   "username",
 				}
 				return err
 			}
@@ -303,7 +379,7 @@ func (repository *ProfileRepository) GetServerMemberProfile(ctx context.Context,
 
 	var resp model.ServerMemberProfileResponse
 	query := `
-        SELECT smp.id, smp.server_id, smp.nickname, smp.bio,
+        SELECT smp.id, smp.server_id, smp.nickname, smp.username, smp.bio,
                smp.avatar_image_id, pai.object_key,
                smp.created_at, smp.updated_at
         FROM server_member_profiles smp
@@ -313,8 +389,8 @@ func (repository *ProfileRepository) GetServerMemberProfile(ctx context.Context,
     `
 
 	err = repository.DB.QueryRow(ctx, query, serverId, userId).Scan(
-		&resp.ProfileId, &resp.ServerId, &resp.Nickname, &resp.Bio,
-		&resp.AvatarImageId, &resp.AvatarImageUrl,
+		&resp.ProfileId, &resp.ServerId, &resp.Nickname, &resp.Username, &resp.Bio,
+		&resp.AvatarImageId, &resp.AvatarUrl,
 		&resp.CreatedAt, &resp.UpdatedAt,
 	)
 	if err != nil {
@@ -330,8 +406,8 @@ func (repository *ProfileRepository) GetServerMemberProfile(ctx context.Context,
 		return resp, err
 	}
 
-	if resp.AvatarImageUrl != nil {
-		*resp.AvatarImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.AvatarImageUrl)
+	if resp.AvatarUrl != nil {
+		*resp.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.AvatarUrl)
 	}
 
 	return resp, nil
@@ -418,7 +494,7 @@ func (repository *ProfileRepository) GetProfileHistory(ctx context.Context, user
 	query := `
         SELECT
             smp.id, smp.server_id, s.name,
-            smp.nickname, smp.bio,
+            smp.nickname, smp.username, smp.bio,
             smp.avatar_image_id, pai.object_key,
             EXISTS (
                 SELECT 1 FROM server_members sm
@@ -445,8 +521,8 @@ func (repository *ProfileRepository) GetProfileHistory(ctx context.Context, user
 		var item model.GetProfileHistoryResponseItem
 		err = rows.Scan(
 			&item.ProfileId, &item.ServerId, &item.ServerName,
-			&item.Nickname, &item.Bio,
-			&item.AvatarImageId, &item.AvatarImageUrl,
+			&item.Nickname, &item.Username, &item.Bio,
+			&item.AvatarImageId, &item.AvatarUrl,
 			&item.IsStillMember,
 			&item.CreatedAt, &item.UpdatedAt,
 		)
@@ -454,8 +530,8 @@ func (repository *ProfileRepository) GetProfileHistory(ctx context.Context, user
 			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan profile history row", zap.Error(err))
 			return nil, err
 		}
-		if item.AvatarImageUrl != nil {
-			*item.AvatarImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *item.AvatarImageUrl)
+		if item.AvatarUrl != nil {
+			*item.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *item.AvatarUrl)
 		}
 		items = append(items, item)
 	}
