@@ -75,6 +75,15 @@ type User struct {
 	DeletedAt *time.Time
 }
 
+type UserVerifyCurrentPasswordRequest struct {
+	Password string `json:"password"`
+}
+
+type UserChangePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
 type OTPSignupData struct {
 	OTP       string `json:"otp"`
 	ExpiresAt int64  `json:"expiresAt"`

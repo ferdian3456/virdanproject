@@ -950,3 +950,101 @@ func (usecase *UserUsecase) DeleteAccount(ctx fiber.Ctx, userId string) error {
 
 	return nil
 }
+
+// VerifyCurrentPassword checks if the supplied password matches the user's
+// stored hash. Used by the FE change-password flow's "verify current" step.
+func (usecase *UserUsecase) VerifyCurrentPassword(ctx fiber.Ctx, userId string, payload model.UserVerifyCurrentPasswordRequest) error {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.VerifyCurrentPassword")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(attribute.String("user.id", userId))
+
+	v := util.NewValidator()
+	v.String("password", payload.Password).Required().MinLen(5).MaxLen(72)
+	err = v.Validate()
+	if err != nil {
+		return err
+	}
+
+	var hash string
+	hash, err = usecase.UserRepository.GetPasswordHashById(ctxContext, userId)
+	if err != nil {
+		return err
+	}
+
+	if bcryptErr := bcrypt.CompareHashAndPassword([]byte(hash), []byte(payload.Password)); bcryptErr != nil {
+		err = &model.BadRequestError{
+			Code:    constant.ERR_BAD_REQUEST_CODE,
+			Message: "Current password is incorrect",
+			Param:   "password",
+		}
+		return err
+	}
+	return nil
+}
+
+// ChangePassword verifies the current password and atomically swaps it with a
+// fresh bcrypt hash of newPassword. Does NOT revoke existing refresh tokens —
+// that's a separate decision (TD-007 multi-device).
+func (usecase *UserUsecase) ChangePassword(ctx fiber.Ctx, userId string, payload model.UserChangePasswordRequest) error {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.ChangePassword")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(attribute.String("user.id", userId))
+
+	v := util.NewValidator()
+	v.String("currentPassword", payload.CurrentPassword).Required().MinLen(5).MaxLen(72)
+	v.String("newPassword", payload.NewPassword).Required().MinLen(8).MaxLen(72)
+	v.String("newPassword", payload.NewPassword).NotEqual(payload.CurrentPassword, "currentPassword")
+	err = v.Validate()
+	if err != nil {
+		return err
+	}
+
+	var hash string
+	hash, err = usecase.UserRepository.GetPasswordHashById(ctxContext, userId)
+	if err != nil {
+		return err
+	}
+
+	if bcryptErr := bcrypt.CompareHashAndPassword([]byte(hash), []byte(payload.CurrentPassword)); bcryptErr != nil {
+		err = &model.BadRequestError{
+			Code:    constant.ERR_BAD_REQUEST_CODE,
+			Message: "Current password is incorrect",
+			Param:   "currentPassword",
+		}
+		return err
+	}
+
+	var newHash []byte
+	newHash, err = bcrypt.GenerateFromPassword([]byte(payload.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to hash new password", zap.Error(err))
+		return err
+	}
+
+	now := time.Now().UTC()
+	err = usecase.UserRepository.UpdatePasswordHash(ctxContext, userId, string(newHash), now)
+	if err != nil {
+		return err
+	}
+	return nil
+}

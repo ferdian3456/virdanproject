@@ -395,6 +395,13 @@ definitions:
       param:
         type: string
     type: object
+  model.UserChangePasswordRequest:
+    properties:
+      currentPassword:
+        type: string
+      newPassword:
+        type: string
+    type: object
   model.UserLoginRequest:
     properties:
       email:
@@ -437,6 +444,11 @@ definitions:
       sessionId:
         type: string
       step:
+        type: string
+    type: object
+  model.UserVerifyCurrentPasswordRequest:
+    properties:
+      password:
         type: string
     type: object
   model.UserVerifyOTPRequest:
@@ -4261,6 +4273,70 @@ paths:
           schema:
             $ref: '#/definitions/model.BadRequestError'
       summary: Get current user info
+      tags:
+      - users
+  /users/password:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.UserChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.UnauthorizedError'
+      summary: Change password
+      tags:
+      - users
+  /users/password/verify:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.UserVerifyCurrentPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.UnauthorizedError'
+      summary: Verify current password (change-password step 1)
       tags:
       - users
 swagger: "2.0"

@@ -407,3 +407,83 @@ func (controller UserController) DeleteAccount(ctx fiber.Ctx) error {
 
 	return util.SendSuccessResponseNoData(ctx)
 }
+
+// VerifyCurrentPassword godoc
+// @Summary      Verify current password (change-password step 1)
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        body body model.UserVerifyCurrentPasswordRequest true "Payload"
+// @Success      200
+// @Failure      400 {object} model.BadRequestError
+// @Failure      401 {object} model.UnauthorizedError
+// @Router       /users/password/verify [post]
+func (controller UserController) VerifyCurrentPassword(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-controller").Start(ctxContext, "controller.VerifyCurrentPassword")
+	ctx.SetContext(ctxContext)
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+
+	var payload model.UserVerifyCurrentPasswordRequest
+	err = util.ReadRequestBody(ctx, &payload)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	err = controller.UserUsecase.VerifyCurrentPassword(ctx, userId, payload)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+	return util.SendSuccessResponseNoData(ctx)
+}
+
+// ChangePassword godoc
+// @Summary      Change password
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        body body model.UserChangePasswordRequest true "Payload"
+// @Success      200
+// @Failure      400 {object} model.BadRequestError
+// @Failure      401 {object} model.UnauthorizedError
+// @Router       /users/password [put]
+func (controller UserController) ChangePassword(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-controller").Start(ctxContext, "controller.ChangePassword")
+	ctx.SetContext(ctxContext)
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+
+	var payload model.UserChangePasswordRequest
+	err = util.ReadRequestBody(ctx, &payload)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	err = controller.UserUsecase.ChangePassword(ctx, userId, payload)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+	return util.SendSuccessResponseNoData(ctx)
+}

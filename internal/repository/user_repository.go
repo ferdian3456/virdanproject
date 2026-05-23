@@ -1134,3 +1134,67 @@ func (repository *UserRepository) RevokeAllRefreshTokensByUserIdTx(ctx context.C
 
 	return nil
 }
+
+func (repository *UserRepository) GetPasswordHashById(ctx context.Context, userId string) (string, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetPasswordHashById")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("user.id", userId),
+	)
+
+	query := `SELECT password FROM users WHERE id = $1 AND deleted_at IS NULL LIMIT 1`
+
+	var hash string
+	err = repository.DB.QueryRow(ctx, query, userId).Scan(&hash)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			err = &model.NotFoundError{
+				Code:    constant.ERR_NOT_FOUND_CODE,
+				Message: "User not found",
+				Param:   "userId",
+			}
+			return "", err
+		}
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get password hash", zap.Error(err))
+		return "", err
+	}
+	return hash, nil
+}
+
+func (repository *UserRepository) UpdatePasswordHash(ctx context.Context, userId, newHash string, updatedAt time.Time) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.UpdatePasswordHash")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("user.id", userId),
+	)
+
+	query := `UPDATE users SET password = $1, updated_at = $2, updated_by = $3 WHERE id = $4 AND deleted_at IS NULL`
+	_, err = repository.DB.Exec(ctx, query, newHash, updatedAt, userId, userId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to update password hash", zap.Error(err))
+		return err
+	}
+	return nil
+}

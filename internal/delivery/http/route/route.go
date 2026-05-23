@@ -80,6 +80,8 @@ func (c *RouteConfig) SetupRoute() {
 	userGroup.Get("/me", c.UserController.GetUserInfo)
 	userGroup.Delete("/me", c.UserController.DeleteAccount)
 	userGroup.Post("/logout", c.UserController.Logout)
+	userGroup.Post("/password/verify", c.UserController.VerifyCurrentPassword)
+	userGroup.Put("/password", c.UserController.ChangePassword)
 
 	// Public server routes (NO AUTH) - must be defined BEFORE protected routes
 	// to ensure Fiber matches these routes first
