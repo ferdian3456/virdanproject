@@ -39,9 +39,9 @@ func TestCreatePost_Success(t *testing.T) {
 	setup.RequireStatus(t, resp, 200)
 
 	result := setup.ParseJSONResponse(t, resp)
-	require.Contains(t, result, "postId", "response should contain post id")
+	require.Contains(t, result, "id", "response should contain post id")
 
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 	require.NotEmpty(t, postID, "post id should not be empty")
 
 	t.Logf("Post created successfully: %s", postID)

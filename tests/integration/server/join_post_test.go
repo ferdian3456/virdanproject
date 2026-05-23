@@ -39,9 +39,10 @@ func TestJoinFromInvitePost_Success(t *testing.T) {
 	// Create another user
 	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "joiner@example.com", "password123")
 
-	// Test: Join server from invite
+	// Test: Join server from invite — JoinServerFromInvite now requires the
+	// per-server profile fields (nickname/username) on the JSON body.
 	setup.LogTestStep(t, "Testing Join Server from Invite Code")
-	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s"}`, inviteCode))
+	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s","nickname":"Joiner","username":"joiner"}`, inviteCode))
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/servers/join", reqBody, token2)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "join server request should succeed")
@@ -94,9 +95,10 @@ func TestJoinFromInvitePost_InvalidInviteCode(t *testing.T) {
 
 	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "invalidjoin@example.com", "password123")
 
-	// Test: Join server with invalid invite code
+	// Test: Join server with invalid invite code. Nickname/username supplied
+	// so input validation succeeds and the invite lookup is the failing step.
 	setup.LogTestStep(t, "Testing Join Server with Invalid Invite Code")
-	reqBody := []byte(`{"inviteCode":"INVALID1"}`)
+	reqBody := []byte(`{"inviteCode":"INVALID1","nickname":"InvalidJoiner","username":"invalidjoiner"}`)
 	req := setup.CreateAuthRequest(http.MethodPost, "/api/servers/join", reqBody, token)
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "join server request should complete")
@@ -136,9 +138,9 @@ func TestJoinFromInvitePost_AlreadyMember(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	inviteCode := result["inviteCode"].(string)
 
-	// Test: Try to join server when already a member
+	// Test: Try to join server when already a member.
 	setup.LogTestStep(t, "Testing Join Server When Already Member")
-	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s"}`, inviteCode))
+	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s","nickname":"AlreadyJoin","username":"alreadyjoinx"}`, inviteCode))
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/servers/join", reqBody, token)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "join server request should complete")
@@ -146,7 +148,7 @@ func TestJoinFromInvitePost_AlreadyMember(t *testing.T) {
 	result = setup.ParseJSONResponse(t, resp)
 	require.Contains(t, result, "error", "response should contain error")
 	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "already a member", "error message should mention already a member")
+	require.Contains(t, errMsg, "Already a member", "error message should mention already a member")
 
 	t.Logf("Correctly rejected join request from existing member: %s", errMsg)
 
@@ -174,9 +176,14 @@ func TestJoinServer_Success(t *testing.T) {
 	// Create another user
 	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "publicjoiner@example.com", "password123")
 
-	// Test: Join public server
+	// Test: Join public server. The direct-join endpoint is multipart and
+	// requires the per-server profile fields (nickname/username).
 	setup.LogTestStep(t, "Testing Join Public Server")
-	req := setup.CreateAuthRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/join", serverID), nil, token2)
+	body, contentType := setup.CreateMultipartTextOnly(t, map[string]string{
+		"nickname": "PublicJoiner",
+		"username": "publicjoiner",
+	})
+	req := setup.CreateAuthMultipartRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/join", serverID), body, contentType, token2)
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "join server request should succeed")
 	setup.RequireStatus(t, resp, 200)
@@ -207,9 +214,13 @@ func TestJoinServer_PrivateServer(t *testing.T) {
 	// Create another user
 	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "privatejoiner@example.com", "password123")
 
-	// Test: Try to join private server
+	// Test: Try to join private server.
 	setup.LogTestStep(t, "Testing Join Private Server (Should Fail)")
-	req := setup.CreateAuthRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/join", serverID), nil, token2)
+	body, contentType := setup.CreateMultipartTextOnly(t, map[string]string{
+		"nickname": "PrivateJoiner",
+		"username": "privatejoiner",
+	})
+	req := setup.CreateAuthMultipartRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/join", serverID), body, contentType, token2)
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "join server request should complete")
 
@@ -241,16 +252,20 @@ func TestJoinServer_AlreadyMember(t *testing.T) {
 	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "alreadyjoindirect@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Already Join Direct Server", "alreadyjoin", 1, false)
 
-	// Test: Try to join server when already a member
+	// Test: Try to join server when already a member (creator is auto-member).
 	setup.LogTestStep(t, "Testing Join Server When Already Member")
-	req := setup.CreateAuthRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/join", serverID), nil, token)
+	body, contentType := setup.CreateMultipartTextOnly(t, map[string]string{
+		"nickname": "OwnerRejoin",
+		"username": "ownerrejoinx",
+	})
+	req := setup.CreateAuthMultipartRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/join", serverID), body, contentType, token)
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "join server request should complete")
 
 	result := setup.ParseJSONResponse(t, resp)
 	require.Contains(t, result, "error", "response should contain error")
 	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "already a member", "error message should mention already a member")
+	require.Contains(t, errMsg, "Already a member", "error message should mention already a member")
 
 	t.Logf("Correctly rejected join request from existing member: %s", errMsg)
 

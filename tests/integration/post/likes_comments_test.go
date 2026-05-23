@@ -35,7 +35,7 @@ func TestLikePost_Success(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Like post
 	setup.LogTestStep(t, "Testing Like Post")
@@ -79,7 +79,7 @@ func TestLikePost_DoubleLike(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// First like
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/likes", nil, token)
@@ -127,7 +127,7 @@ func TestUnlikePost_Success(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Like the post first
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/likes", nil, token)
@@ -178,7 +178,7 @@ func TestUnlikePost_NotLiked(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Unlike post when not liked
 	setup.LogTestStep(t, "Testing Unlike Post When Not Liked")
@@ -223,7 +223,7 @@ func TestCreateComment_Success(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Create comment
 	setup.LogTestStep(t, "Testing Create Comment")
@@ -265,7 +265,7 @@ func TestCreateComment_EmptyContent(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Create comment with empty content
 	setup.LogTestStep(t, "Testing Create Comment with Empty Content")
@@ -308,7 +308,7 @@ func TestGetComments_Success(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Create a comment
 	reqBody := []byte(`{"content":"Test comment"}`)
@@ -355,7 +355,7 @@ func TestGetComments_Empty(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Get comments (no comments exist)
 	setup.LogTestStep(t, "Testing Get Comments with No Comments")
@@ -396,7 +396,7 @@ func TestDeleteComment_Success(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Create a comment
 	reqBody := []byte(`{"content":"Test comment to delete"}`)
@@ -442,7 +442,7 @@ func TestDeleteComment_NotOwner(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Create a comment as user 1
 	reqBody := []byte(`{"content":"Test comment"}`)

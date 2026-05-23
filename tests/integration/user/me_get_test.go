@@ -22,11 +22,10 @@ func TestMeGet_Success(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	// Setup: Create and login user
+	// Setup: Create user. /me no longer exposes fullname/bio/username — those
+	// fields moved to server_member_profiles after the multi-identity refactor.
 	testEmail := "meget@example.com"
-	testUsername := "megetuser"
 
-	// Get global infrastructure for MailHog URL
 	infra := setup.GetGlobalInfra()
 	token := setup.CreateTestUser(t, app, infra.MailhogURL, testEmail, "password123")
 
@@ -41,13 +40,16 @@ func TestMeGet_Success(t *testing.T) {
 
 	result := setup.ParseJSONResponse(t, resp)
 	require.Contains(t, result, "id", "response should contain id")
-	require.Contains(t, result, "username", "response should contain username")
 	require.Contains(t, result, "email", "response should contain email")
-	require.Contains(t, result, "fullname", "response should contain fullname")
-	require.Contains(t, result, "bio", "response should contain bio")
+	require.Contains(t, result, "settings", "response should contain settings")
+	require.Contains(t, result, "createdAt", "response should contain createdAt")
+	require.Contains(t, result, "updatedAt", "response should contain updatedAt")
+	require.NotContains(t, result, "username", "username must not be on the global user response")
+	require.NotContains(t, result, "fullname", "fullname must not be on the global user response")
+	require.NotContains(t, result, "bio", "bio must not be on the global user response")
 
-	username := result["username"].(string)
-	require.Equal(t, testUsername, username, "username should match")
+	email := result["email"].(string)
+	require.Equal(t, testEmail, email, "email should match")
 
 	t.Logf("User profile retrieved successfully")
 

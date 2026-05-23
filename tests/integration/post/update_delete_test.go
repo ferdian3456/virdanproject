@@ -35,7 +35,7 @@ func TestUpdatePost_Success(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Update post caption
 	setup.LogTestStep(t, "Testing Update Post Caption")
@@ -80,7 +80,7 @@ func TestUpdatePost_Unauthorized(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Update post without token
 	setup.LogTestStep(t, "Testing Update Post Without Auth")
@@ -121,7 +121,7 @@ func TestUpdatePost_NotOwner(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Create another user (not owner of the post)
 	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "notownerupdpost@example.com", "password123")
@@ -168,7 +168,7 @@ func TestDeletePost_Success(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Delete post
 	setup.LogTestStep(t, "Testing Delete Post")
@@ -206,7 +206,7 @@ func TestDeletePost_Unauthorized(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Delete post without token
 	setup.LogTestStep(t, "Testing Delete Post Without Auth")
@@ -246,7 +246,7 @@ func TestDeletePost_NotOwner(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Create another user (not owner of the post)
 	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "notownerdelpost@example.com", "password123")

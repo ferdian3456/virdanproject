@@ -184,7 +184,7 @@ func TestGetPost_Success(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Get single post
 	setup.LogTestStep(t, "Testing Get Single Post")
@@ -194,7 +194,7 @@ func TestGetPost_Success(t *testing.T) {
 	setup.RequireStatus(t, resp, 200)
 
 	result = setup.ParseJSONResponse(t, resp)
-	require.Contains(t, result, "postId", "response should contain post id")
+	require.Contains(t, result, "id", "response should contain post id")
 
 	t.Logf("Single post retrieved successfully")
 	setup.LogTestPass(t, "TestGetPost_Success")
@@ -225,7 +225,7 @@ func TestGetPost_Unauthorized(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Get single post without token
 	setup.LogTestStep(t, "Testing Get Single Post Without Auth")

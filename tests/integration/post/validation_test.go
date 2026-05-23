@@ -98,7 +98,7 @@ func TestGetComments_LimitNegative(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Get comments with negative limit
 	setup.LogTestStep(t, "Testing Get Comments with Negative Limit")
@@ -140,7 +140,7 @@ func TestGetComments_LimitExceeded(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Get comments with limit > 20
 	setup.LogTestStep(t, "Testing Get Comments with Limit Exceeded")
@@ -182,7 +182,7 @@ func TestUpdatePost_EmptyCaption(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Update post with empty caption
 	setup.LogTestStep(t, "Testing Update Post with Empty Caption")
@@ -227,7 +227,7 @@ func TestCreateComment_TooLongContent(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Create comment with very long content (10000 characters)
 	setup.LogTestStep(t, "Testing Create Comment with Very Long Content")

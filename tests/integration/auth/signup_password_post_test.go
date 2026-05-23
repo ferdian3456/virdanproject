@@ -25,9 +25,8 @@ func TestSignupPasswordPost_Success(t *testing.T) {
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
 	defer db.Close()
 
-	// Setup: Start signup, verify OTP, and set username
+	// Setup: Start signup and verify OTP.
 	testEmail := "password@example.com"
-	testUsername := "passworduser"
 
 	reqBody := []byte(fmt.Sprintf(`{"email":"%s"}`, testEmail))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
@@ -42,11 +41,6 @@ func TestSignupPasswordPost_Success(t *testing.T) {
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/otp", reqBody)
 	_, err = app.Test(req)
 	require.NoError(t, err, "OTP verification should succeed")
-
-	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","username":"%s"}`, sessionId, testUsername))
-	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/username", reqBody)
-	_, err = app.Test(req)
-	require.NoError(t, err, "set username should succeed")
 
 	// Test: Set valid password and complete signup
 	t.Log("=== Testing Password Setting with Valid Password ===")
@@ -98,11 +92,6 @@ func TestSignupPasswordPost_EmptyPassword(t *testing.T) {
 	_, err = app.Test(req)
 	require.NoError(t, err, "OTP verification should succeed")
 
-	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","username":"testuser"}`, sessionId))
-	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/username", reqBody)
-	_, err = app.Test(req)
-	require.NoError(t, err, "set username should succeed")
-
 	// Test: Empty password
 	t.Log("=== Testing Password Setting with Empty Password ===")
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","password":""}`, sessionId))
@@ -146,11 +135,6 @@ func TestSignupPasswordPost_TooShort(t *testing.T) {
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/otp", reqBody)
 	_, err = app.Test(req)
 	require.NoError(t, err, "OTP verification should succeed")
-
-	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","username":"testuser"}`, sessionId))
-	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/username", reqBody)
-	_, err = app.Test(req)
-	require.NoError(t, err, "set username should succeed")
 
 	// Test: Password less than 5 characters
 	t.Log("=== Testing Password Setting with Less Than 5 Characters ===")
@@ -196,11 +180,6 @@ func TestSignupPasswordPost_TooLong(t *testing.T) {
 	_, err = app.Test(req)
 	require.NoError(t, err, "OTP verification should succeed")
 
-	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","username":"testuser"}`, sessionId))
-	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/username", reqBody)
-	_, err = app.Test(req)
-	require.NoError(t, err, "set username should succeed")
-
 	// Test: Password more than 20 characters
 	t.Log("=== Testing Password Setting with More Than 20 Characters ===")
 	longPassword := "thispasswordiswaytoolongtobevalid123"
@@ -215,7 +194,9 @@ func TestSignupPasswordPost_TooLong(t *testing.T) {
 	require.Contains(t, errMsg, "at most 20 characters", "error message should mention maximum length")
 }
 
-// TestSignupPasswordPost_WrongStep tests that password can't be set before username
+// TestSignupPasswordPost_WrongStep tests that password cannot be set before
+// the OTP has been verified. In the new flow OTP verification is the only
+// prerequisite for the password step.
 func TestSignupPasswordPost_WrongStep(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -230,7 +211,7 @@ func TestSignupPasswordPost_WrongStep(t *testing.T) {
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
 	defer db.Close()
 
-	// Setup: Start signup and verify OTP (but skip username)
+	// Setup: Start signup but skip OTP verification.
 	testEmail := "wrongstep@example.com"
 	reqBody := []byte(fmt.Sprintf(`{"email":"%s"}`, testEmail))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
@@ -240,14 +221,8 @@ func TestSignupPasswordPost_WrongStep(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	sessionId := result["sessionId"].(string)
 
-	otp := setup.GetOTPFromMailhog(t, infra.MailhogURL, testEmail)
-	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","otp":"%s"}`, sessionId, otp))
-	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/otp", reqBody)
-	_, err = app.Test(req)
-	require.NoError(t, err, "OTP verification should succeed")
-
-	// Test: Try to set password before setting username
-	t.Log("=== Testing Password Setting Before Username ===")
+	// Test: Try to set password before verifying OTP.
+	t.Log("=== Testing Password Setting Before OTP Verification ===")
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","password":"password123"}`, sessionId))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/password", reqBody)
 	resp, err = app.Test(req)
@@ -258,7 +233,7 @@ func TestSignupPasswordPost_WrongStep(t *testing.T) {
 	errMsg := setup.ParseErrorMessage(t, result)
 	require.Contains(t, errMsg, "Invalid signup step", "error message should mention wrong signup step")
 
-	t.Logf("Correctly rejected password before username step")
+	t.Logf("Correctly rejected password before OTP verification")
 }
 
 // TestSignupPasswordPost_CreatesUserAndReturnsTokens tests that successful password creation creates user and returns tokens
@@ -278,7 +253,6 @@ func TestSignupPasswordPost_CreatesUserAndReturnsTokens(t *testing.T) {
 
 	// Setup: Complete all steps before password
 	testEmail := "fullsignup@example.com"
-	testUsername := "fullsignupuser"
 	testPassword := "FullPass123"
 
 	reqBody := []byte(fmt.Sprintf(`{"email":"%s"}`, testEmail))
@@ -294,11 +268,6 @@ func TestSignupPasswordPost_CreatesUserAndReturnsTokens(t *testing.T) {
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/otp", reqBody)
 	_, err = app.Test(req)
 	require.NoError(t, err, "OTP verification should succeed")
-
-	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","username":"%s"}`, sessionId, testUsername))
-	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/username", reqBody)
-	_, err = app.Test(req)
-	require.NoError(t, err, "set username should succeed")
 
 	// Test: Set password and complete signup
 	t.Log("=== Testing Complete Signup Flow ===")
@@ -325,9 +294,10 @@ func TestSignupPasswordPost_CreatesUserAndReturnsTokens(t *testing.T) {
 	t.Logf("Access Token: %s...", accessToken[:20])
 	t.Logf("Token Type: %s", tokenType)
 
-	// Verify user can login with the credentials
+	// Verify user can login with the credentials. Login is keyed by email
+	// in the post-migration flow.
 	t.Log("=== Verifying User Can Login ===")
-	reqBody = []byte(fmt.Sprintf(`{"username":"%s","password":"%s"}`, testUsername, testPassword))
+	reqBody = []byte(fmt.Sprintf(`{"email":"%s","password":"%s"}`, testEmail, testPassword))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/login", reqBody)
 	resp, err = app.Test(req)
 	require.NoError(t, err, "login should succeed")

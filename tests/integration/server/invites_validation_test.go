@@ -158,8 +158,9 @@ func TestInvitesPost_ExpiredInviteCode(t *testing.T) {
 	setup.LogTestStep(t, "Testing Join Server with Expired Invite Code (Documented)")
 	t.Logf("Invite code created: %s (would expire in 1 minute)", inviteCode)
 
-	// Try to join immediately (should succeed since invite is not expired yet)
-	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s"}`, inviteCode))
+	// Try to join immediately (should succeed since invite is not expired yet).
+	// The JoinServerFromInvite API now requires nickname / username on the body.
+	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s","nickname":"ExpiredJoiner","username":"expiredjoiner"}`, inviteCode))
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/servers/join", reqBody, token2)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err)
@@ -195,12 +196,12 @@ func TestInvitesPost_MaxUsesReached(t *testing.T) {
 	token2 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "user1@example.com", "password123")
 	token3 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "user2@example.com", "password123")
 
-	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s"}`, inviteCode))
+	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s","nickname":"User1","username":"user1joiner"}`, inviteCode))
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/servers/join", reqBody, token2)
 	_, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err)
 
-	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s"}`, inviteCode))
+	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s","nickname":"User2","username":"user2joiner"}`, inviteCode))
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/servers/join", reqBody, token3)
 	_, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err)
@@ -209,7 +210,7 @@ func TestInvitesPost_MaxUsesReached(t *testing.T) {
 	token4 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "user3@example.com", "password123")
 
 	setup.LogTestStep(t, "Testing Join Server When Max Uses Reached")
-	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s"}`, inviteCode))
+	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s","nickname":"User3","username":"user3joiner"}`, inviteCode))
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/servers/join", reqBody, token4)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err)
