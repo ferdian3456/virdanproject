@@ -10,6 +10,8 @@ definitions:
         $ref: '#/definitions/model.AuthorStatus'
       userId:
         type: string
+      username:
+        type: string
     type: object
   model.AuthorStatus:
     enum:
@@ -244,6 +246,8 @@ definitions:
         type: string
       nickname:
         type: string
+      username:
+        type: string
     type: object
   model.ServerMemberProfileResponse:
     properties:
@@ -262,6 +266,8 @@ definitions:
       serverId:
         type: string
       updatedAt:
+        type: string
+      username:
         type: string
     type: object
   model.ServerPostListResponse:

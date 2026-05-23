@@ -68,6 +68,7 @@ type ServerUpdateSettingsRequest struct {
 type ServerJoinByInviteRequest struct {
 	InviteCode    string  `json:"inviteCode"`
 	Nickname      string  `json:"nickname"`
+	Username      string  `json:"username"`
 	Bio           *string `json:"bio"`
 	AvatarImageId *string `json:"avatarImageId"`
 }

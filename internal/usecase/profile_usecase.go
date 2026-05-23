@@ -128,6 +128,7 @@ func (usecase *ProfileUsecase) UpdateServerProfile(ctx fiber.Ctx, userId, server
 	v := util.NewValidator()
 	v.UUID("serverId", serverId).Required()
 	v.String("nickname", payload.Nickname).Required().MinLen(3).MaxLen(50).Nickname()
+	v.String("username", payload.Username).Required().MinLen(3).MaxLen(22).Regex(util.UsernameRegex, util.UsernameErrorText)
 	if payload.Bio != nil {
 		v.String("bio", *payload.Bio).MaxLen(500)
 	}
@@ -136,10 +137,13 @@ func (usecase *ProfileUsecase) UpdateServerProfile(ctx fiber.Ctx, userId, server
 		return response, err
 	}
 
+	payload.Username = strings.ToLower(strings.TrimSpace(payload.Username))
+
 	span.SetAttributes(
 		attribute.String("user.id", userId),
 		attribute.String("server.id", serverId),
 		attribute.String("profile.nickname", payload.Nickname),
+		attribute.String("profile.username", payload.Username),
 	)
 
 	var memberCount int
@@ -181,7 +185,7 @@ func (usecase *ProfileUsecase) UpdateServerProfile(ctx fiber.Ctx, userId, server
 
 	now := time.Now().UTC()
 	err = usecase.ProfileRepository.UpdateServerProfileNickBio(ctxContext, profileId,
-		payload.Nickname, bioPtr, userId, now)
+		payload.Nickname, payload.Username, bioPtr, userId, now)
 	if err != nil {
 		return response, err
 	}

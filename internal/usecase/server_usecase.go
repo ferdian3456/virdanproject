@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -68,6 +69,7 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 	categoryIdStr := ctx.FormValue("categoryId")
 	isPrivateStr := ctx.FormValue("isPrivate")
 	nickname := ctx.FormValue("nickname")
+	username := ctx.FormValue("username")
 	bio := ctx.FormValue("bio")
 
 	v := util.NewValidator()
@@ -77,11 +79,14 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 	v.String("categoryId", categoryIdStr).Required()
 	v.String("isPrivate", isPrivateStr).Required()
 	v.String("nickname", nickname).Required().MinLen(3).MaxLen(50)
+	v.String("username", username).Required().MinLen(3).MaxLen(22).Regex(util.UsernameRegex, util.UsernameErrorText)
 	v.String("bio", bio).MaxLen(150)
 	err = v.Validate()
 	if err != nil {
 		return response, err
 	}
+
+	username = strings.ToLower(strings.TrimSpace(username))
 
 	var categoryId int
 	categoryId, err = strconv.Atoi(categoryIdStr)
@@ -230,6 +235,7 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 		ServerId:      serverId,
 		UserId:        userId,
 		Nickname:      nickname,
+		Username:      username,
 		Bio:           bioPtr,
 		AvatarImageId: avatarImageIdPtr,
 		CreatedAt:     now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
@@ -276,6 +282,7 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 	response.Identity = model.ServerMemberProfileResponse{
 		ProfileId:     profileId,
 		Nickname:      nickname,
+		Username:      username,
 		Bio:           bioPtr,
 		AvatarImageId: avatarImageIdPtr,
 		CreatedAt:     now, UpdatedAt: now,
@@ -303,16 +310,20 @@ func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string)
 	)
 
 	nickname := ctx.FormValue("nickname")
+	username := ctx.FormValue("username")
 	bio := ctx.FormValue("bio")
 
 	v := util.NewValidator()
 	v.UUID("serverId", serverId).Required()
 	v.String("nickname", nickname).Required().MinLen(3).MaxLen(50)
+	v.String("username", username).Required().MinLen(3).MaxLen(22).Regex(util.UsernameRegex, util.UsernameErrorText)
 	v.String("bio", bio).MaxLen(150)
 	err = v.Validate()
 	if err != nil {
 		return err
 	}
+
+	username = strings.ToLower(strings.TrimSpace(username))
 
 	var bioPtr *string
 	if bio != "" {
@@ -381,7 +392,7 @@ func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string)
 
 	if profileExists {
 		err = usecase.ProfileRepository.UpdateServerProfileFull(ctxContext, tx, existingProfileId,
-			nickname, bioPtr, avatarImageIdPtr, userId, now)
+			nickname, username, bioPtr, avatarImageIdPtr, userId, now)
 		if err != nil {
 			return err
 		}
@@ -391,6 +402,7 @@ func (usecase *ServerUsecase) JoinServer(ctx fiber.Ctx, userId, serverId string)
 			ServerId:      serverId,
 			UserId:        userId,
 			Nickname:      nickname,
+			Username:      username,
 			Bio:           bioPtr,
 			AvatarImageId: avatarImageIdPtr,
 			CreatedAt:     now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
@@ -444,6 +456,7 @@ func (usecase *ServerUsecase) JoinServerFromInvite(ctx fiber.Ctx, userId string,
 	v := util.NewValidator()
 	v.String("inviteCode", payload.InviteCode).Required().MinLen(8).MaxLen(8)
 	v.String("nickname", payload.Nickname).Required().MinLen(3).MaxLen(50)
+	v.String("username", payload.Username).Required().MinLen(3).MaxLen(22).Regex(util.UsernameRegex, util.UsernameErrorText)
 	v.String("bio", util.Deref(payload.Bio, "")).MaxLen(500)
 	if payload.AvatarImageId != nil && *payload.AvatarImageId != "" {
 		v.UUID("avatarImageId", *payload.AvatarImageId)
@@ -452,6 +465,8 @@ func (usecase *ServerUsecase) JoinServerFromInvite(ctx fiber.Ctx, userId string,
 	if err != nil {
 		return err
 	}
+
+	payload.Username = strings.ToLower(strings.TrimSpace(payload.Username))
 
 	var serverId string
 	serverId, err = usecase.ServerRepository.ValidateAndConsumeInvite(ctxContext, payload.InviteCode)
@@ -508,7 +523,7 @@ func (usecase *ServerUsecase) JoinServerFromInvite(ctx fiber.Ctx, userId string,
 
 	if profileExists {
 		err = usecase.ProfileRepository.UpdateServerProfileFull(ctxContext, tx, existingProfileId,
-			payload.Nickname, payload.Bio, payload.AvatarImageId, userId, now)
+			payload.Nickname, payload.Username, payload.Bio, payload.AvatarImageId, userId, now)
 		if err != nil {
 			return err
 		}
@@ -516,7 +531,7 @@ func (usecase *ServerUsecase) JoinServerFromInvite(ctx fiber.Ctx, userId string,
 		profile := model.ServerMemberProfile{
 			Id:       uuid.New().String(),
 			ServerId: serverId, UserId: userId,
-			Nickname: payload.Nickname, Bio: payload.Bio, AvatarImageId: payload.AvatarImageId,
+			Nickname: payload.Nickname, Username: payload.Username, Bio: payload.Bio, AvatarImageId: payload.AvatarImageId,
 			CreatedAt: now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
 		}
 		err = usecase.ProfileRepository.CreateServerMemberProfile(ctxContext, tx, profile)

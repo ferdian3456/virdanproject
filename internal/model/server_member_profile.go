@@ -9,6 +9,7 @@ type ServerMemberProfile struct {
 	ServerId      string
 	UserId        string
 	Nickname      string
+	Username      string
 	Bio           *string
 	AvatarImageId *string
 	CreatedAt     time.Time
@@ -21,6 +22,7 @@ type ServerMemberProfileResponse struct {
 	ProfileId     string    `json:"profileId"`
 	ServerId      string    `json:"serverId"`
 	Nickname      string    `json:"nickname"`
+	Username      string    `json:"username"`
 	Bio           *string   `json:"bio"`
 	AvatarImageId *string   `json:"avatarImageId"`
 	AvatarUrl     *string   `json:"avatarUrl"`
@@ -33,6 +35,7 @@ type GetProfileHistoryResponseItem struct {
 	ServerId      string    `json:"serverId"`
 	ServerName    string    `json:"serverName"`
 	Nickname      string    `json:"nickname"`
+	Username      string    `json:"username"`
 	Bio           *string   `json:"bio"`
 	AvatarImageId *string   `json:"avatarImageId"`
 	AvatarUrl     *string   `json:"avatarUrl"`
@@ -47,6 +50,7 @@ type GetProfileHistoryResponse struct {
 
 type ServerProfileUpdateRequest struct {
 	Nickname string  `json:"nickname"`
+	Username string  `json:"username"`
 	Bio      *string `json:"bio"`
 }
 
@@ -57,18 +61,21 @@ type ServerProfileUpdateResponse struct {
 
 type IdentityInputRequest struct {
 	Nickname      string  `json:"nickname"`
+	Username      string  `json:"username"`
 	Bio           *string `json:"bio"`
 	AvatarImageId *string `json:"avatarImageId"`
 }
 
 type ProfileUpdateRequest struct {
 	Nickname string  `json:"nickname"`
+	Username string  `json:"username"`
 	Bio      *string `json:"bio"`
 }
 
 type AuthorIdentityResponse struct {
 	UserId    string       `json:"userId"`
 	Nickname  string       `json:"nickname"`
+	Username  string       `json:"username"`
 	AvatarUrl *string      `json:"avatarUrl"`
 	Status    AuthorStatus `json:"status"`
 }
