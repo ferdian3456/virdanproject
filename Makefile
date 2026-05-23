@@ -69,6 +69,11 @@ test-post:
 	@echo "Running post integration tests..."
 	@go test -v ./tests/integration/post/...
 
+.PHONY: test-profile
+test-profile:
+	@echo "Running profile integration tests..."
+	@go test -v ./tests/integration/profile/...
+
 .PHONY: test-one
 test-one:
 	@read -p "Enter test name: " testname; \
@@ -96,6 +101,9 @@ test-list:
 	@echo ""
 	@echo "Post tests:"
 	@-cd tests/integration/post && go test -list . 2>/dev/null | grep -E "^Test" || echo "  (no tests found)"
+	@echo ""
+	@echo "Profile tests:"
+	@-cd tests/integration/profile && go test -list . 2>/dev/null | grep -E "^Test" || echo "  (no tests found)"
 
 # CI Pipeline - Run locally before pushing
 .PHONY: ci
@@ -171,6 +179,7 @@ help:
 	@echo "  make test-user         - Run user integration tests"
 	@echo "  make test-server       - Run server integration tests"
 	@echo "  make test-post         - Run post integration tests"
+	@echo "  make test-profile      - Run profile integration tests"
 	@echo "  make test-one          - Run specific test by name"
 	@echo "  make test-list         - List all available tests"
 	@echo "  make test-coverage     - Generate coverage for integration tests"
