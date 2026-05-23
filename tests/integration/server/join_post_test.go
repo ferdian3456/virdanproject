@@ -34,7 +34,7 @@ func TestJoinFromInvitePost_Success(t *testing.T) {
 	require.NoError(t, err, "create invite link should succeed")
 	setup.RequireStatus(t, resp, 200)
 	result := setup.ParseJSONResponse(t, resp)
-	inviteCode := result["inviteCode"].(string)
+	inviteCode := result["code"].(string)
 
 	// Create another user
 	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "joiner@example.com", "password123")
@@ -136,7 +136,7 @@ func TestJoinFromInvitePost_AlreadyMember(t *testing.T) {
 	require.NoError(t, err, "create invite link should succeed")
 	setup.RequireStatus(t, resp, 200)
 	result := setup.ParseJSONResponse(t, resp)
-	inviteCode := result["inviteCode"].(string)
+	inviteCode := result["code"].(string)
 
 	// Test: Try to join server when already a member.
 	setup.LogTestStep(t, "Testing Join Server When Already Member")

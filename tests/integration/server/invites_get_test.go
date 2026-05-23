@@ -35,7 +35,7 @@ func TestGetInviteInfo_Success(t *testing.T) {
 	require.NoError(t, err, "create invite link should succeed")
 	setup.RequireStatus(t, resp, 200)
 	result := setup.ParseJSONResponse(t, resp)
-	inviteCode := result["inviteCode"].(string)
+	inviteCode := result["code"].(string)
 
 	// Test: Get server info for invite (public endpoint, no auth needed)
 	setup.LogTestStep(t, "Testing Get Server Info for Invite")

@@ -36,9 +36,10 @@ func TestInvitesPost_Success(t *testing.T) {
 	setup.RequireStatus(t, resp, 200)
 
 	result := setup.ParseJSONResponse(t, resp)
-	require.Contains(t, result, "inviteCode", "response should contain invite code")
+	require.Contains(t, result, "code", "response should contain invite code")
+	require.Contains(t, result, "inviteUrl", "response should contain invite url")
 
-	inviteCode := result["inviteCode"].(string)
+	inviteCode := result["code"].(string)
 	require.NotEmpty(t, inviteCode, "invite code should not be empty")
 
 	t.Logf("Invite link created successfully: %s", inviteCode)
@@ -108,7 +109,7 @@ func TestInvitesPost_NotAMember(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	require.Contains(t, result, "error", "response should contain error")
 	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "not a member", "error message should mention not a member")
+	require.Contains(t, errMsg, "Not a member of this server", "error message should mention not a member")
 
 	t.Logf("Correctly rejected invite link creation by non-member: %s", errMsg)
 
