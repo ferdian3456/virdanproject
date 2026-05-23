@@ -82,6 +82,8 @@ func (c *RouteConfig) SetupRoute() {
 	userGroup.Post("/logout", c.UserController.Logout)
 	userGroup.Post("/password/verify", c.UserController.VerifyCurrentPassword)
 	userGroup.Put("/password", c.UserController.ChangePassword)
+	userGroup.Post("/email/change/request", c.UserController.RequestEmailChange)
+	userGroup.Post("/email/change/confirm", c.UserController.ConfirmEmailChange)
 
 	// Public server routes (NO AUTH) - must be defined BEFORE protected routes
 	// to ensure Fiber matches these routes first

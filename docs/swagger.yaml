@@ -395,6 +395,21 @@ definitions:
       param:
         type: string
     type: object
+  model.UserChangeEmailConfirmRequest:
+    properties:
+      otp:
+        type: string
+    type: object
+  model.UserChangeEmailRequestRequest:
+    properties:
+      newEmail:
+        type: string
+    type: object
+  model.UserChangeEmailRequestResponse:
+    properties:
+      otpExpiresAt:
+        type: integer
+    type: object
   model.UserChangePasswordRequest:
     properties:
       currentPassword:
@@ -4088,6 +4103,72 @@ paths:
       summary: Get servers the user belongs to
       tags:
       - servers
+  /users/email/change/confirm:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.UserChangeEmailConfirmRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/model.ConflictError'
+      summary: Confirm email change via OTP
+      tags:
+      - users
+  /users/email/change/request:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.UserChangeEmailRequestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.UserChangeEmailRequestResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/model.ConflictError'
+      summary: Request email change — sends OTP to current email
+      tags:
+      - users
   /users/logout:
     post:
       description: |

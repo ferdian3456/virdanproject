@@ -84,6 +84,18 @@ type UserChangePasswordRequest struct {
 	NewPassword     string `json:"newPassword"`
 }
 
+type UserChangeEmailRequestRequest struct {
+	NewEmail string `json:"newEmail"`
+}
+
+type UserChangeEmailConfirmRequest struct {
+	OTP string `json:"otp"`
+}
+
+type UserChangeEmailRequestResponse struct {
+	OtpExpiresAt int64 `json:"otpExpiresAt"`
+}
+
 type OTPSignupData struct {
 	OTP       string `json:"otp"`
 	ExpiresAt int64  `json:"expiresAt"`

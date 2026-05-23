@@ -487,3 +487,84 @@ func (controller UserController) ChangePassword(ctx fiber.Ctx) error {
 	}
 	return util.SendSuccessResponseNoData(ctx)
 }
+
+// RequestEmailChange godoc
+// @Summary      Request email change — sends OTP to current email
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        body body model.UserChangeEmailRequestRequest true "Payload"
+// @Success      200 {object} model.UserChangeEmailRequestResponse
+// @Failure      400 {object} model.BadRequestError
+// @Failure      409 {object} model.ConflictError
+// @Router       /users/email/change/request [post]
+func (controller UserController) RequestEmailChange(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-controller").Start(ctxContext, "controller.RequestEmailChange")
+	ctx.SetContext(ctxContext)
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+
+	var payload model.UserChangeEmailRequestRequest
+	err = util.ReadRequestBody(ctx, &payload)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	var response model.UserChangeEmailRequestResponse
+	response, err = controller.UserUsecase.RequestEmailChange(ctx, userId, payload)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+	return util.SendSuccessResponseWithData(ctx, response)
+}
+
+// ConfirmEmailChange godoc
+// @Summary      Confirm email change via OTP
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        body body model.UserChangeEmailConfirmRequest true "Payload"
+// @Success      200
+// @Failure      400 {object} model.BadRequestError
+// @Failure      409 {object} model.ConflictError
+// @Router       /users/email/change/confirm [post]
+func (controller UserController) ConfirmEmailChange(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-controller").Start(ctxContext, "controller.ConfirmEmailChange")
+	ctx.SetContext(ctxContext)
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+
+	var payload model.UserChangeEmailConfirmRequest
+	err = util.ReadRequestBody(ctx, &payload)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	err = controller.UserUsecase.ConfirmEmailChange(ctx, userId, payload)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+	return util.SendSuccessResponseNoData(ctx)
+}

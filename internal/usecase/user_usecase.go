@@ -1048,3 +1048,207 @@ func (usecase *UserUsecase) ChangePassword(ctx fiber.Ctx, userId string, payload
 	}
 	return nil
 }
+
+const (
+	emailChangeTTL      = 10 * time.Minute
+	emailChangeCooldown = 60 * time.Second
+	emailChangeMaxTries = 5
+)
+
+// RequestEmailChange validates the new address, rate-limits the user, then
+// emails an OTP to the user's CURRENT email and stashes a pending session in
+// Redis. The new email is committed only after ConfirmEmailChange.
+func (usecase *UserUsecase) RequestEmailChange(ctx fiber.Ctx, userId string, payload model.UserChangeEmailRequestRequest) (model.UserChangeEmailRequestResponse, error) {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.RequestEmailChange")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	var response model.UserChangeEmailRequestResponse
+
+	v := util.NewValidator()
+	v.String("newEmail", payload.NewEmail).Required().Email().MaxLen(255)
+	err = v.Validate()
+	if err != nil {
+		return response, err
+	}
+
+	newEmail := strings.ToLower(strings.TrimSpace(payload.NewEmail))
+	span.SetAttributes(
+		attribute.String("user.id", userId),
+		attribute.String("email.new", newEmail),
+	)
+
+	// Rate-limit per user: refuse a second request while the previous OTP
+	// has more than (TTL - cooldown) remaining (i.e. less than 60s has passed
+	// since the last request).
+	var ttl time.Duration
+	ttl, err = usecase.UserRepository.GetEmailChangeSessionTTL(ctxContext, userId)
+	if err != nil {
+		return response, err
+	}
+	if ttl > emailChangeTTL-emailChangeCooldown {
+		secondsLeft := int((ttl - (emailChangeTTL - emailChangeCooldown)).Seconds())
+		err = &model.BadRequestError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: fmt.Sprintf("Please wait %ds before requesting another code", secondsLeft),
+			Param:   "newEmail",
+		}
+		return response, err
+	}
+
+	var currentEmail string
+	currentEmail, err = usecase.UserRepository.GetUserEmail(ctxContext, userId)
+	if err != nil {
+		return response, err
+	}
+	if currentEmail == newEmail {
+		err = &model.BadRequestError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "New email must differ from current email",
+			Param:   "newEmail",
+		}
+		return response, err
+	}
+
+	var emailTaken bool
+	emailTaken, err = usecase.UserRepository.CheckEmailUnique(ctxContext, newEmail)
+	if err != nil {
+		return response, err
+	}
+	if emailTaken {
+		err = &model.ConflictError{
+			Code:    constant.ERR_CONFLICT_CODE,
+			Message: "Email is already registered",
+			Param:   "newEmail",
+		}
+		return response, err
+	}
+
+	var otp string
+	otp, err = util.GenerateOTP()
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to generate OTP", zap.Error(err))
+		return response, err
+	}
+	otpHash := util.HashSHA256(otp)
+	expiresAt := time.Now().UTC().Add(emailChangeTTL).Unix()
+
+	var tmpl *template.Template
+	tmpl, err = template.ParseFS(util.TemplateFS, "template/otp.html")
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to parse OTP template", zap.Error(err))
+		return response, err
+	}
+
+	var bodyBuf bytes.Buffer
+	err = tmpl.Execute(&bodyBuf, model.OTPTemplateData{OTP: otp, ExpiresIn: int64(emailChangeTTL.Minutes())})
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to execute OTP template", zap.Error(err))
+		return response, err
+	}
+
+	// Send OTP to the OLD email so an attacker who knows the password
+	// cannot move the account by swapping the email.
+	emailCtx, emailSpan := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.RequestEmailChange.SendEmail")
+	err = util.SendEmail(
+		usecase.Config.String("SMTP_HOST"),
+		usecase.Config.Int("SMTP_PORT"),
+		usecase.Config.String("SENDER_NAME"),
+		usecase.Config.String("SENDER_EMAIL"),
+		usecase.Config.String("SENDER_PASSWORD"),
+		currentEmail,
+		"Confirm your email change",
+		bodyBuf.String(),
+	)
+	if err != nil {
+		util.RecordErrorTelemetry(emailCtx, emailSpan, err)
+		emailSpan.End()
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to send OTP email", zap.Error(err))
+		return response, err
+	}
+	emailSpan.End()
+
+	err = usecase.UserRepository.SetEmailChangeSession(ctxContext, userId, newEmail, otpHash, emailChangeTTL)
+	if err != nil {
+		return response, err
+	}
+
+	response.OtpExpiresAt = expiresAt
+	return response, nil
+}
+
+// ConfirmEmailChange validates the OTP, commits the email swap, and clears
+// the Redis session.
+func (usecase *UserUsecase) ConfirmEmailChange(ctx fiber.Ctx, userId string, payload model.UserChangeEmailConfirmRequest) error {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.ConfirmEmailChange")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(attribute.String("user.id", userId))
+
+	v := util.NewValidator()
+	v.String("otp", payload.OTP).Required().Len(6)
+	err = v.Validate()
+	if err != nil {
+		return err
+	}
+
+	var newEmail, otpHash string
+	var attempts int
+	newEmail, otpHash, attempts, err = usecase.UserRepository.GetEmailChangeSession(ctxContext, userId)
+	if err != nil {
+		return err
+	}
+	if newEmail == "" || otpHash == "" {
+		err = &model.BadRequestError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "No pending email change. Request a new code.",
+			Param:   "otp",
+		}
+		return err
+	}
+	if attempts >= emailChangeMaxTries {
+		_ = usecase.UserRepository.DeleteEmailChangeSession(ctxContext, userId)
+		err = &model.BadRequestError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Too many attempts. Request a new code.",
+			Param:   "otp",
+		}
+		return err
+	}
+
+	if subtle.ConstantTimeCompare([]byte(otpHash), []byte(util.HashSHA256(payload.OTP))) != 1 {
+		_ = usecase.UserRepository.IncrementEmailChangeAttempts(ctxContext, userId)
+		err = &model.BadRequestError{
+			Code:    constant.ERR_VALIDATION_CODE,
+			Message: "Invalid code",
+			Param:   "otp",
+		}
+		return err
+	}
+
+	now := time.Now().UTC()
+	err = usecase.UserRepository.UpdateEmail(ctxContext, userId, newEmail, now)
+	if err != nil {
+		return err
+	}
+
+	_ = usecase.UserRepository.DeleteEmailChangeSession(ctxContext, userId)
+	return nil
+}
