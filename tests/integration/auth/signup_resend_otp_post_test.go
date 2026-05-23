@@ -293,7 +293,7 @@ func TestSignupResendOtpPost_NewOTPCanVerify(t *testing.T) {
 	t.Log("=== Resending OTP ===")
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s"}`, sessionId))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/resend-otp", reqBody)
-	resp, err = app.Test(req)
+	_, err = app.Test(req)
 	require.NoError(t, err, "resend OTP should succeed")
 
 	// Get new OTP and verify it works

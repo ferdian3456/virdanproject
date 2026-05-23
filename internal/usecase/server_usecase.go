@@ -866,7 +866,7 @@ func (usecase *ServerUsecase) UpdateServerSettings(ctx fiber.Ctx, userId, server
 		return response, err
 	}
 
-	settings := model.ServerSettings{IsPrivate: payload.IsPrivate}
+	settings := model.ServerSettings(payload)
 	var settingsBytes []byte
 	settingsBytes, err = sonic.Marshal(settings)
 	if err != nil {

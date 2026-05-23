@@ -335,15 +335,6 @@ func GenerateRandomString(length int) string {
 	return string(b)
 }
 
-// getKeys returns the keys of a map for debugging
-func getKeys(m map[string]interface{}) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
 // APIResponse represents the standard API response structure
 // Support 2 success formats:
 // 1. Simple: {"status": "ok"}
@@ -500,18 +491,21 @@ func CreateTestUser(t *testing.T, app *fiber.App, mailhogURL, email, username, p
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","otp":"%s"}`, sessionId, otp))
 	req = CreateJSONRequest(http.MethodPost, "/api/auth/signup/otp", reqBody)
 	resp, err = app.Test(req)
+	require.NoError(t, err, "verify OTP should succeed")
 	RequireStatus(t, resp, 200)
 
 	// Set username
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","username":"%s"}`, sessionId, username))
 	req = CreateJSONRequest(http.MethodPost, "/api/auth/signup/username", reqBody)
 	resp, err = app.Test(req)
+	require.NoError(t, err, "set username should succeed")
 	RequireStatus(t, resp, 200)
 
 	// Set password
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","password":"%s"}`, sessionId, password))
 	req = CreateJSONRequest(http.MethodPost, "/api/auth/signup/password", reqBody)
 	resp, err = app.Test(req)
+	require.NoError(t, err, "set password should succeed")
 	RequireStatus(t, resp, 200)
 
 	// Login to get access token
@@ -615,9 +609,7 @@ func sanitizeTestName(testName string) string {
 	// Replace special characters with underscores
 	name := testName
 	// Remove leading slash if present
-	if strings.HasPrefix(name, "/") {
-		name = name[1:]
-	}
+	name = strings.TrimPrefix(name, "/")
 	// Replace slashes and other special chars
 	replacer := strings.NewReplacer(
 		"/", "_",
@@ -709,17 +701,6 @@ func dropTestDatabase(t *testing.T, pgURL, dbName string) {
 	}
 
 	t.Logf("Dropped test database: %s", dbName)
-}
-
-// mailhogSMTPSplit splits the mailhog SMTP string into host and port
-func mailhogSMTPSplit(smtpSMTP string) struct{ host, port string } {
-	parts := strings.Split(smtpSMTP, ":")
-	host := parts[0]
-	port := "1025"
-	if len(parts) > 1 {
-		port = parts[1]
-	}
-	return struct{ host, port string }{host: host, port: port}
 }
 
 // ============================================================================

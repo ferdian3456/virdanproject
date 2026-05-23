@@ -83,7 +83,7 @@ func TestLikePost_DoubleLike(t *testing.T) {
 
 	// First like
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/likes", nil, token)
-	resp, err = setup.TestRequestWithLogging(t, app, req)
+	_, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "first like should succeed")
 
 	// Test: Like post again
@@ -131,7 +131,7 @@ func TestUnlikePost_Success(t *testing.T) {
 
 	// Like the post first
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/likes", nil, token)
-	resp, err = setup.TestRequestWithLogging(t, app, req)
+	_, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "like post should succeed")
 
 	// Test: Unlike post
@@ -313,7 +313,7 @@ func TestGetComments_Success(t *testing.T) {
 	// Create a comment
 	reqBody := []byte(`{"content":"Test comment"}`)
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/comments", reqBody, token)
-	resp, err = setup.TestRequestWithLogging(t, app, req)
+	_, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create comment should succeed")
 
 	// Test: Get comments
