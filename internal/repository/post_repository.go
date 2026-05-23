@@ -268,6 +268,7 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId string, us
 		&resp.UpdatedAt,
 		&resp.ImageUrl,
 		&resp.Author.Nickname,
+		&resp.Author.Username,
 		&resp.Author.AvatarUrl,
 		&authorStatus,
 		&resp.LikeCount,
