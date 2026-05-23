@@ -1090,7 +1090,7 @@ func (repository *ServerRepository) GetServerById(ctx context.Context, serverId,
 	return resp, nil
 }
 
-func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limit int, categoryId *int, cursor *model.ServerDiscoveryCursor, minioFullUrl string) ([]model.ServerInfoResponse, error) {
+func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, userId string, limit int, categoryId *int, cursor *model.ServerDiscoveryCursor, minioFullUrl string) ([]model.ServerInfoResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerDiscovery")
 	var err error
@@ -1105,6 +1105,7 @@ func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limi
 	span.SetAttributes(
 		attribute.String("db.system", "postgres"),
 		attribute.String("db.operation", "SELECT"),
+		attribute.String("user.id", userId),
 		attribute.Int("query.limit", limit),
 	)
 
@@ -1116,6 +1117,7 @@ func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limi
                    C.object_key AS avatar_key, D.object_key AS banner_key,
                    A.description,
                    (SELECT COUNT(*) FROM server_members sm WHERE sm.server_id = A.id) AS member_count,
+                   EXISTS (SELECT 1 FROM server_members sm WHERE sm.server_id = A.id AND sm.user_id = $5) AS is_member,
                    A.created_at
             FROM servers A
             LEFT JOIN server_categories B ON A.category_id = B.id
@@ -1127,13 +1129,14 @@ func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limi
             ORDER BY A.created_at DESC, A.id DESC
             LIMIT $4
         `
-		rows, err = repository.DB.Query(ctx, query, cursor.CreatedAt, cursor.Id, categoryId, limit)
+		rows, err = repository.DB.Query(ctx, query, cursor.CreatedAt, cursor.Id, categoryId, limit, userId)
 	} else {
 		query := `
             SELECT A.id, A.name, A.short_name, A.category_id, B.name AS category_name,
                    C.object_key AS avatar_key, D.object_key AS banner_key,
                    A.description,
                    (SELECT COUNT(*) FROM server_members sm WHERE sm.server_id = A.id) AS member_count,
+                   EXISTS (SELECT 1 FROM server_members sm WHERE sm.server_id = A.id AND sm.user_id = $3) AS is_member,
                    A.created_at
             FROM servers A
             LEFT JOIN server_categories B ON A.category_id = B.id
@@ -1144,7 +1147,7 @@ func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limi
             ORDER BY A.created_at DESC, A.id DESC
             LIMIT $2
         `
-		rows, err = repository.DB.Query(ctx, query, categoryId, limit)
+		rows, err = repository.DB.Query(ctx, query, categoryId, limit, userId)
 	}
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to query server discovery", zap.Error(err))
@@ -1161,7 +1164,7 @@ func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, limi
 			&server.Id, &server.Name, &server.ShortName,
 			&server.CategoryId, &server.CategoryName,
 			&avatarKey, &bannerKey,
-			&server.Description, &server.MemberCount,
+			&server.Description, &server.MemberCount, &server.IsMember,
 			&server.CreatedAt,
 		)
 		if err != nil {

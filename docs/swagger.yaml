@@ -211,6 +211,8 @@ definitions:
         type: string
       id:
         type: string
+      isMember:
+        type: boolean
       memberCount:
         type: integer
       name:

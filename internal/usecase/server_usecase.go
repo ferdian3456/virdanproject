@@ -1295,7 +1295,7 @@ func (usecase *ServerUsecase) GetDiscoveryServer(ctx fiber.Ctx, userId, cursor, 
 
 	minioFullUrl := usecase.Config.String("MINIO_HTTP") + usecase.Config.String("MINIO_URL") + "/" + usecase.Config.String("MINIO_BUCKET_NAME")
 	var servers []model.ServerInfoResponse
-	servers, err = usecase.ServerRepository.GetServerDiscovery(ctxContext, limit+1, categoryId, cursorObj, minioFullUrl)
+	servers, err = usecase.ServerRepository.GetServerDiscovery(ctxContext, userId, limit+1, categoryId, cursorObj, minioFullUrl)
 	if err != nil {
 		return response, err
 	}

@@ -117,6 +117,7 @@ type ServerInfoResponse struct {
 	AvatarUrl    *string   `json:"avatarUrl"`
 	BannerUrl    *string   `json:"bannerUrl"`
 	MemberCount  int       `json:"memberCount"`
+	IsMember     bool      `json:"isMember"`
 	Description  *string   `json:"description"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
