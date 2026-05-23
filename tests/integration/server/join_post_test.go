@@ -24,7 +24,7 @@ func TestJoinFromInvitePost_Success(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user and server with invite
-	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "inviteowner@example.com", "invowner", "password123")
+	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "inviteowner@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token1, "Join Server", "joinserver", 1, false)
 
 	// Create invite link
@@ -37,7 +37,7 @@ func TestJoinFromInvitePost_Success(t *testing.T) {
 	inviteCode := result["inviteCode"].(string)
 
 	// Create another user
-	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "joiner@example.com", "joiner", "password123")
+	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "joiner@example.com", "password123")
 
 	// Test: Join server from invite
 	setup.LogTestStep(t, "Testing Join Server from Invite Code")
@@ -92,7 +92,7 @@ func TestJoinFromInvitePost_InvalidInviteCode(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "invalidjoin@example.com", "invalidjoinuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "invalidjoin@example.com", "password123")
 
 	// Test: Join server with invalid invite code
 	setup.LogTestStep(t, "Testing Join Server with Invalid Invite Code")
@@ -124,7 +124,7 @@ func TestJoinFromInvitePost_AlreadyMember(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user and server with invite
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "alreadyjoin@example.com", "alreadyjoinuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "alreadyjoin@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Already Join Server", "alreadyjoin", 1, false)
 
 	// Create invite link
@@ -168,11 +168,11 @@ func TestJoinServer_Success(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create users and public server
-	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "publicowner@example.com", "pubowner", "password123")
+	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "publicowner@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token1, "Public Server", "public", 1, false)
 
 	// Create another user
-	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "publicjoiner@example.com", "pubjoiner", "password123")
+	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "publicjoiner@example.com", "password123")
 
 	// Test: Join public server
 	setup.LogTestStep(t, "Testing Join Public Server")
@@ -201,11 +201,11 @@ func TestJoinServer_PrivateServer(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create users and private server
-	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "privateowner@example.com", "privowner", "password123")
+	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "privateowner@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token1, "Private Server", "private", 1, true)
 
 	// Create another user
-	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "privatejoiner@example.com", "privjoiner", "password123")
+	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "privatejoiner@example.com", "password123")
 
 	// Test: Try to join private server
 	setup.LogTestStep(t, "Testing Join Private Server (Should Fail)")
@@ -238,7 +238,7 @@ func TestJoinServer_AlreadyMember(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user and server (user is automatically a member as creator)
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "alreadyjoindirect@example.com", "alreadyjoindirectuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "alreadyjoindirect@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Already Join Direct Server", "alreadyjoin", 1, false)
 
 	// Test: Try to join server when already a member

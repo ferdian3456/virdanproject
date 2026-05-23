@@ -21,7 +21,7 @@ func TestUpdateName_Success(t *testing.T) {
 	defer db.Close()
 
 	// Setup: Create user and server
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "updatename@example.com", "updatenameuser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "updatename@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Original Name", "updatename", 1, false)
 
 	// Test: Update server name
@@ -53,7 +53,7 @@ func TestUpdateName_EmptyName(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "emptyname@example.com", "emptynameuser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "emptyname@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Empty Name Server", "emptyname", 1, false)
 
 	// Test: Update server name with empty string
@@ -83,7 +83,7 @@ func TestUpdateName_Unauthorized(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "unauthupdname@example.com", "unauthupdnameuser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "unauthupdname@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Unauth Update Name Server", "unauthupdn", 1, false)
 
 	// Test: Update server name without token
@@ -111,11 +111,11 @@ func TestUpdateName_NotOwner(t *testing.T) {
 	defer db.Close()
 
 	// Setup: Create user and server
-	token1 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "ownerupdname@example.com", "ownerupdnameuser", "password123")
+	token1 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "ownerupdname@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token1, "Owner Update Name Server", "ownerupdn", 1, false)
 
 	// Create another user (not owner of the server)
-	token2 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "notownerupdname@example.com", "notownerupdnameuser", "password123")
+	token2 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "notownerupdname@example.com", "password123")
 
 	// Test: Try to update server name as non-owner
 	setup.LogTestStep(t, "Testing Update Server Name as Non-Owner")
@@ -144,7 +144,7 @@ func TestUpdateShortName_Success(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "updateshortname@example.com", "updateshortnameuser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "updateshortname@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Update Short Name Server", "updshort", 1, false)
 
 	// Test: Update server short name
@@ -176,7 +176,7 @@ func TestUpdateShortName_TooLong(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "longshortname@example.com", "longshortnameuser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "longshortname@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Long Short Name Server", "longshort", 1, false)
 
 	// Test: Update server short name with too long string
@@ -206,7 +206,7 @@ func TestUpdateCategory_Success(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "updatecategory@example.com", "updatecategoryuser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "updatecategory@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Update Category Server", "updcat", 1, false)
 
 	// Test: Update server category
@@ -235,7 +235,7 @@ func TestUpdateDescription_Success(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "updatedesc@example.com", "updatedescuser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "updatedesc@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Update Description Server", "updatedesc", 1, false)
 
 	// Test: Update server description
@@ -267,7 +267,7 @@ func TestUpdateSettings_Success(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "updatesettings@example.com", "updatesettingsuser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "updatesettings@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Update Settings Server", "settings", 1, false)
 
 	// Test: Update server settings
@@ -293,7 +293,7 @@ func TestDelete_Success(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "deleteserver@example.com", "deleteserveruser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "deleteserver@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Delete Server", "delsrv", 1, false)
 
 	// Test: Delete server
@@ -326,7 +326,7 @@ func TestDelete_Unauthorized(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "unauthdelete@example.com", "unauthdeleteuser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "unauthdelete@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Unauth Delete Server", "unauthdel", 1, false)
 
 	// Test: Delete server without token
@@ -353,11 +353,11 @@ func TestDelete_NotOwner(t *testing.T) {
 	defer db.Close()
 
 	// Setup: Create user and server
-	token1 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "ownerdelete@example.com", "ownerdeleteuser", "password123")
+	token1 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "ownerdelete@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token1, "Owner Delete Server", "ownerdel", 1, false)
 
 	// Create another user (not owner of the server)
-	token2 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "notownerdelete@example.com", "notownerdeleteuser", "password123")
+	token2 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "notownerdelete@example.com", "password123")
 
 	// Test: Try to delete server as non-owner
 	setup.LogTestStep(t, "Testing Delete Server as Non-Owner")

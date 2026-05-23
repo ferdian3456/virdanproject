@@ -24,7 +24,7 @@ func TestUpdatePost_Success(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user, server, and post
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "updatepost@example.com", "updatepostuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "updatepost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Update Post Server", "updatepost", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -69,7 +69,7 @@ func TestUpdatePost_Unauthorized(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unauthupdpost@example.com", "unauthupdpostuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unauthupdpost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Unauth Update Post Server", "unauthup", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -110,7 +110,7 @@ func TestUpdatePost_NotOwner(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user, server, and post
-	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "ownerupdpost@example.com", "ownerupdpostuser", "password123")
+	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "ownerupdpost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token1, "Owner Update Post Server", "ownerup", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -124,7 +124,7 @@ func TestUpdatePost_NotOwner(t *testing.T) {
 	postID := result["postId"].(string)
 
 	// Create another user (not owner of the post)
-	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "notownerupdpost@example.com", "notownerupdpostuser", "password123")
+	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "notownerupdpost@example.com", "password123")
 
 	// Test: Try to update post as non-owner
 	setup.LogTestStep(t, "Testing Update Post as Non-Owner")
@@ -157,7 +157,7 @@ func TestDeletePost_Success(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user, server, and post
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "deletepost@example.com", "deletepostuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "deletepost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Delete Post Server", "deletepost", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -195,7 +195,7 @@ func TestDeletePost_Unauthorized(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unauthdelpost@example.com", "unauthdelpostuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unauthdelpost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Unauth Delete Post Server", "unauthdel", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -235,7 +235,7 @@ func TestDeletePost_NotOwner(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user, server, and post
-	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "ownerdelpost@example.com", "ownerdelpostuser", "password123")
+	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "ownerdelpost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token1, "Owner Delete Post Server", "ownerdel", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -249,7 +249,7 @@ func TestDeletePost_NotOwner(t *testing.T) {
 	postID := result["postId"].(string)
 
 	// Create another user (not owner of the post)
-	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "notownerdelpost@example.com", "notownerdelpostuser", "password123")
+	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "notownerdelpost@example.com", "password123")
 
 	// Test: Try to delete post as non-owner
 	setup.LogTestStep(t, "Testing Delete Post as Non-Owner")

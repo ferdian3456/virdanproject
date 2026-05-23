@@ -26,7 +26,7 @@ func TestCreatePost_Success(t *testing.T) {
 	defer db.Close()
 
 	// Setup: Create and login user
-	token := setup.CreateTestUser(t, app, infra.MailhogURL, "server@example.com", "serverowner", "password123")
+	token := setup.CreateTestUser(t, app, infra.MailhogURL, "server@example.com", "password123")
 
 	// Test: Create server
 	t.Log("=== Testing Create Server ===")
@@ -70,7 +70,7 @@ func TestCreatePost_Validation(t *testing.T) {
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, infra.MailhogURL, "validation@example.com", "validationuser", "password123")
+	token := setup.CreateTestUser(t, app, infra.MailhogURL, "validation@example.com", "password123")
 
 	// Test 1: Empty name
 	t.Log("=== Test 1: Empty Server Name ===")
@@ -147,7 +147,7 @@ func TestCreatePost_PrivateServer(t *testing.T) {
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, infra.MailhogURL, "private@example.com", "privateuser", "password123")
+	token := setup.CreateTestUser(t, app, infra.MailhogURL, "private@example.com", "password123")
 
 	// Test: Create private server
 	t.Log("=== Testing Create Private Server ===")
@@ -169,7 +169,7 @@ func TestCreatePost_PrivateServer(t *testing.T) {
 	t.Logf("Private server created successfully: %s", serverID)
 
 	// Verify server is private by trying to access with another user
-	token2 := setup.CreateTestUser(t, app, infra.MailhogURL, "other@example.com", "otheruser", "password123")
+	token2 := setup.CreateTestUser(t, app, infra.MailhogURL, "other@example.com", "password123")
 	req = setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s", serverID), nil, token2)
 	resp, err = app.Test(req)
 	require.NoError(t, err, "get private server request should complete")

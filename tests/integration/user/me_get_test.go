@@ -28,7 +28,7 @@ func TestMeGet_Success(t *testing.T) {
 
 	// Get global infrastructure for MailHog URL
 	infra := setup.GetGlobalInfra()
-	token := setup.CreateTestUser(t, app, infra.MailhogURL, testEmail, testUsername, "password123")
+	token := setup.CreateTestUser(t, app, infra.MailhogURL, testEmail, "password123")
 
 	// Test: Get user profile with logging
 	setup.LogTestStep(t, "Testing Get User Profile")

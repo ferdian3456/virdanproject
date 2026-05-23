@@ -23,7 +23,7 @@ func TestGetServerPosts_LimitNegative(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "neglimitpost@example.com", "neglimitpostuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "neglimitpost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Neg Limit Post Server", "neglimpost", 1, false)
 
 	// Test: Get server posts with negative limit
@@ -55,7 +55,7 @@ func TestGetServerPosts_LimitExceeded(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "maxlimitpost@example.com", "maxlimitpostuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "maxlimitpost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Max Limit Post Server", "maxlimpost", 1, false)
 
 	// Test: Get server posts with limit > 20
@@ -87,7 +87,7 @@ func TestGetComments_LimitNegative(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "neglimitcomment@example.com", "neglimitcommentuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "neglimitcomment@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Neg Limit Comment Server", "neglimcomm", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -129,7 +129,7 @@ func TestGetComments_LimitExceeded(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "maxlimitcomment@example.com", "maxlimitcommentuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "maxlimitcomment@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Max Limit Comment Server", "maxlimcomm", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -171,7 +171,7 @@ func TestUpdatePost_EmptyCaption(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "emptycaption@example.com", "emptycaptionuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "emptycaption@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Empty Caption Server", "emptycapt", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -216,7 +216,7 @@ func TestCreateComment_TooLongContent(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "longcomment@example.com", "longcommentuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "longcomment@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Long Comment Server", "longcomm", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)

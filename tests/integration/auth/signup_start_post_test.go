@@ -56,7 +56,7 @@ func TestSignupStartPost_EmailAlreadyRegistered(t *testing.T) {
 	// Setup: Create first user
 	testEmail := "existing@example.com"
 	setup.LogTestStep(t, "Creating existing user: %s", testEmail)
-	_ = setup.CreateTestUser(t, app, infra.MailhogURL, testEmail, "existinguser", "password123")
+	_ = setup.CreateTestUser(t, app, infra.MailhogURL, testEmail, "password123")
 
 	// Test: Try to signup with same email
 	setup.LogTestStep(t, "Testing Signup Start with Already Registered Email")

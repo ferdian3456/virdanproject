@@ -22,7 +22,7 @@ func TestCategoriesGet_Success(t *testing.T) {
 	defer db.Close()
 
 	// Setup: Create user
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "categories@example.com", "categoriesuser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "categories@example.com", "password123")
 
 	// Test: Get categories
 	setup.LogTestStep(t, "Testing Get Server Categories")
@@ -74,7 +74,7 @@ func TestCategoriesGet_WithPagination(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "categoriespage@example.com", "categoriespageuser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "categoriespage@example.com", "password123")
 
 	// Test: Get categories with limit
 	setup.LogTestStep(t, "Testing Get Categories With Pagination")

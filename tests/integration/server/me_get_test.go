@@ -25,7 +25,7 @@ func TestMeGet_Success(t *testing.T) {
 	defer db.Close()
 
 	// Setup: Create user and servers
-	token := setup.CreateTestUser(t, app, infra.MailhogURL, "meserver@example.com", "meserveruser", "password123")
+	token := setup.CreateTestUser(t, app, infra.MailhogURL, "meserver@example.com", "password123")
 	_ = setup.CreateTestServer(t, app, infra.RedisURL, token, "Server 1", "server1", 1, false)
 	_ = setup.CreateTestServer(t, app, infra.RedisURL, token, "Server 2", "server2", 2, false)
 
@@ -83,7 +83,7 @@ func TestMeGet_EmptyList(t *testing.T) {
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, infra.MailhogURL, "noserver@example.com", "noserveruser", "password123")
+	token := setup.CreateTestUser(t, app, infra.MailhogURL, "noserver@example.com", "password123")
 
 	// Test: Get user servers (user has no servers)
 	t.Log("=== Testing Get User Servers with No Servers ===")
@@ -113,7 +113,7 @@ func TestMeGet_WithPagination(t *testing.T) {
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, infra.MailhogURL, "meserverpage@example.com", "meserverpageuser", "password123")
+	token := setup.CreateTestUser(t, app, infra.MailhogURL, "meserverpage@example.com", "password123")
 	_ = setup.CreateTestServer(t, app, infra.RedisURL, token, "Server 1", "server1", 1, false)
 	_ = setup.CreateTestServer(t, app, infra.RedisURL, token, "Server 2", "server2", 2, false)
 	_ = setup.CreateTestServer(t, app, infra.RedisURL, token, "Server 3", "server3", 3, false)

@@ -24,7 +24,7 @@ func TestLikePost_Success(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user, server, and post
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "likepost@example.com", "likepostuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "likepost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Like Post Server", "likepost", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -68,7 +68,7 @@ func TestLikePost_DoubleLike(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "doublelike@example.com", "doublelikeuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "doublelike@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Double Like Server", "doublelike", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -116,7 +116,7 @@ func TestUnlikePost_Success(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unlikepost@example.com", "unlikepostuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unlikepost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Unlike Post Server", "unlikepost", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -167,7 +167,7 @@ func TestUnlikePost_NotLiked(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "notliked@example.com", "notlikeduser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "notliked@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Not Liked Server", "notliked", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -212,7 +212,7 @@ func TestCreateComment_Success(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "createcomment@example.com", "createcommentuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "createcomment@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Create Comment Server", "creatcomm", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -254,7 +254,7 @@ func TestCreateComment_EmptyContent(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "emptycomment@example.com", "emptycommentuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "emptycomment@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Empty Comment Server", "emptycomm", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -297,7 +297,7 @@ func TestGetComments_Success(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "getcomments@example.com", "getcommentsuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "getcomments@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Get Comments Server", "getcomm", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -344,7 +344,7 @@ func TestGetComments_Empty(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "nocomments@example.com", "nocommentsuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "nocomments@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "No Comments Server", "nocomments", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -385,7 +385,7 @@ func TestDeleteComment_Success(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "deletecomment@example.com", "deletecommentuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "deletecomment@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Delete Comment Server", "delcomm", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -431,7 +431,7 @@ func TestDeleteComment_NotOwner(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "ownerdelcomment@example.com", "ownerdelcommentuser", "password123")
+	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "ownerdelcomment@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token1, "Owner Delete Comment Server", "ownerdelc", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -453,7 +453,7 @@ func TestDeleteComment_NotOwner(t *testing.T) {
 	commentID := result["id"].(string)
 
 	// Create another user (not owner of the comment)
-	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "notownerdelcomment@example.com", "notownerdelcommentuser", "password123")
+	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "notownerdelcomment@example.com", "password123")
 
 	// Test: Try to delete comment as non-owner
 	setup.LogTestStep(t, "Testing Delete Comment as Non-Owner")

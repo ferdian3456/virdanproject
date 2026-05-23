@@ -24,7 +24,7 @@ func TestInvitesPost_Success(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user and server
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "invite@example.com", "inviteuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "invite@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Invite Server", "invite", 1, false)
 
 	// Test: Create invite link
@@ -60,7 +60,7 @@ func TestInvitesPost_Unauthorized(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unauthinvite@example.com", "unauthinviteuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unauthinvite@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Unauth Invite Server", "uninvite", 1, false)
 
 	// Test: Create invite link without token
@@ -92,11 +92,11 @@ func TestInvitesPost_NotAMember(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user and server (user is NOT a member)
-	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "ownerinvite@example.com", "ownerinviteuser", "password123")
+	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "ownerinvite@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token1, "Owner Invite Server", "ownerinvite", 1, false)
 
 	// Create another user (not a member of the server)
-	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "nonmemberinvite@example.com", "nonmemberinviteuser", "password123")
+	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "nonmemberinvite@example.com", "password123")
 
 	// Test: Try to create invite link as non-member
 	setup.LogTestStep(t, "Testing Create Invite Link as Non-Member")
@@ -129,7 +129,7 @@ func TestInvitesPost_InvalidServerId(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "invalidserver@example.com", "invalidserveruser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "invalidserver@example.com", "password123")
 
 	// Test: Create invite link with invalid server ID
 	setup.LogTestStep(t, "Testing Create Invite Link with Invalid Server ID")

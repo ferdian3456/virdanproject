@@ -23,7 +23,7 @@ func TestCreatePost_Success(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user and server
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "post@example.com", "postuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "post@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Post Server", "postserver", 1, false)
 
 	// Test: Create post with image
@@ -62,7 +62,7 @@ func TestCreatePost_WithoutImage(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "noimage@example.com", "noimageuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "noimage@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "No Image Server", "noimage", 1, false)
 
 	// Test: Create post without image
@@ -96,7 +96,7 @@ func TestCreatePost_Unauthorized(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unauthpost@example.com", "unauthuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unauthpost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Unauth Server", "unauth", 1, false)
 
 	// Test: Create post without token
@@ -131,11 +131,11 @@ func TestCreatePost_NotAMember(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user and server (user is NOT a member)
-	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "owner@example.com", "owner", "password123")
+	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "owner@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token1, "Member Server", "member", 1, false)
 
 	// Create another user (not a member of the server)
-	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "nonmember@example.com", "nonmember", "password123")
+	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "nonmember@example.com", "password123")
 
 	// Test: Try to create post as non-member
 	setup.LogTestStep(t, "Testing Create Post as Non-Member")

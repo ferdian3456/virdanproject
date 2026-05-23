@@ -21,7 +21,7 @@ func TestCategoriesGet_LimitNegative(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "neglimit@example.com", "neglimituser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "neglimit@example.com", "password123")
 
 	// Test: Get categories with negative limit
 	setup.LogTestStep(t, "Testing Get Categories with Negative Limit")
@@ -49,7 +49,7 @@ func TestCategoriesGet_LimitExceeded(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "maxlimit@example.com", "maxlimituser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "maxlimit@example.com", "password123")
 
 	// Test: Get categories with limit > 20
 	setup.LogTestStep(t, "Testing Get Categories with Limit Exceeded")
@@ -77,7 +77,7 @@ func TestMeGet_LimitNegative(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "neglimitme@example.com", "neglimitmeuser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "neglimitme@example.com", "password123")
 
 	// Test: Get user servers with negative limit
 	setup.LogTestStep(t, "Testing Get User Servers with Negative Limit")
@@ -105,7 +105,7 @@ func TestMeGet_LimitExceeded(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "maxlimitme@example.com", "maxlimitmeuser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "maxlimitme@example.com", "password123")
 
 	// Test: Get user servers with limit > 20
 	setup.LogTestStep(t, "Testing Get User Servers with Limit Exceeded")

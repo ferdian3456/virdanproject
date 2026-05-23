@@ -25,7 +25,7 @@ func TestGetInviteInfo_Success(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user and server with invite
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "inviteinfo@example.com", "inviteinfouser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "inviteinfo@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Invite Info Server", "inviteinfo", 1, false)
 
 	// Create invite link

@@ -20,7 +20,7 @@ func TestInvitesPost_ExpiresInMinutesZero(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "invitezero@example.com", "invitezerouser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "invitezero@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Invite Zero Server", "invitezero", 1, false)
 
 	// Test: Create invite link with zero expiration
@@ -50,7 +50,7 @@ func TestInvitesPost_ExpiresInMinutesTooLarge(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "invitetoomain@example.com", "invitetoomainuser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "invitetoomain@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Invite Too Main Server", "invmain", 1, false)
 
 	// Test: Create invite link with expiration > 10080 (more than 1 week)
@@ -80,7 +80,7 @@ func TestInvitesPost_MaxUsesZero(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "invitezero@example.com", "invitezzerouser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "invitezero@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Invite Zero Uses Server", "invitezero", 1, false)
 
 	// Test: Create invite link with zero max uses
@@ -110,7 +110,7 @@ func TestInvitesPost_MaxUsesTooLarge(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "invitetoomany@example.com", "invitetoomanyuser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "invitetoomany@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Invite Too Many Server", "invtomany", 1, false)
 
 	// Test: Create invite link with max uses > 100
@@ -140,7 +140,7 @@ func TestInvitesPost_ExpiredInviteCode(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token1 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "expiredinvowner@example.com", "expiredinvowneruser", "password123")
+	token1 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "expiredinvowner@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token1, "Expired Invite Server", "expiredinv", 1, false)
 
 	// Create invite link with very short expiration (1 minute)
@@ -151,7 +151,7 @@ func TestInvitesPost_ExpiredInviteCode(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	inviteCode := result["inviteCode"].(string)
 
-	token2 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "expiredjoiner@example.com", "expiredjoineruser", "password123")
+	token2 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "expiredjoiner@example.com", "password123")
 
 	// Note: We can't actually test expired invite without waiting or manual DB manipulation
 	// This test documents the edge case but skips actual expiration testing
@@ -180,7 +180,7 @@ func TestInvitesPost_MaxUsesReached(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token1 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "maxusesowner@example.com", "maxusesowneruser", "password123")
+	token1 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "maxusesowner@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token1, "Max Uses Server", "maxuses", 1, false)
 
 	// Create invite link with max uses = 2
@@ -192,8 +192,8 @@ func TestInvitesPost_MaxUsesReached(t *testing.T) {
 	inviteCode := result["inviteCode"].(string)
 
 	// Create 2 users and use up the invite
-	token2 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "user1@example.com", "user1", "password123")
-	token3 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "user2@example.com", "user2", "password123")
+	token2 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "user1@example.com", "password123")
+	token3 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "user2@example.com", "password123")
 
 	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s"}`, inviteCode))
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/servers/join", reqBody, token2)
@@ -206,7 +206,7 @@ func TestInvitesPost_MaxUsesReached(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create third user and try to join (should fail - max uses reached)
-	token4 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "user3@example.com", "user3", "password123")
+	token4 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "user3@example.com", "password123")
 
 	setup.LogTestStep(t, "Testing Join Server When Max Uses Reached")
 	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s"}`, inviteCode))

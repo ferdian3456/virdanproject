@@ -25,7 +25,7 @@ func TestGetById_Success(t *testing.T) {
 	defer db.Close()
 
 	// Setup: Create user and server
-	token := setup.CreateTestUser(t, app, infra.MailhogURL, "getbyid@example.com", "getbyiduser", "password123")
+	token := setup.CreateTestUser(t, app, infra.MailhogURL, "getbyid@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, infra.RedisURL, token, "Get By ID Server", "getbyid", 1, false)
 
 	// Test: Get server by ID
@@ -57,7 +57,7 @@ func TestGetById_Unauthorized(t *testing.T) {
 	defer db.Close()
 
 	// Setup: Create user and server
-	token := setup.CreateTestUser(t, app, infra.MailhogURL, "unauthget@example.com", "unauthgetuser", "password123")
+	token := setup.CreateTestUser(t, app, infra.MailhogURL, "unauthget@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, infra.RedisURL, token, "Unauth Get Server", "unauthget", 1, false)
 
 	// Test: Get server by ID without token
@@ -86,7 +86,7 @@ func TestGetById_InvalidServerId(t *testing.T) {
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, infra.MailhogURL, "invalidget@example.com", "invalidgetuser", "password123")
+	token := setup.CreateTestUser(t, app, infra.MailhogURL, "invalidget@example.com", "password123")
 
 	// Test: Get server by ID with invalid server ID
 	t.Log("=== Testing Get Server By ID with Invalid Server ID ===")
@@ -116,11 +116,11 @@ func TestGetById_NotAMember(t *testing.T) {
 	defer db.Close()
 
 	// Setup: Create user and server (user is NOT a member)
-	token1 := setup.CreateTestUser(t, app, infra.MailhogURL, "ownerget@example.com", "ownergetuser", "password123")
+	token1 := setup.CreateTestUser(t, app, infra.MailhogURL, "ownerget@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, infra.RedisURL, token1, "Owner Get Server", "ownerget", 1, false)
 
 	// Create another user (not a member of the server)
-	token2 := setup.CreateTestUser(t, app, infra.MailhogURL, "nonmemberget@example.com", "nonmembergetuser", "password123")
+	token2 := setup.CreateTestUser(t, app, infra.MailhogURL, "nonmemberget@example.com", "password123")
 
 	// Test: Try to get server by ID as non-member
 	t.Log("=== Testing Get Server By ID as Non-Member ===")
