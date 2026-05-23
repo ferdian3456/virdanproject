@@ -67,7 +67,6 @@ func (c *RouteConfig) SetupRoute() {
 	authGroup := api.Group("/auth")
 	authGroup.Post("/signup/start", c.UserController.StartSignup)
 	authGroup.Post("/signup/otp", c.UserController.VerifyOtp)
-	authGroup.Post("/signup/username", c.UserController.VerifyUsername)
 	authGroup.Post("/signup/password", c.UserController.VerifyPassword)
 	authGroup.Get("/signup/:sessionId/status", c.UserController.GetSignupStatus)
 	authGroup.Post("/signup/resend-otp", c.UserController.ResendOtp)

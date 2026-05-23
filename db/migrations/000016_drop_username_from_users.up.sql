@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS idx_users_uk_01;
+ALTER TABLE users DROP COLUMN IF EXISTS username;

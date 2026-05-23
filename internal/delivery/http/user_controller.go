@@ -145,46 +145,6 @@ func (controller UserController) ResendOtp(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
-// VerifyUsername godoc
-// @Summary      Verify and set username
-// @Description.markdown verify_username
-// @Tags         auth
-// @Accept       json
-// @Produce      json
-// @Param        body body model.UserVerifyUsernameRequest true "Payload"
-// @Success      200
-// @Failure      400   {object}  model.BadRequestError
-// @Failure      409   {object}  model.ConflictError
-// @Failure      500   {object}  model.BadRequestError
-// @Router       /auth/signup/username [post]
-func (controller UserController) VerifyUsername(ctx fiber.Ctx) error {
-	ctxContext := ctx.Context()
-	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName+"-controller").Start(ctxContext, "controller.VerifyUsername")
-	ctx.SetContext(ctxContext)
-	var err error
-
-	defer func() {
-		if err != nil {
-			util.RecordErrorTelemetry(ctxContext, span, err)
-		}
-		span.End()
-	}()
-
-	var payload model.UserVerifyUsernameRequest
-	err = util.ReadRequestBody(ctx, &payload)
-	if err != nil {
-		return util.SendError(ctx, err)
-	}
-
-	err = controller.UserUsecase.VerifyUsername(ctx, payload)
-	if err != nil {
-		return util.SendError(ctx, err)
-	}
-
-	return util.SendSuccessResponseNoData(ctx)
-}
-
 // VerifyPassword godoc
 // @Summary      Verify password and complete signup
 // @Description.markdown verify_password

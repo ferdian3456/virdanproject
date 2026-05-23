@@ -391,9 +391,9 @@ definitions:
     type: object
   model.UserLoginRequest:
     properties:
-      password:
+      email:
         type: string
-      username:
+      password:
         type: string
     type: object
   model.UserResendOTPRequest:
@@ -412,8 +412,6 @@ definitions:
       settings:
         type: object
       updatedAt:
-        type: string
-      username:
         type: string
     type: object
   model.UserSignupStartRequest:
@@ -447,13 +445,6 @@ definitions:
       password:
         type: string
       sessionId:
-        type: string
-    type: object
-  model.UserVerifyUsernameRequest:
-    properties:
-      sessionId:
-        type: string
-      username:
         type: string
     type: object
   model.ValidationError:
@@ -1229,95 +1220,6 @@ paths:
           schema:
             $ref: '#/definitions/model.BadRequestError'
       summary: Start signup process
-      tags:
-      - auth
-  /auth/signup/username:
-    post:
-      consumes:
-      - application/json
-      description: |
-        ## Verify Username Flow
-
-        ### Overview
-        Sets the username for a signup session. This is step 3 of the multi-step signup process. The session must have completed OTP verification first.
-
-        ### Auth
-        No authentication required.
-
-        ### Business Logic
-        1. Parse and validate `sessionId` — must be a valid UUID
-        2. Validate username is not empty
-        3. Validate username length (4–22 characters)
-        4. Get current signup session state from Redis
-        5. Verify session exists and is not expired
-        6. Verify session step is NOT `start_signup` (OTP must be verified first)
-        7. Check if username is already taken in the database
-        8. Store username in session state and update step to `username_set`
-
-        ### Database Operations
-
-        #### Redis — Get Session State
-        ```
-        HMGET signup:{sessionId} step
-        ```
-        - Returns current step (e.g., `"otp_verified"`)
-        - If `nil`, session expired
-
-        #### PostgreSQL — Check Username Unique
-        ```sql
-        SELECT 1 FROM users WHERE username = $1 LIMIT 1
-        ```
-        - **Table**: `users`
-        - **Column**: `username`
-
-        #### Redis — Update Session State
-        ```
-        HSET signup:{sessionId}
-          step     "username_set"
-          username {username}
-        ```
-
-        ### Error Cases
-        - Invalid sessionId → `400` with "Invalid session id"
-        - Username empty → `400` with "Username is required to not be empty"
-        - Username < 4 chars → `400` with "Username must be at least 4 characters"
-        - Username > 22 chars → `400` with "username must be at most 22 characters"
-        - Session expired/not found → `400` with "Signup session is expired or not exists"
-        - OTP not yet verified → `400` with "Invalid signup step for this session"
-        - Username already taken → `400` with "Username is already taken"
-
-        ### Flow
-        ```
-        Request → Validate SessionId → Validate Username → Get Session (Redis) → Check Step ≠ start_signup → Check Username Unique (DB) → Update Session (Redis) → Response (no data)
-        ```
-
-        ### Next Step
-        After setting username, call `POST /api/auth/signup/password` with `sessionId` and `password` to complete registration.
-      parameters:
-      - description: Payload
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/model.UserVerifyUsernameRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/model.BadRequestError'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/model.ConflictError'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/model.BadRequestError'
-      summary: Verify and set username
       tags:
       - auth
   /posts/{postId}:

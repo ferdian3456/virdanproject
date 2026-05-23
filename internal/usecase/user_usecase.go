@@ -60,20 +60,20 @@ func (usecase *UserUsecase) Login(ctx fiber.Ctx, payload model.UserLoginRequest)
 
 	var response model.TokenResponse
 
-	span.SetAttributes(attribute.String("user.username", payload.Username))
+	span.SetAttributes(attribute.String("user.email", payload.Email))
 
 	v := util.NewValidator()
-	v.String("username", payload.Username).Required().MinLen(4).MaxLen(22)
+	v.String("email", payload.Email).Required().Email().MaxLen(255)
 	v.String("password", payload.Password).Required().MinLen(5).MaxLen(20)
 	err = v.Validate()
 	if err != nil {
 		return response, err
 	}
 
-	payload.Username = strings.ToLower(payload.Username)
+	payload.Email = strings.ToLower(payload.Email)
 
 	var userId, passwordHash string
-	userId, passwordHash, err = usecase.UserRepository.GetUserAuth(ctxContext, payload.Username)
+	userId, passwordHash, err = usecase.UserRepository.GetUserAuthByEmail(ctxContext, payload.Email)
 	if err != nil {
 		return response, err
 	}
@@ -426,88 +426,6 @@ func (usecase *UserUsecase) ResendOtp(ctx fiber.Ctx, payload model.UserResendOTP
 	return response, nil
 }
 
-// VerifyUsername stores a unique username in the signup session.
-func (usecase *UserUsecase) VerifyUsername(ctx fiber.Ctx, payload model.UserVerifyUsernameRequest) error {
-	ctxContext := ctx.Context()
-	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.VerifyUsername")
-	var err error
-
-	defer func() {
-		if err != nil {
-			util.RecordErrorTelemetry(ctxContext, span, err)
-		}
-		span.End()
-	}()
-
-	span.SetAttributes(
-		attribute.String("signup.session_id", payload.SessionId),
-		attribute.String("user.username", payload.Username),
-	)
-
-	v := util.NewValidator()
-	v.String("sessionId", payload.SessionId).Required().UUID()
-	v.String("username", payload.Username).Required().MinLen(4).MaxLen(22)
-	err = v.Validate()
-	if err != nil {
-		return err
-	}
-
-	payload.Username = strings.ToLower(payload.Username)
-
-	var data []interface{}
-	data, err = usecase.UserRepository.GetSignupState(ctxContext, payload.SessionId)
-	if err != nil {
-		return err
-	}
-
-	if len(data) == 0 || data[0] == nil {
-		err = &model.BadRequestError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Signup session is expired or does not exist",
-			Param:   "sessionId",
-		}
-		return err
-	}
-
-	stepRaw, ok := data[0].(string)
-	if !ok {
-		err = fmt.Errorf("invalid signup step format from session data")
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Session data corrupt", zap.Error(err))
-		return err
-	}
-
-	if stepRaw == model.SignupStepStart {
-		err = &model.BadRequestError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid signup step. Verify OTP first.",
-			Param:   "sessionId",
-		}
-		return err
-	}
-
-	var taken int
-	taken, err = usecase.UserRepository.CheckUsernameUnique(ctxContext, payload.Username)
-	if err != nil {
-		return err
-	}
-	if taken > 0 {
-		err = &model.ConflictError{
-			Code:    constant.ERR_CONFLICT_CODE,
-			Message: "Username is already taken",
-			Param:   "username",
-		}
-		return err
-	}
-
-	err = usecase.UserRepository.SetVerificationUsernameState(ctxContext, payload.SessionId, payload.Username)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // VerifyPassword completes the signup flow by creating the user and issuing tokens.
 func (usecase *UserUsecase) VerifyPassword(ctx fiber.Ctx, payload model.UserVerifyPasswordRequest) (model.TokenResponse, error) {
 	ctxContext := ctx.Context()
@@ -548,26 +466,18 @@ func (usecase *UserUsecase) VerifyPassword(ctx fiber.Ctx, payload model.UserVeri
 		return response, err
 	}
 
-	if sessionData["step"] != model.SignupStepUsernameSet {
+	if sessionData["step"] != model.SignupStepOTPVerified {
 		err = &model.BadRequestError{
 			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "Invalid signup step. Set username first.",
+			Message: "Invalid signup step. Verify OTP first.",
 			Param:   "sessionId",
 		}
 		return response, err
 	}
 
-	var usernameTaken, emailTaken bool
-	usernameTaken, emailTaken, err = usecase.UserRepository.CheckUsernameOrEmailUnique(ctxContext, sessionData["username"], sessionData["email"])
+	var emailTaken bool
+	emailTaken, err = usecase.UserRepository.CheckEmailUnique(ctxContext, sessionData["email"])
 	if err != nil {
-		return response, err
-	}
-	if usernameTaken {
-		err = &model.ConflictError{
-			Code:    constant.ERR_CONFLICT_CODE,
-			Message: "Username has been taken since you started signup. Please restart.",
-			Param:   "username",
-		}
 		return response, err
 	}
 	if emailTaken {
@@ -610,7 +520,6 @@ func (usecase *UserUsecase) VerifyPassword(ctx fiber.Ctx, payload model.UserVeri
 
 	user := model.User{
 		Id:        userId,
-		Username:  sessionData["username"],
 		Email:     sessionData["email"],
 		Password:  string(hashedPassword),
 		Settings:  []byte("{}"),
