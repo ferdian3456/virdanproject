@@ -9,8 +9,8 @@ on:
 
 env:
   # Bump deliberately, never use @latest (non-deterministic builds + supply-chain risk)
-  GO_VERSION: "1.25.7"
-  GOLANGCI_LINT_VERSION: "v1.61.0"
+  GO_VERSION: "1.25.10"
+  GOLANGCI_LINT_VERSION: "v1.64.8"
   GOVULNCHECK_VERSION: "v1.1.4"
 
 jobs:
@@ -93,8 +93,12 @@ jobs:
           VERSION: ${{ env.GOVULNCHECK_VERSION }}
         run: go install "golang.org/x/vuln/cmd/govulncheck@${VERSION}"
 
+      # Scope to production packages. tests/integration pulls in testcontainers
+      # which transitively imports github.com/docker/docker, and several of
+      # those vulns have "Fixed in: N/A". Scanning the test path would
+      # always-red the gate without any actionable fix.
       - name: Run govulncheck
-        run: govulncheck ./...
+        run: govulncheck ./cmd/... ./internal/...
 
   virus_scan:
     name: Virus Scan

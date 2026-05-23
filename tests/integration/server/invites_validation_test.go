@@ -197,12 +197,12 @@ func TestInvitesPost_MaxUsesReached(t *testing.T) {
 
 	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s"}`, inviteCode))
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/servers/join", reqBody, token2)
-	resp, err = setup.TestRequestWithLogging(t, app, req)
+	_, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err)
 
 	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s"}`, inviteCode))
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/servers/join", reqBody, token3)
-	resp, err = setup.TestRequestWithLogging(t, app, req)
+	_, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err)
 
 	// Create third user and try to join (should fail - max uses reached)
