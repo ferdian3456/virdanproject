@@ -1,8 +1,6 @@
 package usecase
 
 import (
-	"bytes"
-	"fmt"
 	"strings"
 	"time"
 
@@ -11,7 +9,6 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/repository"
 	"github.com/ferdian3456/virdanproject/internal/util"
 	"github.com/gofiber/fiber/v3"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/knadh/koanf/v2"
@@ -110,7 +107,10 @@ func (usecase *ProfileUsecase) GetServerProfileMe(ctx fiber.Ctx, userId, serverI
 	return response, nil
 }
 
-func (usecase *ProfileUsecase) UpdateServerProfile(ctx fiber.Ctx, userId, serverId string, payload model.ServerProfileUpdateRequest) (model.ServerProfileUpdateResponse, error) {
+// UpdateServerProfile is a consolidated multipart endpoint: nickname +
+// username + bio plus an optional profileAvatar (file) OR avatarImageId
+// (existing image). All fields update in a single transaction.
+func (usecase *ProfileUsecase) UpdateServerProfile(ctx fiber.Ctx, userId, serverId string) (model.ServerProfileUpdateResponse, error) {
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
 	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.UpdateServerProfile")
@@ -125,25 +125,27 @@ func (usecase *ProfileUsecase) UpdateServerProfile(ctx fiber.Ctx, userId, server
 
 	var response model.ServerProfileUpdateResponse
 
+	nickname := ctx.FormValue("nickname")
+	username := ctx.FormValue("username")
+	bio := ctx.FormValue("bio")
+
 	v := util.NewValidator()
 	v.UUID("serverId", serverId).Required()
-	v.String("nickname", payload.Nickname).Required().MinLen(3).MaxLen(50).Nickname()
-	v.String("username", payload.Username).Required().MinLen(3).MaxLen(22).Regex(util.UsernameRegex, util.UsernameErrorText)
-	if payload.Bio != nil {
-		v.String("bio", *payload.Bio).MaxLen(500)
-	}
+	v.String("nickname", nickname).Required().MinLen(3).MaxLen(50).Nickname()
+	v.String("username", username).Required().MinLen(3).MaxLen(22).Regex(util.UsernameRegex, util.UsernameErrorText)
+	v.String("bio", bio).MaxLen(500)
 	err = v.Validate()
 	if err != nil {
 		return response, err
 	}
 
-	payload.Username = strings.ToLower(strings.TrimSpace(payload.Username))
+	username = strings.ToLower(strings.TrimSpace(username))
 
 	span.SetAttributes(
 		attribute.String("user.id", userId),
 		attribute.String("server.id", serverId),
-		attribute.String("profile.nickname", payload.Nickname),
-		attribute.String("profile.username", payload.Username),
+		attribute.String("profile.nickname", nickname),
+		attribute.String("profile.username", username),
 	)
 
 	var memberCount int
@@ -160,33 +162,59 @@ func (usecase *ProfileUsecase) UpdateServerProfile(ctx fiber.Ctx, userId, server
 		return response, err
 	}
 
-	var profileId string
-	var profileExists bool
-	profileId, profileExists, err = usecase.ProfileRepository.TryGetServerMemberProfileIdNoTx(ctxContext, serverId, userId)
-	if err != nil {
-		return response, err
-	}
-	if !profileExists {
-		err = &model.NotFoundError{
-			Code:    constant.ERR_NOT_FOUND_CODE,
-			Message: "Profile not found in this server",
-			Param:   "serverId",
-		}
-		return response, err
+	var bioPtr *string
+	trimmedBio := strings.TrimSpace(bio)
+	if trimmedBio != "" {
+		bioPtr = util.ToPtr(trimmedBio)
 	}
 
-	var bioPtr *string
-	if payload.Bio != nil {
-		trimmed := strings.TrimSpace(*payload.Bio)
-		if trimmed != "" {
-			bioPtr = util.ToPtr(trimmed)
-		}
+	var tx pgx.Tx
+	tx, err = usecase.DB.Begin(ctxContext)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to begin transaction", zap.Error(err))
+		return response, err
 	}
+	defer func() { _ = tx.Rollback(ctxContext) }()
 
 	now := time.Now().UTC()
-	err = usecase.ProfileRepository.UpdateServerProfileNickBio(ctxContext, profileId,
-		payload.Nickname, payload.Username, bioPtr, userId, now)
+
+	var profileId string
+	profileId, err = usecase.ProfileRepository.GetProfileId(ctxContext, tx, serverId, userId)
 	if err != nil {
+		return response, err
+	}
+
+	// Avatar is optional: profileAvatar file XOR avatarImageId XOR neither
+	// (leave existing avatar untouched). ResolveProfileAvatar enforces
+	// mutual exclusion, validates ownership, and uploads the file when
+	// present.
+	var newAvatarImageId *string
+	newAvatarImageId, err = util.ResolveProfileAvatar(
+		ctxContext, tx, ctx,
+		usecase.ProfileRepository,
+		usecase.Config,
+		usecase.Log,
+		userId,
+		now,
+	)
+	if err != nil {
+		return response, err
+	}
+
+	if newAvatarImageId != nil {
+		err = usecase.ProfileRepository.UpdateServerProfileFull(ctxContext, tx, profileId,
+			nickname, username, bioPtr, newAvatarImageId, userId, now)
+	} else {
+		err = usecase.ProfileRepository.UpdateServerProfileNickBioTx(ctxContext, tx, profileId,
+			nickname, username, bioPtr, userId, now)
+	}
+	if err != nil {
+		return response, err
+	}
+
+	err = tx.Commit(ctxContext)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
 		return response, err
 	}
 
@@ -195,100 +223,3 @@ func (usecase *ProfileUsecase) UpdateServerProfile(ctx fiber.Ctx, userId, server
 	return response, nil
 }
 
-func (usecase *ProfileUsecase) UpdateServerProfileAvatar(ctx fiber.Ctx, userId, serverId string) error {
-	ctxContext := ctx.Context()
-	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.UpdateServerProfileAvatar")
-	var err error
-
-	defer func() {
-		if err != nil {
-			util.RecordErrorTelemetry(ctxContext, span, err)
-		}
-		span.End()
-	}()
-
-	span.SetAttributes(
-		attribute.String("user.id", userId),
-		attribute.String("server.id", serverId),
-	)
-
-	v := util.NewValidator()
-	v.UUID("serverId", serverId).Required()
-	err = v.Validate()
-	if err != nil {
-		return err
-	}
-
-	var memberCount int
-	memberCount, err = usecase.ServerRepository.CheckServerMember(ctxContext, serverId, userId)
-	if err != nil {
-		return err
-	}
-	if memberCount == 0 {
-		err = &model.ForbiddenError{
-			Code:    constant.ERR_FORBIDDEN_CODE,
-			Message: "You are not a member of this server",
-			Param:   "serverId",
-		}
-		return err
-	}
-
-	var imageFile *bytes.Reader
-	var imageSize int64
-	imageFile, imageSize, err = util.ExtractAndValidateImage(ctx, ctxContext, "avatar")
-	if err != nil {
-		return err
-	}
-
-	var tx pgx.Tx
-	tx, err = usecase.DB.Begin(ctxContext)
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to begin transaction", zap.Error(err))
-		return err
-	}
-	defer func() { _ = tx.Rollback(ctxContext) }()
-
-	now := time.Now().UTC()
-	bucket := usecase.Config.String("MINIO_BUCKET_NAME")
-
-	var profileId string
-	profileId, err = usecase.ProfileRepository.GetProfileId(ctxContext, tx, serverId, userId)
-	if err != nil {
-		return err
-	}
-
-	newAvatarImageId := uuid.New().String()
-	newAvatarImage := model.ProfileAvatarImage{
-		Id:        newAvatarImageId,
-		Bucket:    bucket,
-		ObjectKey: fmt.Sprintf("profile/avatar/%s.webp", newAvatarImageId),
-		MimeType:  "image/webp",
-		Size:      imageSize,
-		CreatedAt: now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
-	}
-	err = usecase.ProfileRepository.CreateProfileAvatarImage(ctxContext, tx, newAvatarImage)
-	if err != nil {
-		return err
-	}
-
-	err = usecase.ProfileRepository.UpdateProfileAvatarImageId(ctxContext, tx, profileId, util.ToPtr(newAvatarImageId), userId, now)
-	if err != nil {
-		return err
-	}
-
-	err = usecase.ProfileRepository.UploadObject(ctxContext, bucket,
-		fmt.Sprintf("profile/avatar/%s.webp", newAvatarImageId), imageFile, imageSize)
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to upload avatar object", zap.Error(err))
-		return err
-	}
-
-	err = tx.Commit(ctxContext)
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
-		return err
-	}
-
-	return nil
-}

@@ -123,7 +123,6 @@ func (c *RouteConfig) SetupRoute() {
 	profileGroup.Get("/profiles/history", c.ProfileController.GetProfileHistory)
 	profileGroup.Get("/servers/:serverId/profile/me", c.ProfileController.GetServerProfileMe)
 	profileGroup.Put("/servers/:serverId/profile", c.ProfileController.UpdateServerProfile)
-	profileGroup.Put("/servers/:serverId/profile/avatar", c.ProfileController.UpdateServerProfileAvatar)
 
 	postGroup := api.Group("/posts", c.AuthMiddleware.ProtectedRoute())
 	postGroup.Get("/:postId", c.PostController.GetPost)

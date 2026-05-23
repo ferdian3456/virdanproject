@@ -155,6 +155,60 @@ func (repository *ProfileRepository) UpdateServerProfileFull(ctx context.Context
 	return nil
 }
 
+// UpdateServerProfileNickBioTx is the tx-aware variant of
+// UpdateServerProfileNickBio. Used by the consolidated multipart
+// UpdateServerProfile endpoint when no new avatar was supplied — the
+// profile update runs inside the same transaction that ResolveProfileAvatar
+// would have opened, even though it stays a no-op there.
+func (repository *ProfileRepository) UpdateServerProfileNickBioTx(ctx context.Context, tx pgx.Tx, profileId, nickname, username string, bio *string, updatedBy string, updatedAt time.Time) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UpdateServerProfileNickBioTx")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("profile.id", profileId),
+	)
+
+	query := `UPDATE server_member_profiles
+              SET nickname = $1, username = $2, bio = $3, updated_at = $4, updated_by = $5
+              WHERE id = $6`
+
+	_, err = tx.Exec(ctx, query, nickname, username, bio, updatedAt, updatedBy, profileId)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			switch pgErr.ConstraintName {
+			case "idx_server_member_profiles_uk_02":
+				err = &model.ConflictError{
+					Code:    constant.ERR_CONFLICT_CODE,
+					Message: "Nickname is already taken in this server",
+					Param:   "nickname",
+				}
+				return err
+			case "idx_server_member_profiles_uk_03":
+				err = &model.ConflictError{
+					Code:    constant.ERR_CONFLICT_CODE,
+					Message: "Username is already taken in this server",
+					Param:   "username",
+				}
+				return err
+			}
+		}
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to update server_member_profile (tx)", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
 func (repository *ProfileRepository) UpdateServerProfileNickBio(ctx context.Context, profileId, nickname, username string, bio *string, updatedBy string, updatedAt time.Time) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UpdateServerProfileNickBio")
