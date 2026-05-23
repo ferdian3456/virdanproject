@@ -92,9 +92,10 @@ func TestInvitesPost_NotAMember(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	// Setup: Create user and server (user is NOT a member)
+	// Setup: Create user and server (user is NOT a member). shortName has
+	// MaxLen(10) so keep it short — "ownerinvite" is 11 chars.
 	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "ownerinvite@example.com", "password123")
-	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token1, "Owner Invite Server", "ownerinvite", 1, false)
+	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token1, "Owner Invite Server", "ownerinv", 1, false)
 
 	// Create another user (not a member of the server)
 	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "nonmemberinvite@example.com", "password123")

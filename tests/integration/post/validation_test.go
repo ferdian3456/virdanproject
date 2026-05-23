@@ -35,7 +35,7 @@ func TestGetServerPosts_LimitNegative(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	require.Contains(t, result, "error", "response should contain error")
 	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "greater or equal than 0", "error message should mention limit must be >= 0")
+	require.Contains(t, errMsg, "must be at least 0", "error message should mention limit must be >= 0")
 
 	t.Logf("Correctly rejected negative limit: %s", errMsg)
 	setup.LogTestPass(t, "TestGetServerPosts_LimitNegative")
@@ -67,7 +67,7 @@ func TestGetServerPosts_LimitExceeded(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	require.Contains(t, result, "error", "response should contain error")
 	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "exceeded max limit", "error message should mention max limit")
+	require.Contains(t, errMsg, "must be at most 20", "error message should mention max limit")
 
 	t.Logf("Correctly rejected exceeded limit: %s", errMsg)
 	setup.LogTestPass(t, "TestGetServerPosts_LimitExceeded")
@@ -109,7 +109,7 @@ func TestGetComments_LimitNegative(t *testing.T) {
 	result = setup.ParseJSONResponse(t, resp)
 	require.Contains(t, result, "error", "response should contain error")
 	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "greater or equal than 0", "error message should mention limit must be >= 0")
+	require.Contains(t, errMsg, "must be at least 0", "error message should mention limit must be >= 0")
 
 	t.Logf("Correctly rejected negative limit: %s", errMsg)
 	setup.LogTestPass(t, "TestGetComments_LimitNegative")
@@ -151,7 +151,7 @@ func TestGetComments_LimitExceeded(t *testing.T) {
 	result = setup.ParseJSONResponse(t, resp)
 	require.Contains(t, result, "error", "response should contain error")
 	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "exceeded max limit", "error message should mention max limit")
+	require.Contains(t, errMsg, "must be at most 20", "error message should mention max limit")
 
 	t.Logf("Correctly rejected exceeded limit: %s", errMsg)
 	setup.LogTestPass(t, "TestGetComments_LimitExceeded")

@@ -32,7 +32,7 @@ func TestLogin_Success(t *testing.T) {
 	setup.LogTestStep(t, "Testing Login with valid email/password")
 	reqBody := []byte(fmt.Sprintf(`{"email":"%s","password":"%s"}`, email, password))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/login", reqBody)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "login request should succeed")
 	setup.RequireStatus(t, resp, 200)
 
@@ -63,7 +63,7 @@ func TestLogin_WrongPassword(t *testing.T) {
 
 	reqBody := []byte(fmt.Sprintf(`{"email":"%s","password":"wrong-password"}`, email))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/login", reqBody)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "login request should complete")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -84,7 +84,7 @@ func TestLogin_UnknownEmail(t *testing.T) {
 
 	reqBody := []byte(`{"email":"nobody@example.com","password":"password123"}`)
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/login", reqBody)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "login request should complete")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -116,7 +116,7 @@ func TestLogin_ValidationErrors(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/login", []byte(tc.body))
-			resp, err := app.Test(req)
+			resp, err := setup.AppTest(t, app, req)
 			require.NoError(t, err, "login request should complete")
 
 			result := setup.ParseJSONResponse(t, resp)

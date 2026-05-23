@@ -32,11 +32,18 @@ func TestUpdateName_Success(t *testing.T) {
 	require.NoError(t, err)
 	setup.RequireStatus(t, resp, 200)
 
+	// ServerUpdateResponse only carries {id, updatedAt} — assert on those
+	// two fields and re-fetch the server to verify the name actually changed.
 	result := setup.ParseJSONResponse(t, resp)
-	require.Contains(t, result, "name", "response should contain updated name")
+	require.Contains(t, result, "id", "response should contain server id")
+	require.Contains(t, result, "updatedAt", "response should contain updatedAt timestamp")
 
-	updatedName := result["name"].(string)
-	require.Equal(t, "Updated Server Name", updatedName, "name should be updated")
+	req = setup.CreateAuthRequest(http.MethodGet, "/api/servers/"+serverID, nil, token)
+	resp, err = setup.TestRequestWithLogging(t, app, req)
+	require.NoError(t, err)
+	setup.RequireStatus(t, resp, 200)
+	detail := setup.ParseJSONResponse(t, resp)
+	require.Equal(t, "Updated Server Name", detail["name"], "name should be persisted in the server detail response")
 
 	t.Logf("Server name updated successfully")
 	setup.LogTestPass(t, "TestUpdateName_Success")
@@ -155,11 +162,17 @@ func TestUpdateShortName_Success(t *testing.T) {
 	require.NoError(t, err)
 	setup.RequireStatus(t, resp, 200)
 
+	// ServerUpdateResponse only carries {id, updatedAt}.
 	result := setup.ParseJSONResponse(t, resp)
-	require.Contains(t, result, "shortName", "response should contain updated short name")
+	require.Contains(t, result, "id", "response should contain server id")
+	require.Contains(t, result, "updatedAt", "response should contain updatedAt timestamp")
 
-	updatedShortName := result["shortName"].(string)
-	require.Equal(t, "updshort", updatedShortName, "short name should be updated")
+	req = setup.CreateAuthRequest(http.MethodGet, "/api/servers/"+serverID, nil, token)
+	resp, err = setup.TestRequestWithLogging(t, app, req)
+	require.NoError(t, err)
+	setup.RequireStatus(t, resp, 200)
+	detail := setup.ParseJSONResponse(t, resp)
+	require.Equal(t, "updshort", detail["shortName"], "shortName should be persisted")
 
 	t.Logf("Server short name updated successfully")
 	setup.LogTestPass(t, "TestUpdateShortName_Success")
@@ -217,8 +230,17 @@ func TestUpdateCategory_Success(t *testing.T) {
 	require.NoError(t, err)
 	setup.RequireStatus(t, resp, 200)
 
+	// ServerUpdateResponse only carries {id, updatedAt}.
 	result := setup.ParseJSONResponse(t, resp)
-	require.Contains(t, result, "categoryId", "response should contain updated category id")
+	require.Contains(t, result, "id", "response should contain server id")
+	require.Contains(t, result, "updatedAt", "response should contain updatedAt timestamp")
+
+	req = setup.CreateAuthRequest(http.MethodGet, "/api/servers/"+serverID, nil, token)
+	resp, err = setup.TestRequestWithLogging(t, app, req)
+	require.NoError(t, err)
+	setup.RequireStatus(t, resp, 200)
+	detail := setup.ParseJSONResponse(t, resp)
+	require.Equal(t, float64(2), detail["categoryId"], "categoryId should be persisted")
 
 	t.Logf("Server category updated successfully")
 	setup.LogTestPass(t, "TestUpdateCategory_Success")
@@ -246,11 +268,17 @@ func TestUpdateDescription_Success(t *testing.T) {
 	require.NoError(t, err)
 	setup.RequireStatus(t, resp, 200)
 
+	// ServerUpdateResponse only carries {id, updatedAt}.
 	result := setup.ParseJSONResponse(t, resp)
-	require.Contains(t, result, "description", "response should contain updated description")
+	require.Contains(t, result, "id", "response should contain server id")
+	require.Contains(t, result, "updatedAt", "response should contain updatedAt timestamp")
 
-	updatedDesc := result["description"].(string)
-	require.Equal(t, "This is an updated description", updatedDesc, "description should be updated")
+	req = setup.CreateAuthRequest(http.MethodGet, "/api/servers/"+serverID, nil, token)
+	resp, err = setup.TestRequestWithLogging(t, app, req)
+	require.NoError(t, err)
+	setup.RequireStatus(t, resp, 200)
+	detail := setup.ParseJSONResponse(t, resp)
+	require.Equal(t, "This is an updated description", detail["description"], "description should be persisted")
 
 	t.Logf("Server description updated successfully")
 	setup.LogTestPass(t, "TestUpdateDescription_Success")

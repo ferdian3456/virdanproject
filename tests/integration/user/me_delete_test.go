@@ -24,13 +24,13 @@ func TestMeDelete_Success(t *testing.T) {
 	token := setup.CreateTestUser(t, app, infra.MailhogURL, "deleteme@example.com", "password123")
 
 	req := setup.CreateAuthRequest(http.MethodDelete, "/api/users/me", nil, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "delete account should succeed")
 	setup.RequireStatus(t, resp, 200)
 
 	// Token should be invalidated after soft-delete.
 	req = setup.CreateAuthRequest(http.MethodGet, "/api/users/me", nil, token)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "follow-up me request should complete")
 	require.NotEqual(t, 200, resp.StatusCode, "old token should not work after account deletion")
 	setup.LogTestPass(t, "TestMeDelete_Success")
@@ -48,7 +48,7 @@ func TestMeDelete_Unauthorized(t *testing.T) {
 	defer db.Close()
 
 	req := setup.CreateAuthRequest(http.MethodDelete, "/api/users/me", nil, "")
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "delete account request should complete")
 	require.NotEqual(t, 200, resp.StatusCode, "unauthenticated delete must not succeed")
 	setup.LogTestPass(t, "TestMeDelete_Unauthorized")
@@ -70,12 +70,12 @@ func TestMeDelete_Idempotent(t *testing.T) {
 	token := setup.CreateTestUser(t, app, infra.MailhogURL, "deletetwice@example.com", "password123")
 
 	req := setup.CreateAuthRequest(http.MethodDelete, "/api/users/me", nil, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "first delete should succeed")
 	setup.RequireStatus(t, resp, 200)
 
 	req = setup.CreateAuthRequest(http.MethodDelete, "/api/users/me", nil, token)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "second delete request should complete")
 	require.NotEqual(t, 200, resp.StatusCode, "second delete must not succeed with the now-stale token")
 	setup.LogTestPass(t, "TestMeDelete_Idempotent")

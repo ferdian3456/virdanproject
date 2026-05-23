@@ -30,7 +30,7 @@ func TestSignupResendOtpPost_Success(t *testing.T) {
 	testEmail := "resend@example.com"
 	reqBody := []byte(fmt.Sprintf(`{"email":"%s"}`, testEmail))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "signup start should succeed")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -47,7 +47,7 @@ func TestSignupResendOtpPost_Success(t *testing.T) {
 	t.Log("=== Testing OTP Resend ===")
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s"}`, sessionId))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/resend-otp", reqBody)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "resend OTP request should succeed")
 	setup.RequireStatus(t, resp, 200)
 
@@ -84,7 +84,7 @@ func TestSignupResendOtpPost_BeforeExpiry(t *testing.T) {
 	testEmail := "beforeexpiry@example.com"
 	reqBody := []byte(fmt.Sprintf(`{"email":"%s"}`, testEmail))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "signup start should succeed")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -97,7 +97,7 @@ func TestSignupResendOtpPost_BeforeExpiry(t *testing.T) {
 	t.Log("=== Testing OTP Resend Before Expiry (Should Fail/Wait) ===")
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s"}`, sessionId))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/resend-otp", reqBody)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "resend OTP request should complete")
 
 	result = setup.ParseJSONResponse(t, resp)
@@ -133,7 +133,7 @@ func TestSignupResendOtpPost_InvalidSessionId(t *testing.T) {
 	t.Log("=== Testing OTP Resend with Invalid Session ID ===")
 	reqBody := []byte(`{"sessionId":"00000000-0000-0000-0000-000000000000"}`)
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/resend-otp", reqBody)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "resend OTP request should complete")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -160,7 +160,7 @@ func TestSignupResendOtpPost_ExpiredSession(t *testing.T) {
 	// Setup: Start signup
 	reqBody := []byte(`{"email":"expiredresend@example.com"}`)
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "signup start should succeed")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -174,7 +174,7 @@ func TestSignupResendOtpPost_ExpiredSession(t *testing.T) {
 	t.Log("=== Testing OTP Resend with Expired Session ===")
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s"}`, sessionId))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/resend-otp", reqBody)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "resend OTP request should complete")
 
 	result = setup.ParseJSONResponse(t, resp)
@@ -207,7 +207,7 @@ func TestSignupResendOtpPost_MultipleResends(t *testing.T) {
 	testEmail := "multipleresend@example.com"
 	reqBody := []byte(fmt.Sprintf(`{"email":"%s"}`, testEmail))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "signup start should succeed")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -217,7 +217,7 @@ func TestSignupResendOtpPost_MultipleResends(t *testing.T) {
 	t.Log("=== First Resend ===")
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s"}`, sessionId))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/resend-otp", reqBody)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "first resend should succeed")
 
 	result = setup.ParseJSONResponse(t, resp)
@@ -228,7 +228,7 @@ func TestSignupResendOtpPost_MultipleResends(t *testing.T) {
 	t.Log("=== Second Resend (Immediate) ===")
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s"}`, sessionId))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/resend-otp", reqBody)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "second resend request should complete")
 
 	result = setup.ParseJSONResponse(t, resp)
@@ -250,7 +250,7 @@ func TestSignupResendOtpPost_MultipleResends(t *testing.T) {
 
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s"}`, sessionId))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/resend-otp", reqBody)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "third resend request should complete")
 
 	result = setup.ParseJSONResponse(t, resp)
@@ -280,7 +280,7 @@ func TestSignupResendOtpPost_NewOTPCanVerify(t *testing.T) {
 	testEmail := "resendverify@example.com"
 	reqBody := []byte(fmt.Sprintf(`{"email":"%s"}`, testEmail))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "signup start should succeed")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -293,7 +293,7 @@ func TestSignupResendOtpPost_NewOTPCanVerify(t *testing.T) {
 	t.Log("=== Resending OTP ===")
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s"}`, sessionId))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/resend-otp", reqBody)
-	_, err = app.Test(req)
+	_, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "resend OTP should succeed")
 
 	// Get new OTP and verify it works
@@ -303,7 +303,7 @@ func TestSignupResendOtpPost_NewOTPCanVerify(t *testing.T) {
 
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","otp":"%s"}`, sessionId, newOTP))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/otp", reqBody)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "OTP verification with new OTP should succeed")
 	setup.RequireStatus(t, resp, 200)
 

@@ -30,7 +30,7 @@ func TestMembershipDelete_Success(t *testing.T) {
 
 	// Leave the server.
 	req := setup.CreateAuthRequest(http.MethodDelete, fmt.Sprintf("/api/servers/%s/membership", serverID), nil, memberToken)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "leave server should succeed")
 	setup.RequireStatus(t, resp, 200)
 	setup.LogTestPass(t, "TestMembershipDelete_Success")
@@ -55,7 +55,7 @@ func TestMembershipDelete_NotAMember(t *testing.T) {
 	strangerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "leavenotmember@example.com", "password123")
 
 	req := setup.CreateAuthRequest(http.MethodDelete, fmt.Sprintf("/api/servers/%s/membership", serverID), nil, strangerToken)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "leave request should complete")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -80,7 +80,7 @@ func TestMembershipDelete_OwnerCannotLeave(t *testing.T) {
 	serverID := setup.CreateTestServer(t, app, infra.RedisURL, ownerToken, "Owner Leave Server", "ownerleav", 1, false)
 
 	req := setup.CreateAuthRequest(http.MethodDelete, fmt.Sprintf("/api/servers/%s/membership", serverID), nil, ownerToken)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "leave request should complete")
 
 	require.NotEqual(t, 200, resp.StatusCode, "owner must not be able to leave their own server")
@@ -101,7 +101,7 @@ func TestMembershipDelete_Unauthorized(t *testing.T) {
 	defer db.Close()
 
 	req := setup.CreateAuthRequest(http.MethodDelete, "/api/servers/00000000-0000-0000-0000-000000000000/membership", nil, "")
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "leave request should complete")
 	require.NotEqual(t, 200, resp.StatusCode, "unauthenticated leave must not succeed")
 	setup.LogTestPass(t, "TestMembershipDelete_Unauthorized")

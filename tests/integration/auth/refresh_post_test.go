@@ -19,7 +19,7 @@ func loginAndReturnTokens(t *testing.T, app *fiber.App, mailhogURL, email, passw
 	// token. Inline the full flow here to also capture the refresh token.
 	startBody := []byte(fmt.Sprintf(`{"email":%q}`, email))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", startBody)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "signup start should succeed")
 	result := setup.ParseJSONResponse(t, resp)
 	sessionId := result["sessionId"].(string)
@@ -27,13 +27,13 @@ func loginAndReturnTokens(t *testing.T, app *fiber.App, mailhogURL, email, passw
 	otp := setup.GetOTPFromMailhog(t, mailhogURL, email)
 	otpBody := []byte(fmt.Sprintf(`{"sessionId":%q,"otp":%q}`, sessionId, otp))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/otp", otpBody)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "verify OTP should succeed")
 	setup.RequireStatus(t, resp, 200)
 
 	pwBody := []byte(fmt.Sprintf(`{"sessionId":%q,"password":%q}`, sessionId, password))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/password", pwBody)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "set password should succeed")
 
 	result = setup.ParseJSONResponse(t, resp)
@@ -61,7 +61,7 @@ func TestRefresh_Success(t *testing.T) {
 
 	reqBody := []byte(fmt.Sprintf(`{"refreshToken":%q}`, refresh))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/refresh", reqBody)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "refresh request should succeed")
 	setup.RequireStatus(t, resp, 200)
 
@@ -91,14 +91,14 @@ func TestRefresh_ReusedToken(t *testing.T) {
 	// First rotation succeeds.
 	reqBody := []byte(fmt.Sprintf(`{"refreshToken":%q}`, refresh))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/refresh", reqBody)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "first refresh should succeed")
 	setup.RequireStatus(t, resp, 200)
 
 	// Second rotation with the same (now revoked) token must fail.
 	reqBody = []byte(fmt.Sprintf(`{"refreshToken":%q}`, refresh))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/refresh", reqBody)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "second refresh request should complete")
 	require.NotEqual(t, 200, resp.StatusCode, "reusing a refresh token must not succeed")
 
@@ -120,7 +120,7 @@ func TestRefresh_InvalidToken(t *testing.T) {
 
 	reqBody := []byte(`{"refreshToken":"not-a-real-refresh-token"}`)
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/refresh", reqBody)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "refresh request should complete")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -140,7 +140,7 @@ func TestRefresh_EmptyRefreshToken(t *testing.T) {
 	defer db.Close()
 
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/refresh", []byte(`{"refreshToken":""}`))
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "refresh request should complete")
 
 	result := setup.ParseJSONResponse(t, resp)

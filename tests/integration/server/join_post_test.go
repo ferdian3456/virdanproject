@@ -125,9 +125,11 @@ func TestJoinFromInvitePost_AlreadyMember(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	// Setup: Create user and server with invite
+	// Setup: Create user and server with invite. shortName has MaxLen(10), so
+	// keep it short — the previous "alreadyjoin" value was 11 chars and made
+	// CreateTestServer fail at validation.
 	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "alreadyjoin@example.com", "password123")
-	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Already Join Server", "alreadyjoin", 1, false)
+	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Already Join Server", "alrdyjoin", 1, false)
 
 	// Create invite link
 	reqBody := []byte(`{"expiresInMinutes":60,"maxUses":10}`)
@@ -248,9 +250,10 @@ func TestJoinServer_AlreadyMember(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	// Setup: Create user and server (user is automatically a member as creator)
+	// Setup: Create user and server (user is automatically a member as
+	// creator). shortName has MaxLen(10), so trim to 9 chars.
 	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "alreadyjoindirect@example.com", "password123")
-	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Already Join Direct Server", "alreadyjoin", 1, false)
+	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Already Join Direct Server", "alrdyjnd", 1, false)
 
 	// Test: Try to join server when already a member (creator is auto-member).
 	setup.LogTestStep(t, "Testing Join Server When Already Member")

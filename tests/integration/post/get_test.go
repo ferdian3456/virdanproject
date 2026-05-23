@@ -215,7 +215,7 @@ func TestGetPost_Unauthorized(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unauthgetpost@example.com", "password123")
-	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Unauth Get Post Server", "unauthgetpost", 1, false)
+	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Unauth Get Post Server", "unauthgp", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
 	body, contentType := setup.CreateMultipartFormData(t, "image", "test.webp", imageData, map[string]string{

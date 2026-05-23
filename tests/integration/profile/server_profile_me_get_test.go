@@ -26,7 +26,7 @@ func TestServerProfileMeGet_Success(t *testing.T) {
 	serverID := setup.CreateTestServer(t, app, infra.RedisURL, token, "Profile Me Server", "profme", 1, false)
 
 	req := setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/profile/me", serverID), nil, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "get server profile me should succeed")
 	setup.RequireStatus(t, resp, 200)
 
@@ -57,7 +57,7 @@ func TestServerProfileMeGet_NotAMember(t *testing.T) {
 	strangerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "spme-stranger@example.com", "password123")
 
 	req := setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/profile/me", serverID), nil, strangerToken)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "get server profile me should complete")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -77,7 +77,7 @@ func TestServerProfileMeGet_Unauthorized(t *testing.T) {
 	defer db.Close()
 
 	req := setup.CreateAuthRequest(http.MethodGet, "/api/servers/00000000-0000-0000-0000-000000000000/profile/me", nil, "")
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "get server profile me should complete")
 	require.NotEqual(t, 200, resp.StatusCode, "unauthenticated request must not succeed")
 	setup.LogTestPass(t, "TestServerProfileMeGet_Unauthorized")

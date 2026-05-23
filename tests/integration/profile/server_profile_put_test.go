@@ -32,7 +32,7 @@ func TestServerProfilePut_Success(t *testing.T) {
 		"bio":      "Updated bio after refactor",
 	})
 	req := setup.CreateAuthMultipartRequest(http.MethodPut, fmt.Sprintf("/api/servers/%s/profile", serverID), body, contentType, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "update server profile should succeed")
 	setup.RequireStatus(t, resp, 200)
 
@@ -42,7 +42,7 @@ func TestServerProfilePut_Success(t *testing.T) {
 
 	// Re-fetch and confirm the new values landed.
 	req = setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/profile/me", serverID), nil, token)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "follow-up get profile should succeed")
 	setup.RequireStatus(t, resp, 200)
 
@@ -75,7 +75,7 @@ func TestServerProfilePut_NotAMember(t *testing.T) {
 		"username": "hacker",
 	})
 	req := setup.CreateAuthMultipartRequest(http.MethodPut, fmt.Sprintf("/api/servers/%s/profile", serverID), body, contentType, strangerToken)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "update server profile should complete")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -109,7 +109,7 @@ func TestServerProfilePut_DuplicateUsername(t *testing.T) {
 		"username": "dupprof",
 	})
 	req := setup.CreateAuthMultipartRequest(http.MethodPut, fmt.Sprintf("/api/servers/%s/profile", serverID), body, contentType, memberToken)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "duplicate-username update should complete")
 
 	require.NotEqual(t, 200, resp.StatusCode, "duplicate username must not succeed")
@@ -134,7 +134,7 @@ func TestServerProfilePut_Unauthorized(t *testing.T) {
 		"username": "anon",
 	})
 	req := setup.CreateAuthMultipartRequest(http.MethodPut, "/api/servers/00000000-0000-0000-0000-000000000000/profile", body, contentType, "")
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "update server profile should complete")
 	require.NotEqual(t, 200, resp.StatusCode, "unauthenticated request must not succeed")
 	setup.LogTestPass(t, "TestServerProfilePut_Unauthorized")

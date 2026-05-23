@@ -22,7 +22,7 @@ func TestHealthGet_Success(t *testing.T) {
 	defer db.Close()
 
 	req := setup.CreateJSONRequest(http.MethodGet, "/api/health", nil)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "health request should succeed")
 	setup.RequireStatus(t, resp, 200)
 

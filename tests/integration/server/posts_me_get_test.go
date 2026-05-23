@@ -31,13 +31,13 @@ func TestPostsMeGet_Success(t *testing.T) {
 		"caption": "Owner post",
 	})
 	req := setup.CreateAuthMultipartRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/posts", serverID), body, contentType, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	setup.RequireStatus(t, resp, 200)
 
 	// Retrieve the caller's posts for this server.
 	req = setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/posts/me", serverID), nil, token)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "get my posts should succeed")
 	setup.RequireStatus(t, resp, 200)
 
@@ -68,7 +68,7 @@ func TestPostsMeGet_NotAMember(t *testing.T) {
 	strangerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "postsme-stranger@example.com", "password123")
 
 	req := setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/posts/me", serverID), nil, strangerToken)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "get my posts should complete")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -88,7 +88,7 @@ func TestPostsMeGet_Unauthorized(t *testing.T) {
 	defer db.Close()
 
 	req := setup.CreateAuthRequest(http.MethodGet, "/api/servers/00000000-0000-0000-0000-000000000000/posts/me", nil, "")
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "get my posts should complete")
 	require.NotEqual(t, 200, resp.StatusCode, "unauthenticated request must not succeed")
 	setup.LogTestPass(t, "TestPostsMeGet_Unauthorized")

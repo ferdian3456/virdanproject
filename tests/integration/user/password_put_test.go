@@ -27,14 +27,14 @@ func TestPasswordPut_Success(t *testing.T) {
 
 	reqBody := []byte(`{"currentPassword":"password123","newPassword":"NewPassword123"}`)
 	req := setup.CreateAuthRequest(http.MethodPut, "/api/users/password", reqBody, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "change password should succeed")
 	setup.RequireStatus(t, resp, 200)
 
 	// The new password should let the user log in.
 	loginBody := []byte(fmt.Sprintf(`{"email":"%s","password":"NewPassword123"}`, email))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/login", loginBody)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "login with new password should complete")
 	setup.RequireStatus(t, resp, 200)
 	setup.LogTestPass(t, "TestPasswordPut_Success")
@@ -57,7 +57,7 @@ func TestPasswordPut_WrongCurrent(t *testing.T) {
 
 	reqBody := []byte(`{"currentPassword":"WRONG","newPassword":"NewPassword123"}`)
 	req := setup.CreateAuthRequest(http.MethodPut, "/api/users/password", reqBody, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "change password request should complete")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -84,7 +84,7 @@ func TestPasswordPut_NewEqualsCurrent(t *testing.T) {
 
 	reqBody := []byte(`{"currentPassword":"password123","newPassword":"password123"}`)
 	req := setup.CreateAuthRequest(http.MethodPut, "/api/users/password", reqBody, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "change password request should complete")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -118,7 +118,7 @@ func TestPasswordPut_ValidationErrors(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			req := setup.CreateAuthRequest(http.MethodPut, "/api/users/password", []byte(tc.body), token)
-			resp, err := app.Test(req)
+			resp, err := setup.AppTest(t, app, req)
 			require.NoError(t, err, "change password request should complete")
 
 			result := setup.ParseJSONResponse(t, resp)

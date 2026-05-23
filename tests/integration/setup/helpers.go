@@ -75,6 +75,20 @@ func CreateTestWebPImage(t *testing.T) []byte {
 	return imageData
 }
 
+// appTestTimeout is the timeout AppTest applies to every fiber.App.Test call.
+// fiber v3 defaults to 1s, which is not enough headroom when several packages
+// run in parallel and a request includes WebP conversion or an OTP fetch.
+const appTestTimeout = 30 * time.Second
+
+// AppTest is a thin wrapper around fiber.App.Test that applies a generous
+// timeout. Every direct app.Test(req) call site in the tests should go
+// through this helper so we have a single knob if the timeout needs to
+// change.
+func AppTest(t *testing.T, app *fiber.App, req *http.Request) (*http.Response, error) {
+	t.Helper()
+	return app.Test(req, fiber.TestConfig{Timeout: appTestTimeout, FailOnTimeout: true})
+}
+
 // CreateMultipartTextOnly builds a multipart/form-data body containing only
 // text fields (no file part). Use this for endpoints that accept multipart
 // payloads without an attached image — e.g. CreateServer / JoinServer when
@@ -478,7 +492,7 @@ func CreateTestUser(t *testing.T, app *fiber.App, mailhogURL, email, password st
 	// 1. Start signup -> sends OTP, returns sessionId.
 	reqBody := []byte(fmt.Sprintf(`{"email":%q}`, email))
 	req := CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err, "signup start should succeed")
 
 	result := RequireJSONResponse(t, resp, 200)
@@ -489,14 +503,14 @@ func CreateTestUser(t *testing.T, app *fiber.App, mailhogURL, email, password st
 	otp := GetOTPFromMailhog(t, mailhogURL, email)
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":%q,"otp":%q}`, sessionId, otp))
 	req = CreateJSONRequest(http.MethodPost, "/api/auth/signup/otp", reqBody)
-	resp, err = app.Test(req)
+	resp, err = app.Test(req, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err, "verify OTP should succeed")
 	RequireStatus(t, resp, 200)
 
 	// 3. Set password -> creates user and returns the initial token pair.
 	reqBody = []byte(fmt.Sprintf(`{"sessionId":%q,"password":%q}`, sessionId, password))
 	req = CreateJSONRequest(http.MethodPost, "/api/auth/signup/password", reqBody)
-	resp, err = app.Test(req)
+	resp, err = app.Test(req, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err, "set password should succeed")
 
 	result = RequireJSONResponse(t, resp, 200)
@@ -513,7 +527,7 @@ func CreateTestUser(t *testing.T, app *fiber.App, mailhogURL, email, password st
 func LoginTestUser(t *testing.T, app *fiber.App, email, password string) string {
 	reqBody := []byte(fmt.Sprintf(`{"email":%q,"password":%q}`, email, password))
 	req := CreateJSONRequest(http.MethodPost, "/api/auth/login", reqBody)
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err, "login should succeed")
 
 	result := RequireJSONResponse(t, resp, 200)
@@ -553,7 +567,7 @@ func CreateTestServer(t *testing.T, app *fiber.App, redisURL, token, name, short
 	}
 	body, contentType := CreateMultipartTextOnly(t, fields)
 	req := CreateAuthMultipartRequest(http.MethodPost, "/api/servers/create", body, contentType, token)
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err, "create server should succeed")
 
 	result := RequireJSONResponse(t, resp, 200)
@@ -580,7 +594,7 @@ func JoinTestServer(t *testing.T, app *fiber.App, token, serverID, nickname, use
 	}
 	body, contentType := CreateMultipartTextOnly(t, fields)
 	req := CreateAuthMultipartRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/join", serverID), body, contentType, token)
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err, "join server should succeed")
 	RequireStatus(t, resp, 200)
 }
@@ -861,7 +875,7 @@ func TestRequestWithLogging(t *testing.T, app *fiber.App, req *http.Request) (*h
 	t.Logf("--- Executing Request: %s %s ---", req.Method, req.URL.Path)
 	LogHTTPRequest(t, req)
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
 
 	if err != nil {
 		t.Logf("❌ Request Error: %v", err)
@@ -920,7 +934,7 @@ func RequireJSONWithLog(t *testing.T, app *fiber.App, req *http.Request, expecte
 	t.Logf("--- Executing Request: %s %s ---", req.Method, req.URL.Path)
 	LogHTTPRequest(t, req)
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
 	if err != nil {
 		t.Logf("❌ Request Failed: %v", err)
 		t.Fatalf("Request failed: %v", err)

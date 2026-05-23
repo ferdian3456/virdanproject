@@ -25,7 +25,7 @@ func TestEmailChangeRequest_Success(t *testing.T) {
 
 	reqBody := []byte(`{"newEmail":"emailchg-new@example.com"}`)
 	req := setup.CreateAuthRequest(http.MethodPost, "/api/users/email/change/request", reqBody, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "request email change should succeed")
 	setup.RequireStatus(t, resp, 200)
 
@@ -52,7 +52,7 @@ func TestEmailChangeRequest_SameAsCurrent(t *testing.T) {
 
 	reqBody := []byte(`{"newEmail":"` + email + `"}`)
 	req := setup.CreateAuthRequest(http.MethodPost, "/api/users/email/change/request", reqBody, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "request email change should complete")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -81,7 +81,7 @@ func TestEmailChangeRequest_AlreadyTaken(t *testing.T) {
 
 	reqBody := []byte(`{"newEmail":"emailtaken-target@example.com"}`)
 	req := setup.CreateAuthRequest(http.MethodPost, "/api/users/email/change/request", reqBody, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "request email change should complete")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -104,7 +104,7 @@ func TestEmailChangeRequest_Unauthorized(t *testing.T) {
 
 	reqBody := []byte(`{"newEmail":"whoever@example.com"}`)
 	req := setup.CreateAuthRequest(http.MethodPost, "/api/users/email/change/request", reqBody, "")
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "request email change should complete")
 	require.NotEqual(t, 200, resp.StatusCode, "unauthenticated request must not succeed")
 	setup.LogTestPass(t, "TestEmailChangeRequest_Unauthorized")

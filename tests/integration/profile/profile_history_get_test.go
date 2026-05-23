@@ -26,7 +26,7 @@ func TestProfileHistoryGet_Success(t *testing.T) {
 	_ = setup.CreateTestServer(t, app, infra.RedisURL, token, "History Server", "history", 1, false)
 
 	req := setup.CreateAuthRequest(http.MethodGet, "/api/profiles/history", nil, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "profile history request should succeed")
 	setup.RequireStatus(t, resp, 200)
 
@@ -62,7 +62,7 @@ func TestProfileHistoryGet_Empty(t *testing.T) {
 	token := setup.CreateTestUser(t, app, infra.MailhogURL, "phistoryempty@example.com", "password123")
 
 	req := setup.CreateAuthRequest(http.MethodGet, "/api/profiles/history", nil, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "profile history request should succeed")
 	setup.RequireStatus(t, resp, 200)
 
@@ -83,7 +83,7 @@ func TestProfileHistoryGet_Unauthorized(t *testing.T) {
 	defer db.Close()
 
 	req := setup.CreateAuthRequest(http.MethodGet, "/api/profiles/history", nil, "")
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "profile history request should complete")
 	require.NotEqual(t, 200, resp.StatusCode, "unauthenticated request must not succeed")
 	setup.LogTestPass(t, "TestProfileHistoryGet_Unauthorized")

@@ -25,7 +25,7 @@ func TestPasswordVerify_Success(t *testing.T) {
 
 	reqBody := []byte(`{"password":"password123"}`)
 	req := setup.CreateAuthRequest(http.MethodPost, "/api/users/password/verify", reqBody, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "verify current password should succeed")
 	setup.RequireStatus(t, resp, 200)
 	setup.LogTestPass(t, "TestPasswordVerify_Success")
@@ -47,7 +47,7 @@ func TestPasswordVerify_WrongPassword(t *testing.T) {
 
 	reqBody := []byte(`{"password":"not-the-real-one"}`)
 	req := setup.CreateAuthRequest(http.MethodPost, "/api/users/password/verify", reqBody, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "verify current password request should complete")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -70,7 +70,7 @@ func TestPasswordVerify_Unauthorized(t *testing.T) {
 
 	reqBody := []byte(`{"password":"whatever"}`)
 	req := setup.CreateAuthRequest(http.MethodPost, "/api/users/password/verify", reqBody, "")
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "verify current password request should complete")
 	require.NotEqual(t, 200, resp.StatusCode, "unauthenticated verify must not succeed")
 	setup.LogTestPass(t, "TestPasswordVerify_Unauthorized")

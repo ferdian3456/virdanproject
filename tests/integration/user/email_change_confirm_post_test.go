@@ -31,7 +31,7 @@ func TestEmailChangeConfirm_Success(t *testing.T) {
 	// 1. Request the change.
 	reqBody := []byte(fmt.Sprintf(`{"newEmail":"%s"}`, newEmail))
 	req := setup.CreateAuthRequest(http.MethodPost, "/api/users/email/change/request", reqBody, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "request email change should succeed")
 	setup.RequireStatus(t, resp, 200)
 
@@ -42,14 +42,14 @@ func TestEmailChangeConfirm_Success(t *testing.T) {
 	// 3. Confirm.
 	reqBody = []byte(fmt.Sprintf(`{"otp":"%s"}`, otp))
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/users/email/change/confirm", reqBody, token)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "confirm email change should succeed")
 	setup.RequireStatus(t, resp, 200)
 
 	// 4. Logging in with the new email should now work.
 	loginBody := []byte(fmt.Sprintf(`{"email":"%s","password":"password123"}`, newEmail))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/login", loginBody)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "login with new email should complete")
 	setup.RequireStatus(t, resp, 200)
 
@@ -74,13 +74,13 @@ func TestEmailChangeConfirm_WrongOTP(t *testing.T) {
 	// Open a pending session so the confirm endpoint has a session to inspect.
 	reqBody := []byte(`{"newEmail":"emailconfirmbad-new@example.com"}`)
 	req := setup.CreateAuthRequest(http.MethodPost, "/api/users/email/change/request", reqBody, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "request email change should succeed")
 	setup.RequireStatus(t, resp, 200)
 
 	reqBody = []byte(`{"otp":"000000"}`)
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/users/email/change/confirm", reqBody, token)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "confirm email change request should complete")
 
 	result := setup.ParseJSONResponse(t, resp)
@@ -107,7 +107,7 @@ func TestEmailChangeConfirm_NoPendingSession(t *testing.T) {
 
 	reqBody := []byte(`{"otp":"123456"}`)
 	req := setup.CreateAuthRequest(http.MethodPost, "/api/users/email/change/confirm", reqBody, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "confirm email change request should complete")
 
 	result := setup.ParseJSONResponse(t, resp)

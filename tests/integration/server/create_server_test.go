@@ -52,7 +52,7 @@ func TestCreateServer_Success(t *testing.T) {
 
 	body, contentType := setup.CreateMultipartTextOnly(t, fields)
 	req := setup.CreateAuthMultipartRequest(http.MethodPost, "/api/servers/create", body, contentType, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "create server request should succeed")
 	setup.RequireStatus(t, resp, 200)
 
@@ -132,7 +132,7 @@ func TestCreateServer_Validation(t *testing.T) {
 
 			body, contentType := setup.CreateMultipartTextOnly(t, fields)
 			req := setup.CreateAuthMultipartRequest(http.MethodPost, "/api/servers/create", body, contentType, token)
-			resp, err := app.Test(req)
+			resp, err := setup.AppTest(t, app, req)
 			require.NoError(t, err, "create server request should complete")
 
 			result := setup.ParseJSONResponse(t, resp)
@@ -162,7 +162,7 @@ func TestCreateServer_Unauthorized(t *testing.T) {
 	t.Log("=== Testing Create Server Without Auth ===")
 	body, contentType := setup.CreateMultipartTextOnly(t, baseCreateServerFields())
 	req := setup.CreateAuthMultipartRequest(http.MethodPost, "/api/servers/create", body, contentType, "")
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "create server request should complete")
 
 	require.NotEqual(t, 200, resp.StatusCode, "should not return 200 without auth")
@@ -198,7 +198,7 @@ func TestCreateServer_PrivateServer(t *testing.T) {
 
 	body, contentType := setup.CreateMultipartTextOnly(t, fields)
 	req := setup.CreateAuthMultipartRequest(http.MethodPost, "/api/servers/create", body, contentType, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "create private server request should succeed")
 	setup.RequireStatus(t, resp, 200)
 
@@ -212,7 +212,7 @@ func TestCreateServer_PrivateServer(t *testing.T) {
 	// Verify server is private by trying to access it as a non-member.
 	token2 := setup.CreateTestUser(t, app, infra.MailhogURL, "other@example.com", "password123")
 	req = setup.CreateAuthRequest(http.MethodGet, "/api/servers/"+serverID, nil, token2)
-	resp, err = app.Test(req)
+	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "get private server request should complete")
 
 	result = setup.ParseJSONResponse(t, resp)

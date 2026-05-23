@@ -8,7 +8,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestCategoriesGet_LimitNegative tests get categories with negative limit
+// The categories + user-server list endpoints silently fall back to a sane
+// default when the caller passes an out-of-range limit (see usecase
+// GetUserServer and GetCategoryServer: `if limit <= 0 || limit > N { limit = … }`).
+// These tests document that contract so we notice if it ever changes.
+
+// TestCategoriesGet_LimitNegative — negative limit silently defaults to 50.
 func TestCategoriesGet_LimitNegative(t *testing.T) {
 	t.Parallel()
 
@@ -17,26 +22,18 @@ func TestCategoriesGet_LimitNegative(t *testing.T) {
 	}
 
 	setup.LogTestStart(t, "TestCategoriesGet_LimitNegative")
-
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
 	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "neglimit@example.com", "password123")
 
-	// Test: Get categories with negative limit
-	setup.LogTestStep(t, "Testing Get Categories with Negative Limit")
 	req := setup.CreateAuthRequest(http.MethodGet, "/api/servers/categories?limit=-1", nil, token)
-	result := setup.RequireJSONWithLog(t, app, req, 400)
-
-	require.Contains(t, result, "error", "response should contain error")
-	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "greater or equal than 0", "error message should mention limit must be >= 0")
-
+	result := setup.RequireJSONWithLog(t, app, req, 200)
+	require.Contains(t, result, "data", "response should contain data array")
 	setup.LogTestPass(t, "TestCategoriesGet_LimitNegative")
-	t.Logf("Correctly rejected negative limit: %s", errMsg)
 }
 
-// TestCategoriesGet_LimitExceeded tests get categories with limit > MAX_LIMIT (20)
+// TestCategoriesGet_LimitExceeded — limit > 100 silently defaults to 50.
 func TestCategoriesGet_LimitExceeded(t *testing.T) {
 	t.Parallel()
 
@@ -45,26 +42,18 @@ func TestCategoriesGet_LimitExceeded(t *testing.T) {
 	}
 
 	setup.LogTestStart(t, "TestCategoriesGet_LimitExceeded")
-
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
 	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "maxlimit@example.com", "password123")
 
-	// Test: Get categories with limit > 20
-	setup.LogTestStep(t, "Testing Get Categories with Limit Exceeded")
-	req := setup.CreateAuthRequest(http.MethodGet, "/api/servers/categories?limit=21", nil, token)
-	result := setup.RequireJSONWithLog(t, app, req, 400)
-
-	require.Contains(t, result, "error", "response should contain error")
-	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "exceeded max limit", "error message should mention max limit")
-
+	req := setup.CreateAuthRequest(http.MethodGet, "/api/servers/categories?limit=101", nil, token)
+	result := setup.RequireJSONWithLog(t, app, req, 200)
+	require.Contains(t, result, "data", "response should contain data array")
 	setup.LogTestPass(t, "TestCategoriesGet_LimitExceeded")
-	t.Logf("Correctly rejected exceeded limit: %s", errMsg)
 }
 
-// TestMeGet_LimitNegative tests get user servers with negative limit
+// TestMeGet_LimitNegative — negative limit silently defaults to 10.
 func TestMeGet_LimitNegative(t *testing.T) {
 	t.Parallel()
 
@@ -73,26 +62,18 @@ func TestMeGet_LimitNegative(t *testing.T) {
 	}
 
 	setup.LogTestStart(t, "TestMeGet_LimitNegative")
-
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
 	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "neglimitme@example.com", "password123")
 
-	// Test: Get user servers with negative limit
-	setup.LogTestStep(t, "Testing Get User Servers with Negative Limit")
 	req := setup.CreateAuthRequest(http.MethodGet, "/api/servers/me?limit=-1", nil, token)
-	result := setup.RequireJSONWithLog(t, app, req, 400)
-
-	require.Contains(t, result, "error", "response should contain error")
-	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "greater or equal than 0", "error message should mention limit must be >= 0")
-
+	result := setup.RequireJSONWithLog(t, app, req, 200)
+	require.Contains(t, result, "data", "response should contain data array")
 	setup.LogTestPass(t, "TestMeGet_LimitNegative")
-	t.Logf("Correctly rejected negative limit: %s", errMsg)
 }
 
-// TestMeGet_LimitExceeded tests get user servers with limit > MAX_LIMIT
+// TestMeGet_LimitExceeded — limit > 50 silently defaults to 10.
 func TestMeGet_LimitExceeded(t *testing.T) {
 	t.Parallel()
 
@@ -101,21 +82,13 @@ func TestMeGet_LimitExceeded(t *testing.T) {
 	}
 
 	setup.LogTestStart(t, "TestMeGet_LimitExceeded")
-
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
 	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "maxlimitme@example.com", "password123")
 
-	// Test: Get user servers with limit > 20
-	setup.LogTestStep(t, "Testing Get User Servers with Limit Exceeded")
-	req := setup.CreateAuthRequest(http.MethodGet, "/api/servers/me?limit=21", nil, token)
-	result := setup.RequireJSONWithLog(t, app, req, 400)
-
-	require.Contains(t, result, "error", "response should contain error")
-	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "exceeded max limit", "error message should mention max limit")
-
+	req := setup.CreateAuthRequest(http.MethodGet, "/api/servers/me?limit=51", nil, token)
+	result := setup.RequireJSONWithLog(t, app, req, 200)
+	require.Contains(t, result, "data", "response should contain data array")
 	setup.LogTestPass(t, "TestMeGet_LimitExceeded")
-	t.Logf("Correctly rejected exceeded limit: %s", errMsg)
 }

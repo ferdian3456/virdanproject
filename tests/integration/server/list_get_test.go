@@ -31,7 +31,7 @@ func TestListGet_Success(t *testing.T) {
 	// Test: Get server list
 	t.Log("=== Testing Get Discovery Servers ===")
 	req := setup.CreateAuthRequest(http.MethodGet, "/api/servers/", nil, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "get servers request should succeed")
 	setup.RequireStatus(t, resp, 200)
 

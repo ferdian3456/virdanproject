@@ -32,7 +32,7 @@ func TestMeGet_Success(t *testing.T) {
 	// Test: Get user servers
 	t.Log("=== Testing Get User Servers ===")
 	req := setup.CreateAuthRequest(http.MethodGet, "/api/servers/me", nil, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "get user servers request should succeed")
 	setup.RequireStatus(t, resp, 200)
 
@@ -60,7 +60,7 @@ func TestMeGet_Unauthorized(t *testing.T) {
 	// Test: Get user servers without token
 	t.Log("=== Testing Get User Servers Without Auth ===")
 	req := setup.CreateAuthRequest(http.MethodGet, "/api/servers/me", nil, "")
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "get user servers request should complete")
 
 	// Should return unauthorized (404 from auth middleware)
@@ -88,7 +88,7 @@ func TestMeGet_EmptyList(t *testing.T) {
 	// Test: Get user servers (user has no servers)
 	t.Log("=== Testing Get User Servers with No Servers ===")
 	req := setup.CreateAuthRequest(http.MethodGet, "/api/servers/me", nil, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "get user servers request should succeed")
 	setup.RequireStatus(t, resp, 200)
 
@@ -121,7 +121,7 @@ func TestMeGet_WithPagination(t *testing.T) {
 	// Test: Get user servers with limit
 	t.Log("=== Testing Get User Servers With Pagination ===")
 	req := setup.CreateAuthRequest(http.MethodGet, "/api/servers/me?limit=2", nil, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "get user servers request should succeed")
 	setup.RequireStatus(t, resp, 200)
 
