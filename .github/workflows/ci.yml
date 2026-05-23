@@ -7,6 +7,12 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+env:
+  # Bump deliberately, never use @latest (non-deterministic builds + supply-chain risk)
+  GO_VERSION: "1.25.7"
+  GOLANGCI_LINT_VERSION: "v1.61.0"
+  GOVULNCHECK_VERSION: "v1.1.4"
+
 jobs:
   setup:
     name: Setup Go Environment
@@ -22,7 +28,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25.6"
+          go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Download dependencies
@@ -53,11 +59,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25.6"
+          go-version: ${{ env.GO_VERSION }}
           cache: false
 
       - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+        env:
+          VERSION: ${{ env.GOLANGCI_LINT_VERSION }}
+        run: go install "github.com/golangci/golangci-lint/cmd/golangci-lint@${VERSION}"
 
       - name: Run golangci-lint
         run: golangci-lint run ./...
@@ -77,11 +85,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25.6"
+          go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        env:
+          VERSION: ${{ env.GOVULNCHECK_VERSION }}
+        run: go install "golang.org/x/vuln/cmd/govulncheck@${VERSION}"
 
       - name: Run govulncheck
         run: govulncheck ./...
@@ -128,15 +138,16 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25.6"
+          go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Install test dependencies
-        run: |
-          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+        env:
+          VERSION: ${{ env.GOLANGCI_LINT_VERSION }}
+        run: go install "github.com/golangci/golangci-lint/cmd/golangci-lint@${VERSION}"
 
       - name: Cache Docker images
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache
           key: docker-${{ hashFiles('tests/integration/setup/containers.go') }}
@@ -215,11 +226,18 @@ jobs:
             test-report.md
           retention-days: 30
 
-      - name: Upload test coverage
+      - name: Generate coverage
         if: always()
         run: |
-          go test -coverprofile=coverage.out -timeout 10m ./tests/integration/...
-          go tool cover -html=coverage.out -o coverage.html
+          # Coverage on integration test packages. `|| true` because we still
+          # want to upload partial output even when tests fail.
+          go test -coverprofile=coverage.out -timeout 10m ./tests/integration/... || true
+          if [ -f coverage.out ]; then
+            go tool cover -html=coverage.out -o coverage.html
+            # Tail line of `go tool cover -func` is the total coverage row.
+            # Capture only the percentage so pr_comment can echo it directly.
+            go tool cover -func=coverage.out | awk '/^total:/ {print $NF}' > coverage-total.txt
+          fi
 
       - name: Upload coverage reports
         if: always()
@@ -229,19 +247,21 @@ jobs:
           path: |
             coverage.out
             coverage.html
+            coverage-total.txt
           retention-days: 30
+          if-no-files-found: warn
 
       - name: Check test results
         if: always()
         run: |
           if grep -q "FAIL" test-results.txt 2>/dev/null; then
-            echo "❌ Integration tests failed!"
+            echo "Integration tests failed"
             exit 1
           elif grep -q "PASS" test-results.txt 2>/dev/null; then
-            echo "✅ Integration tests passed!"
+            echo "Integration tests passed"
             exit 0
           else
-            echo "⚠️  No test results found"
+            echo "No test results found"
             exit 1
           fi
 
@@ -262,161 +282,144 @@ jobs:
       - name: Parse test results
         id: parse_results
         run: |
-          # Initialize counters
           TOTAL_TESTS=0
           PASSED_TESTS=0
           FAILED_TESTS=0
+          COVERAGE_PERCENTAGE="N/A"
 
-          # Parse test results if available
           if [ -f "artifacts/integration-test-results/test-results.txt" ]; then
             TEST_RESULTS=$(cat "artifacts/integration-test-results/test-results.txt")
 
-            # Count total tests (sanitize output)
-            TOTAL_TESTS=$(echo "$TEST_RESULTS" | grep -c "^=== RUN" 2>/dev/null || echo "0")
-            TOTAL_TESTS=$(echo "$TOTAL_TESTS" | tr -d '[:space:]' | grep -o '[0-9]*' | head -1)
-            [ -z "$TOTAL_TESTS" ] && TOTAL_TESTS=0
+            TOTAL_TESTS=$(echo "$TEST_RESULTS" | grep -c "^=== RUN" || true)
+            PASSED_TESTS=$(echo "$TEST_RESULTS" | grep -c "^--- PASS:" || true)
+            FAILED_TESTS=$(echo "$TEST_RESULTS" | grep -c "^--- FAIL:" || true)
 
-            # Count passed tests (sanitize output)
-            PASSED_TESTS=$(echo "$TEST_RESULTS" | grep -c "^--- PASS:" 2>/dev/null || echo "0")
-            PASSED_TESTS=$(echo "$PASSED_TESTS" | tr -d '[:space:]' | grep -o '[0-9]*' | head -1)
-            [ -z "$PASSED_TESTS" ] && PASSED_TESTS=0
-
-            # Count failed tests (sanitize output)
-            FAILED_TESTS=$(echo "$TEST_RESULTS" | grep -c "^--- FAIL:" 2>/dev/null || echo "0")
-            FAILED_TESTS=$(echo "$FAILED_TESTS" | tr -d '[:space:]' | grep -o '[0-9]*' | head -1)
-            [ -z "$FAILED_TESTS" ] && FAILED_TESTS=0
-
-            # Extract failed test names
             if [ "$FAILED_TESTS" -gt 0 ]; then
-              FAILED_TEST_NAMES=$(echo "$TEST_RESULTS" | grep "^--- FAIL:" | sed 's/--- FAIL: \([^ ]*\).*/\1/' 2>/dev/null || echo "")
+              echo "$TEST_RESULTS" \
+                | grep "^--- FAIL:" \
+                | sed 's/--- FAIL: \([^ ]*\).*/\1/' > failed_tests.txt
             fi
           fi
 
-          # Calculate coverage if available (skip to avoid module errors)
-          COVERAGE_PERCENTAGE="N/A"
-          # Coverage calculation disabled due to go.mod path issues
-          # if [ -f "artifacts/coverage-reports/coverage.out" ]; then
-          #   COVERAGE_PERCENTAGE=$(cd /home/runner/work/virdanproject/virdanproject && go tool cover -func="artifacts/coverage-reports/coverage.out" | grep total | awk '{print $3}' 2>/dev/null || echo "N/A")
-          # fi
-
-          # Save to outputs
-          echo "total_tests=$TOTAL_TESTS" >> $GITHUB_OUTPUT
-          echo "passed_tests=$PASSED_TESTS" >> $GITHUB_OUTPUT
-          echo "failed_tests=$FAILED_TESTS" >> $GITHUB_OUTPUT
-          echo "coverage=$COVERAGE_PERCENTAGE" >> $GITHUB_OUTPUT
-
-          # Save failed test names to file
-          if [ -n "$FAILED_TEST_NAMES" ]; then
-            echo "$FAILED_TEST_NAMES" > failed_tests.txt
+          if [ -f "artifacts/coverage-reports/coverage-total.txt" ]; then
+            CT=$(tr -d '[:space:]' < artifacts/coverage-reports/coverage-total.txt)
+            if [ -n "$CT" ]; then
+              COVERAGE_PERCENTAGE="$CT"
+            fi
           fi
+
+          {
+            echo "total_tests=$TOTAL_TESTS"
+            echo "passed_tests=$PASSED_TESTS"
+            echo "failed_tests=$FAILED_TESTS"
+            echo "coverage=$COVERAGE_PERCENTAGE"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Generate PR comment
         id: comment
+        env:
+          SETUP_STATUS: ${{ needs.setup.result }}
+          LINT_STATUS: ${{ needs.lint.result }}
+          VULN_STATUS: ${{ needs.vuln_check.result }}
+          VIRUS_STATUS: ${{ needs.virus_scan.result }}
+          TEST_STATUS: ${{ needs.integration_tests.result }}
+          TOTAL_TESTS: ${{ steps.parse_results.outputs.total_tests }}
+          PASSED_TESTS: ${{ steps.parse_results.outputs.passed_tests }}
+          FAILED_TESTS: ${{ steps.parse_results.outputs.failed_tests }}
+          COVERAGE: ${{ steps.parse_results.outputs.coverage }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
         run: |
-          # Set status emoji based on job results
-          SETUP_STATUS="${{ needs.setup.result }}"
-          LINT_STATUS="${{ needs.lint.result }}"
-          VULN_STATUS="${{ needs.vuln_check.result }}"
-          VIRUS_STATUS="${{ needs.virus_scan.result }}"
-          TEST_STATUS="${{ needs.integration_tests.result }}"
+          render_status() {
+            case "$1" in
+              success)   echo "[PASS] Success" ;;
+              failure)   echo "[FAIL] Failed" ;;
+              cancelled) echo "[STOP] Cancelled" ;;
+              skipped)   echo "[SKIP] Skipped" ;;
+              *)         echo "[UNKNOWN] $1" ;;
+            esac
+          }
 
-          # Build comment body
-          cat > pr-comment.md << 'EOF'
-          ## 🤖 CI Pipeline Results
+          {
+            echo "## CI Pipeline Results"
+            echo ""
+            echo "### Overall Status"
+            if [ "$TEST_STATUS" = "success" ] && [ "$LINT_STATUS" = "success" ] && [ "$VULN_STATUS" = "success" ] && [ "$VIRUS_STATUS" = "success" ]; then
+              echo "All Checks Passed"
+            elif [ "$TEST_STATUS" = "skipped" ]; then
+              echo "Integration Tests Skipped — blocked by upstream failure"
+            else
+              echo "Some Checks Failed"
+            fi
+            echo ""
+            echo "---"
+            echo ""
+            echo "### Job Status"
+            echo ""
+            echo "| Job | Status |"
+            echo "|-----|--------|"
+            echo "| Setup | $(render_status "$SETUP_STATUS") |"
+            echo "| Lint (golangci-lint) | $(render_status "$LINT_STATUS") |"
+            echo "| Vuln Check (govulncheck) | $(render_status "$VULN_STATUS") |"
+            echo "| Virus Scan (clamav) | $(render_status "$VIRUS_STATUS") |"
+            echo "| Integration Tests | $(render_status "$TEST_STATUS") |"
+            echo ""
+            echo "### Integration Tests Summary"
+            echo ""
+          } > pr-comment.md
 
-          ### Overall Status
-          EOF
-
-          # Add overall status
-          if [ "$TEST_STATUS" == "success" ] && [ "$LINT_STATUS" == "success" ] && [ "$VULN_STATUS" == "success" ] && [ "$VIRUS_STATUS" == "success" ]; then
-            echo "✅ **All Checks Passed**" >> pr-comment.md
+          if [ "$TEST_STATUS" = "skipped" ]; then
+            REASON=""
+            [ "$LINT_STATUS" = "failure" ]  && REASON="${REASON:+$REASON, }Lint failed"
+            [ "$VULN_STATUS" = "failure" ]  && REASON="${REASON:+$REASON, }Vuln Check failed"
+            [ "$SETUP_STATUS" = "failure" ] && REASON="${REASON:+$REASON, }Setup failed"
+            [ -z "$REASON" ] && REASON="upstream dependency did not complete"
+            {
+              echo "Tests did not run."
+              echo ""
+              echo "Reason: $REASON. Fix upstream jobs and re-run to obtain test counts and coverage."
+            } >> pr-comment.md
           else
-            echo "❌ **Some Checks Failed**" >> pr-comment.md
+            {
+              echo "- Total Tests: $TOTAL_TESTS"
+              echo "- Passed: $PASSED_TESTS"
+              echo "- Failed: $FAILED_TESTS"
+              echo "- Coverage: $COVERAGE"
+            } >> pr-comment.md
+          fi
+          echo "" >> pr-comment.md
+
+          if [ "$FAILED_TESTS" -gt 0 ] && [ -f failed_tests.txt ]; then
+            {
+              echo "### Failed Tests"
+              echo ""
+              while IFS= read -r test_name; do
+                printf -- "- \`%s\`\n" "$test_name"
+              done < failed_tests.txt
+              echo ""
+            } >> pr-comment.md
           fi
 
-          echo "" >> pr-comment.md
-          echo "---" >> pr-comment.md
-          echo "" >> pr-comment.md
-
-          # Add job status table
-          echo "### Job Status" >> pr-comment.md
-          echo "" >> pr-comment.md
-          echo "| Job | Status |" >> pr-comment.md
-          echo "|-----|--------|" >> pr-comment.md
-
-          # Add status for each job
-          if [ "$SETUP_STATUS" == "success" ]; then
-            echo "| Setup | ✅ Success |" >> pr-comment.md
-          else
-            echo "| Setup | ❌ Failed |" >> pr-comment.md
-          fi
-
-          if [ "$LINT_STATUS" == "success" ]; then
-            echo "| Lint (includes gosec) | ✅ Success |" >> pr-comment.md
-          else
-            echo "| Lint (includes gosec) | ❌ Failed |" >> pr-comment.md
-          fi
-
-          if [ "$VULN_STATUS" == "success" ]; then
-            echo "| Vuln Check | ✅ Success |" >> pr-comment.md
-          else
-            echo "| Vuln Check | ❌ Failed |" >> pr-comment.md
-          fi
-
-          if [ "$VIRUS_STATUS" == "success" ]; then
-            echo "| Virus Scan | ✅ Success |" >> pr-comment.md
-          else
-            echo "| Virus Scan | ❌ Failed |" >> pr-comment.md
-          fi
-
-          if [ "$TEST_STATUS" == "success" ]; then
-            echo "| Integration Tests | ✅ Success |" >> pr-comment.md
-          else
-            echo "| Integration Tests | ❌ Failed |" >> pr-comment.md
-          fi
-
-          echo "" >> pr-comment.md
-
-          # Add test results summary
-          echo "### Integration Tests Summary" >> pr-comment.md
-          echo "" >> pr-comment.md
-          echo "- **Total Tests**: ${{ steps.parse_results.outputs.total_tests }}" >> pr-comment.md
-          echo "- **Passed**: ${{ steps.parse_results.outputs.passed_tests }}" >> pr-comment.md
-          echo "- **Failed**: ${{ steps.parse_results.outputs.failed_tests }}" >> pr-comment.md
-          echo "- **Coverage**: ${{ steps.parse_results.outputs.coverage }}" >> pr-comment.md
-          echo "" >> pr-comment.md
-
-          # Add failed tests if any
-          if [ "${{ steps.parse_results.outputs.failed_tests }}" -gt 0 ] && [ -f failed_tests.txt ]; then
-            echo "### ❌ Failed Tests" >> pr-comment.md
-            echo "" >> pr-comment.md
-            while IFS= read -r test_name; do
-              echo "- ❌ \`$test_name\`" >> pr-comment.md
-            done < failed_tests.txt
-            echo "" >> pr-comment.md
-          fi
-
-          # Add artifacts link
-          echo "---" >> pr-comment.md
-          echo "" >> pr-comment.md
-          echo "### 📎 Artifacts" >> pr-comment.md
-          echo "" >> pr-comment.md
-          echo "Detailed logs and reports are available in the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})." >> pr-comment.md
-          echo "" >> pr-comment.md
-
-          # Add footer
-          echo "---" >> pr-comment.md
-          echo "" >> pr-comment.md
-          echo "<details>" >> pr-comment.md
-          echo "<summary>Test Results Details</summary>" >> pr-comment.md
-          echo "" >> pr-comment.md
-          echo '```' >> pr-comment.md
-          if [ -f "artifacts/integration-test-results/test-results.txt" ]; then
-            grep -E "(RUN|PASS|FAIL)" artifacts/integration-test-results/test-results.txt | head -100 >> pr-comment.md || true
-          fi
-          echo '```' >> pr-comment.md
-          echo "" >> pr-comment.md
-          echo "</details>" >> pr-comment.md
+          {
+            echo "---"
+            echo ""
+            echo "### Artifacts"
+            echo ""
+            echo "Detailed logs and reports are available in the [workflow run](https://github.com/${REPO}/actions/runs/${RUN_ID})."
+            echo ""
+            echo "<details>"
+            echo "<summary>Test Results Details</summary>"
+            echo ""
+            echo '```'
+            if [ -f "artifacts/integration-test-results/test-results.txt" ]; then
+              grep -E "(RUN|PASS|FAIL)" artifacts/integration-test-results/test-results.txt | head -100 || true
+            else
+              echo "No test results captured (job skipped or failed before output)."
+            fi
+            echo '```'
+            echo ""
+            echo "</details>"
+          } >> pr-comment.md
 
       - name: Post comment to PR
         uses: actions/github-script@v7
@@ -425,7 +428,6 @@ jobs:
             const fs = require('fs');
             const commentBody = fs.readFileSync('pr-comment.md', 'utf8');
 
-            // Find existing comment
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -434,11 +436,10 @@ jobs:
 
             const botComment = comments.find(comment =>
               comment.user.type === 'Bot' &&
-              comment.body.includes('🤖 CI Pipeline Results')
+              comment.body.includes('CI Pipeline Results')
             );
 
             if (botComment) {
-              // Update existing comment
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -446,7 +447,6 @@ jobs:
                 body: commentBody
               });
             } else {
-              // Create new comment
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -462,22 +462,31 @@ jobs:
     if: always()
     steps:
       - name: Check all jobs status
+        env:
+          SETUP_RESULT: ${{ needs.setup.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          VULN_RESULT: ${{ needs.vuln_check.result }}
+          VIRUS_RESULT: ${{ needs.virus_scan.result }}
+          TEST_RESULT: ${{ needs.integration_tests.result }}
+          PR_COMMENT_RESULT: ${{ needs.pr_comment.result }}
         run: |
-          echo "## CI Pipeline Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Setup | ${{ needs.setup.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Lint (includes gosec) | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Vuln Check | ${{ needs.vuln_check.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Virus Scan | ${{ needs.virus_scan.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Integration Tests | ${{ needs.integration_tests.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| PR Comment | ${{ needs.pr_comment.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## CI Pipeline Summary"
+            echo ""
+            echo "| Job | Status |"
+            echo "|-----|--------|"
+            echo "| Setup | $SETUP_RESULT |"
+            echo "| Lint (golangci-lint) | $LINT_RESULT |"
+            echo "| Vuln Check (govulncheck) | $VULN_RESULT |"
+            echo "| Virus Scan (clamav) | $VIRUS_RESULT |"
+            echo "| Integration Tests | $TEST_RESULT |"
+            echo "| PR Comment | $PR_COMMENT_RESULT |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "${{ needs.integration_tests.result }}" != "success" ]; then
-            echo "❌ CI Pipeline Failed!" >> $GITHUB_STEP_SUMMARY
+          if [ "$TEST_RESULT" != "success" ]; then
+            echo "CI Pipeline Failed" >> "$GITHUB_STEP_SUMMARY"
             exit 1
           else
-            echo "✅ CI Pipeline Passed!" >> $GITHUB_STEP_SUMMARY
+            echo "CI Pipeline Passed" >> "$GITHUB_STEP_SUMMARY"
           fi

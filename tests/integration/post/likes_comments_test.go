@@ -83,7 +83,7 @@ func TestLikePost_DoubleLike(t *testing.T) {
 
 	// First like
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/likes", nil, token)
-	resp, err = setup.TestRequestWithLogging(t, app, req)
+	_, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "first like should succeed")
 
 	// Test: Like post again

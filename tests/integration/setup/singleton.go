@@ -15,16 +15,15 @@ import (
 
 // Global singleton infrastructure - shared across all tests
 var (
-	globalInfra     *TestInfra
-	globalInfraOnce sync.Once
-	globalInfraMu   sync.RWMutex
-	globalCtx       context.Context
-	globalCancel    context.CancelFunc
+	globalInfra   *TestInfra
+	globalInfraMu sync.RWMutex
+	globalCtx     context.Context
+	globalCancel  context.CancelFunc
 
 	// Track how many "TestMain" calls are active
 	// When this reaches 0, we can safely shutdown
 	testMainCount int
-	testMainMu     sync.Mutex
+	testMainMu    sync.Mutex
 )
 
 // RunTestsWithSingleton is a helper to use in TestMain of each test package

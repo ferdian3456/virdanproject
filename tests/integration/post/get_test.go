@@ -33,13 +33,13 @@ func TestGetServerPosts_Success(t *testing.T) {
 		"caption": "Test caption",
 	})
 	req := setup.CreateAuthMultipartRequest("POST", fmt.Sprintf("/api/servers/%s/posts", serverID), body, contentType, token)
-	resp, err := setup.TestRequestWithLogging(t, app, req)
+	_, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 
 	// Test: Get server posts
 	setup.LogTestStep(t, "Testing Get Server Posts")
 	req = setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/posts", serverID), nil, token)
-	resp, err = setup.TestRequestWithLogging(t, app, req)
+	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "get server posts request should succeed")
 	setup.RequireStatus(t, resp, 200)
 
