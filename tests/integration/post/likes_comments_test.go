@@ -24,7 +24,7 @@ func TestLikePost_Success(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user, server, and post
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "likepost@example.com", "likepostuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "likepost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Like Post Server", "likepost", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -35,7 +35,7 @@ func TestLikePost_Success(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Like post
 	setup.LogTestStep(t, "Testing Like Post")
@@ -68,7 +68,7 @@ func TestLikePost_DoubleLike(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "doublelike@example.com", "doublelikeuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "doublelike@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Double Like Server", "doublelike", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -79,7 +79,7 @@ func TestLikePost_DoubleLike(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// First like
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/likes", nil, token)
@@ -116,7 +116,7 @@ func TestUnlikePost_Success(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unlikepost@example.com", "unlikepostuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unlikepost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Unlike Post Server", "unlikepost", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -127,7 +127,7 @@ func TestUnlikePost_Success(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Like the post first
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/likes", nil, token)
@@ -167,7 +167,7 @@ func TestUnlikePost_NotLiked(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "notliked@example.com", "notlikeduser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "notliked@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Not Liked Server", "notliked", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -178,7 +178,7 @@ func TestUnlikePost_NotLiked(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Unlike post when not liked
 	setup.LogTestStep(t, "Testing Unlike Post When Not Liked")
@@ -212,7 +212,7 @@ func TestCreateComment_Success(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "createcomment@example.com", "createcommentuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "createcomment@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Create Comment Server", "creatcomm", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -223,7 +223,7 @@ func TestCreateComment_Success(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Create comment
 	setup.LogTestStep(t, "Testing Create Comment")
@@ -254,7 +254,7 @@ func TestCreateComment_EmptyContent(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "emptycomment@example.com", "emptycommentuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "emptycomment@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Empty Comment Server", "emptycomm", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -265,7 +265,7 @@ func TestCreateComment_EmptyContent(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Create comment with empty content
 	setup.LogTestStep(t, "Testing Create Comment with Empty Content")
@@ -297,7 +297,7 @@ func TestGetComments_Success(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "getcomments@example.com", "getcommentsuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "getcomments@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Get Comments Server", "getcomm", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -308,7 +308,7 @@ func TestGetComments_Success(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Create a comment
 	reqBody := []byte(`{"content":"Test comment"}`)
@@ -344,7 +344,7 @@ func TestGetComments_Empty(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "nocomments@example.com", "nocommentsuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "nocomments@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "No Comments Server", "nocomments", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -355,7 +355,7 @@ func TestGetComments_Empty(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Get comments (no comments exist)
 	setup.LogTestStep(t, "Testing Get Comments with No Comments")
@@ -385,7 +385,7 @@ func TestDeleteComment_Success(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "deletecomment@example.com", "deletecommentuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "deletecomment@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Delete Comment Server", "delcomm", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -396,7 +396,7 @@ func TestDeleteComment_Success(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Create a comment
 	reqBody := []byte(`{"content":"Test comment to delete"}`)
@@ -431,7 +431,7 @@ func TestDeleteComment_NotOwner(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "ownerdelcomment@example.com", "ownerdelcommentuser", "password123")
+	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "ownerdelcomment@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token1, "Owner Delete Comment Server", "ownerdelc", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -442,7 +442,7 @@ func TestDeleteComment_NotOwner(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Create a comment as user 1
 	reqBody := []byte(`{"content":"Test comment"}`)
@@ -453,7 +453,7 @@ func TestDeleteComment_NotOwner(t *testing.T) {
 	commentID := result["id"].(string)
 
 	// Create another user (not owner of the comment)
-	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "notownerdelcomment@example.com", "notownerdelcommentuser", "password123")
+	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "notownerdelcomment@example.com", "password123")
 
 	// Test: Try to delete comment as non-owner
 	setup.LogTestStep(t, "Testing Delete Comment as Non-Owner")

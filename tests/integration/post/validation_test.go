@@ -23,7 +23,7 @@ func TestGetServerPosts_LimitNegative(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "neglimitpost@example.com", "neglimitpostuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "neglimitpost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Neg Limit Post Server", "neglimpost", 1, false)
 
 	// Test: Get server posts with negative limit
@@ -35,7 +35,7 @@ func TestGetServerPosts_LimitNegative(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	require.Contains(t, result, "error", "response should contain error")
 	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "greater or equal than 0", "error message should mention limit must be >= 0")
+	require.Contains(t, errMsg, "must be at least 0", "error message should mention limit must be >= 0")
 
 	t.Logf("Correctly rejected negative limit: %s", errMsg)
 	setup.LogTestPass(t, "TestGetServerPosts_LimitNegative")
@@ -55,7 +55,7 @@ func TestGetServerPosts_LimitExceeded(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "maxlimitpost@example.com", "maxlimitpostuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "maxlimitpost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Max Limit Post Server", "maxlimpost", 1, false)
 
 	// Test: Get server posts with limit > 20
@@ -67,7 +67,7 @@ func TestGetServerPosts_LimitExceeded(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	require.Contains(t, result, "error", "response should contain error")
 	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "exceeded max limit", "error message should mention max limit")
+	require.Contains(t, errMsg, "must be at most 20", "error message should mention max limit")
 
 	t.Logf("Correctly rejected exceeded limit: %s", errMsg)
 	setup.LogTestPass(t, "TestGetServerPosts_LimitExceeded")
@@ -87,7 +87,7 @@ func TestGetComments_LimitNegative(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "neglimitcomment@example.com", "neglimitcommentuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "neglimitcomment@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Neg Limit Comment Server", "neglimcomm", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -98,7 +98,7 @@ func TestGetComments_LimitNegative(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Get comments with negative limit
 	setup.LogTestStep(t, "Testing Get Comments with Negative Limit")
@@ -109,7 +109,7 @@ func TestGetComments_LimitNegative(t *testing.T) {
 	result = setup.ParseJSONResponse(t, resp)
 	require.Contains(t, result, "error", "response should contain error")
 	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "greater or equal than 0", "error message should mention limit must be >= 0")
+	require.Contains(t, errMsg, "must be at least 0", "error message should mention limit must be >= 0")
 
 	t.Logf("Correctly rejected negative limit: %s", errMsg)
 	setup.LogTestPass(t, "TestGetComments_LimitNegative")
@@ -129,7 +129,7 @@ func TestGetComments_LimitExceeded(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "maxlimitcomment@example.com", "maxlimitcommentuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "maxlimitcomment@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Max Limit Comment Server", "maxlimcomm", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -140,7 +140,7 @@ func TestGetComments_LimitExceeded(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Get comments with limit > 20
 	setup.LogTestStep(t, "Testing Get Comments with Limit Exceeded")
@@ -151,7 +151,7 @@ func TestGetComments_LimitExceeded(t *testing.T) {
 	result = setup.ParseJSONResponse(t, resp)
 	require.Contains(t, result, "error", "response should contain error")
 	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "exceeded max limit", "error message should mention max limit")
+	require.Contains(t, errMsg, "must be at most 20", "error message should mention max limit")
 
 	t.Logf("Correctly rejected exceeded limit: %s", errMsg)
 	setup.LogTestPass(t, "TestGetComments_LimitExceeded")
@@ -171,7 +171,7 @@ func TestUpdatePost_EmptyCaption(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "emptycaption@example.com", "emptycaptionuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "emptycaption@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Empty Caption Server", "emptycapt", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -182,7 +182,7 @@ func TestUpdatePost_EmptyCaption(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Update post with empty caption
 	setup.LogTestStep(t, "Testing Update Post with Empty Caption")
@@ -216,7 +216,7 @@ func TestCreateComment_TooLongContent(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "longcomment@example.com", "longcommentuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "longcomment@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Long Comment Server", "longcomm", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -227,7 +227,7 @@ func TestCreateComment_TooLongContent(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Create comment with very long content (10000 characters)
 	setup.LogTestStep(t, "Testing Create Comment with Very Long Content")

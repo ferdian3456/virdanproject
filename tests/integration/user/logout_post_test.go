@@ -22,7 +22,7 @@ func TestLogoutPost_Success(t *testing.T) {
 
 	// Setup: Create user and login
 	infra := setup.GetGlobalInfra()
-	token := setup.CreateTestUser(t, app, infra.MailhogURL, "logout@example.com", "logoutuser", "password123")
+	token := setup.CreateTestUser(t, app, infra.MailhogURL, "logout@example.com", "password123")
 
 	// Test: Logout
 	setup.LogTestStep(t, "Testing Logout")
@@ -73,7 +73,7 @@ func TestLogoutPost_TokenCleared(t *testing.T) {
 
 	// Setup: Create user and login
 	infra := setup.GetGlobalInfra()
-	token := setup.CreateTestUser(t, app, infra.MailhogURL, "logoutclear@example.com", "logoutclearuser", "password123")
+	token := setup.CreateTestUser(t, app, infra.MailhogURL, "logoutclear@example.com", "password123")
 
 	// Test: Logout
 	setup.LogTestStep(t, "Testing Logout")

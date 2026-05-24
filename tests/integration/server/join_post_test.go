@@ -24,7 +24,7 @@ func TestJoinFromInvitePost_Success(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user and server with invite
-	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "inviteowner@example.com", "invowner", "password123")
+	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "inviteowner@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token1, "Join Server", "joinserver", 1, false)
 
 	// Create invite link
@@ -34,14 +34,15 @@ func TestJoinFromInvitePost_Success(t *testing.T) {
 	require.NoError(t, err, "create invite link should succeed")
 	setup.RequireStatus(t, resp, 200)
 	result := setup.ParseJSONResponse(t, resp)
-	inviteCode := result["inviteCode"].(string)
+	inviteCode := result["code"].(string)
 
 	// Create another user
-	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "joiner@example.com", "joiner", "password123")
+	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "joiner@example.com", "password123")
 
-	// Test: Join server from invite
+	// Test: Join server from invite — JoinServerFromInvite now requires the
+	// per-server profile fields (nickname/username) on the JSON body.
 	setup.LogTestStep(t, "Testing Join Server from Invite Code")
-	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s"}`, inviteCode))
+	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s","nickname":"Joiner","username":"joiner"}`, inviteCode))
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/servers/join", reqBody, token2)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "join server request should succeed")
@@ -92,11 +93,12 @@ func TestJoinFromInvitePost_InvalidInviteCode(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "invalidjoin@example.com", "invalidjoinuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "invalidjoin@example.com", "password123")
 
-	// Test: Join server with invalid invite code
+	// Test: Join server with invalid invite code. Nickname/username supplied
+	// so input validation succeeds and the invite lookup is the failing step.
 	setup.LogTestStep(t, "Testing Join Server with Invalid Invite Code")
-	reqBody := []byte(`{"inviteCode":"INVALID1"}`)
+	reqBody := []byte(`{"inviteCode":"INVALID1","nickname":"InvalidJoiner","username":"invalidjoiner"}`)
 	req := setup.CreateAuthRequest(http.MethodPost, "/api/servers/join", reqBody, token)
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "join server request should complete")
@@ -123,9 +125,11 @@ func TestJoinFromInvitePost_AlreadyMember(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	// Setup: Create user and server with invite
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "alreadyjoin@example.com", "alreadyjoinuser", "password123")
-	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Already Join Server", "alreadyjoin", 1, false)
+	// Setup: Create user and server with invite. shortName has MaxLen(10), so
+	// keep it short — the previous "alreadyjoin" value was 11 chars and made
+	// CreateTestServer fail at validation.
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "alreadyjoin@example.com", "password123")
+	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Already Join Server", "alrdyjoin", 1, false)
 
 	// Create invite link
 	reqBody := []byte(`{"expiresInMinutes":60,"maxUses":10}`)
@@ -134,11 +138,11 @@ func TestJoinFromInvitePost_AlreadyMember(t *testing.T) {
 	require.NoError(t, err, "create invite link should succeed")
 	setup.RequireStatus(t, resp, 200)
 	result := setup.ParseJSONResponse(t, resp)
-	inviteCode := result["inviteCode"].(string)
+	inviteCode := result["code"].(string)
 
-	// Test: Try to join server when already a member
+	// Test: Try to join server when already a member.
 	setup.LogTestStep(t, "Testing Join Server When Already Member")
-	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s"}`, inviteCode))
+	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s","nickname":"AlreadyJoin","username":"alreadyjoinx"}`, inviteCode))
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/servers/join", reqBody, token)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "join server request should complete")
@@ -146,7 +150,7 @@ func TestJoinFromInvitePost_AlreadyMember(t *testing.T) {
 	result = setup.ParseJSONResponse(t, resp)
 	require.Contains(t, result, "error", "response should contain error")
 	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "already a member", "error message should mention already a member")
+	require.Contains(t, errMsg, "Already a member", "error message should mention already a member")
 
 	t.Logf("Correctly rejected join request from existing member: %s", errMsg)
 
@@ -168,15 +172,20 @@ func TestJoinServer_Success(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create users and public server
-	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "publicowner@example.com", "pubowner", "password123")
+	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "publicowner@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token1, "Public Server", "public", 1, false)
 
 	// Create another user
-	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "publicjoiner@example.com", "pubjoiner", "password123")
+	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "publicjoiner@example.com", "password123")
 
-	// Test: Join public server
+	// Test: Join public server. The direct-join endpoint is multipart and
+	// requires the per-server profile fields (nickname/username).
 	setup.LogTestStep(t, "Testing Join Public Server")
-	req := setup.CreateAuthRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/join", serverID), nil, token2)
+	body, contentType := setup.CreateMultipartTextOnly(t, map[string]string{
+		"nickname": "PublicJoiner",
+		"username": "publicjoiner",
+	})
+	req := setup.CreateAuthMultipartRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/join", serverID), body, contentType, token2)
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "join server request should succeed")
 	setup.RequireStatus(t, resp, 200)
@@ -201,15 +210,19 @@ func TestJoinServer_PrivateServer(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create users and private server
-	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "privateowner@example.com", "privowner", "password123")
+	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "privateowner@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token1, "Private Server", "private", 1, true)
 
 	// Create another user
-	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "privatejoiner@example.com", "privjoiner", "password123")
+	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "privatejoiner@example.com", "password123")
 
-	// Test: Try to join private server
+	// Test: Try to join private server.
 	setup.LogTestStep(t, "Testing Join Private Server (Should Fail)")
-	req := setup.CreateAuthRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/join", serverID), nil, token2)
+	body, contentType := setup.CreateMultipartTextOnly(t, map[string]string{
+		"nickname": "PrivateJoiner",
+		"username": "privatejoiner",
+	})
+	req := setup.CreateAuthMultipartRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/join", serverID), body, contentType, token2)
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "join server request should complete")
 
@@ -237,20 +250,25 @@ func TestJoinServer_AlreadyMember(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	// Setup: Create user and server (user is automatically a member as creator)
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "alreadyjoindirect@example.com", "alreadyjoindirectuser", "password123")
-	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Already Join Direct Server", "alreadyjoin", 1, false)
+	// Setup: Create user and server (user is automatically a member as
+	// creator). shortName has MaxLen(10), so trim to 9 chars.
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "alreadyjoindirect@example.com", "password123")
+	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Already Join Direct Server", "alrdyjnd", 1, false)
 
-	// Test: Try to join server when already a member
+	// Test: Try to join server when already a member (creator is auto-member).
 	setup.LogTestStep(t, "Testing Join Server When Already Member")
-	req := setup.CreateAuthRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/join", serverID), nil, token)
+	body, contentType := setup.CreateMultipartTextOnly(t, map[string]string{
+		"nickname": "OwnerRejoin",
+		"username": "ownerrejoinx",
+	})
+	req := setup.CreateAuthMultipartRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/join", serverID), body, contentType, token)
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "join server request should complete")
 
 	result := setup.ParseJSONResponse(t, resp)
 	require.Contains(t, result, "error", "response should contain error")
 	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "already a member", "error message should mention already a member")
+	require.Contains(t, errMsg, "Already a member", "error message should mention already a member")
 
 	t.Logf("Correctly rejected join request from existing member: %s", errMsg)
 

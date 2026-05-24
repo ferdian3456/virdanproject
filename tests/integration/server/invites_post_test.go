@@ -24,7 +24,7 @@ func TestInvitesPost_Success(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user and server
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "invite@example.com", "inviteuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "invite@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Invite Server", "invite", 1, false)
 
 	// Test: Create invite link
@@ -36,9 +36,10 @@ func TestInvitesPost_Success(t *testing.T) {
 	setup.RequireStatus(t, resp, 200)
 
 	result := setup.ParseJSONResponse(t, resp)
-	require.Contains(t, result, "inviteCode", "response should contain invite code")
+	require.Contains(t, result, "code", "response should contain invite code")
+	require.Contains(t, result, "inviteUrl", "response should contain invite url")
 
-	inviteCode := result["inviteCode"].(string)
+	inviteCode := result["code"].(string)
 	require.NotEmpty(t, inviteCode, "invite code should not be empty")
 
 	t.Logf("Invite link created successfully: %s", inviteCode)
@@ -60,7 +61,7 @@ func TestInvitesPost_Unauthorized(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unauthinvite@example.com", "unauthinviteuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unauthinvite@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Unauth Invite Server", "uninvite", 1, false)
 
 	// Test: Create invite link without token
@@ -91,12 +92,13 @@ func TestInvitesPost_NotAMember(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	// Setup: Create user and server (user is NOT a member)
-	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "ownerinvite@example.com", "ownerinviteuser", "password123")
-	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token1, "Owner Invite Server", "ownerinvite", 1, false)
+	// Setup: Create user and server (user is NOT a member). shortName has
+	// MaxLen(10) so keep it short — "ownerinvite" is 11 chars.
+	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "ownerinvite@example.com", "password123")
+	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token1, "Owner Invite Server", "ownerinv", 1, false)
 
 	// Create another user (not a member of the server)
-	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "nonmemberinvite@example.com", "nonmemberinviteuser", "password123")
+	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "nonmemberinvite@example.com", "password123")
 
 	// Test: Try to create invite link as non-member
 	setup.LogTestStep(t, "Testing Create Invite Link as Non-Member")
@@ -108,7 +110,7 @@ func TestInvitesPost_NotAMember(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	require.Contains(t, result, "error", "response should contain error")
 	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "not a member", "error message should mention not a member")
+	require.Contains(t, errMsg, "Not a member of this server", "error message should mention not a member")
 
 	t.Logf("Correctly rejected invite link creation by non-member: %s", errMsg)
 
@@ -129,7 +131,7 @@ func TestInvitesPost_InvalidServerId(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "invalidserver@example.com", "invalidserveruser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "invalidserver@example.com", "password123")
 
 	// Test: Create invite link with invalid server ID
 	setup.LogTestStep(t, "Testing Create Invite Link with Invalid Server ID")

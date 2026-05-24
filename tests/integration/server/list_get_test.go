@@ -25,13 +25,13 @@ func TestListGet_Success(t *testing.T) {
 	defer db.Close()
 
 	// Setup: Create a public server
-	token := setup.CreateTestUser(t, app, infra.MailhogURL, "list@example.com", "listuser", "password123")
+	token := setup.CreateTestUser(t, app, infra.MailhogURL, "list@example.com", "password123")
 	_ = setup.CreateTestServer(t, app, infra.RedisURL, token, "Discovery Server", "disco", 1, false)
 
 	// Test: Get server list
 	t.Log("=== Testing Get Discovery Servers ===")
 	req := setup.CreateAuthRequest(http.MethodGet, "/api/servers/", nil, token)
-	resp, err := app.Test(req)
+	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "get servers request should succeed")
 	setup.RequireStatus(t, resp, 200)
 
@@ -53,7 +53,7 @@ func TestList_Get_WithCategory(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "category@example.com", "categoryuser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "category@example.com", "password123")
 	_ = setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Category Server", "cat", 1, false)
 
 	// Test: Get servers by category

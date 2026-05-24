@@ -25,7 +25,7 @@ func TestGetInviteInfo_Success(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user and server with invite
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "inviteinfo@example.com", "inviteinfouser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "inviteinfo@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Invite Info Server", "inviteinfo", 1, false)
 
 	// Create invite link
@@ -35,7 +35,7 @@ func TestGetInviteInfo_Success(t *testing.T) {
 	require.NoError(t, err, "create invite link should succeed")
 	setup.RequireStatus(t, resp, 200)
 	result := setup.ParseJSONResponse(t, resp)
-	inviteCode := result["inviteCode"].(string)
+	inviteCode := result["code"].(string)
 
 	// Test: Get server info for invite (public endpoint, no auth needed)
 	setup.LogTestStep(t, "Testing Get Server Info for Invite")

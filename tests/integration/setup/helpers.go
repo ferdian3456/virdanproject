@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -72,6 +73,36 @@ func CreateTestWebPImage(t *testing.T) []byte {
 	}
 
 	return imageData
+}
+
+// appTestTimeout is the timeout AppTest applies to every fiber.App.Test call.
+// fiber v3 defaults to 1s, which is not enough headroom when several packages
+// run in parallel and a request includes WebP conversion or an OTP fetch.
+const appTestTimeout = 30 * time.Second
+
+// AppTest is a thin wrapper around fiber.App.Test that applies a generous
+// timeout. Every direct app.Test(req) call site in the tests should go
+// through this helper so we have a single knob if the timeout needs to
+// change.
+func AppTest(t *testing.T, app *fiber.App, req *http.Request) (*http.Response, error) {
+	t.Helper()
+	return app.Test(req, fiber.TestConfig{Timeout: appTestTimeout, FailOnTimeout: true})
+}
+
+// CreateMultipartTextOnly builds a multipart/form-data body containing only
+// text fields (no file part). Use this for endpoints that accept multipart
+// payloads without an attached image — e.g. CreateServer / JoinServer when
+// the caller does not upload a server avatar or per-server profile avatar.
+func CreateMultipartTextOnly(t *testing.T, fields map[string]string) (*bytes.Buffer, string) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	for key, value := range fields {
+		err := writer.WriteField(key, value)
+		require.NoError(t, err, "failed to write form field %s", key)
+	}
+	err := writer.Close()
+	require.NoError(t, err, "failed to close multipart writer")
+	return body, writer.FormDataContentType()
 }
 
 // CreateMultipartFormData creates multipart form data for file upload requests
@@ -191,20 +222,6 @@ func RequireJSONResponse(t *testing.T, resp *http.Response, expectedStatus int) 
 	}
 
 	return result
-}
-
-// GetAccessTokenFromResponse extracts access token from login/signup response
-func GetAccessTokenFromResponse(t *testing.T, resp *http.Response) string {
-	result := ParseJSONResponse(t, resp)
-
-	data, ok := result["data"].(map[string]interface{})
-	require.True(t, ok, "response data should be an object")
-
-	accessToken, ok := data["accessToken"].(string)
-	require.True(t, ok, "accessToken should be a string")
-	require.NotEmpty(t, accessToken, "accessToken should not be empty")
-
-	return accessToken
 }
 
 // GetOTPFromMailhog fetches OTP from MailHog API
@@ -456,106 +473,141 @@ func HasPagination(resp APIResponse) bool {
 // These helpers are shared across all test modules
 // ============================================================================
 
-// CreateTestUser is a helper function to create a test user and return access token
-// It performs the complete signup flow and then login to get the token
+// CreateTestUser performs the new signup flow (post multi-identity refactor)
+// and returns the access token issued by /signup/password.
 //
-// Parameters:
-//   - t: testing instance
-//   - app: Fiber app instance
-//   - mailhogURL: MailHog URL for fetching OTP
-//   - email: user email for signup
-//   - username: desired username
-//   - password: desired password
+// Flow:
+//  1. POST /api/auth/signup/start  {email}                  -> {sessionId, otpExpiresAt}
+//  2. POST /api/auth/signup/otp    {sessionId, otp}         -> {status: "OK"}
+//  3. POST /api/auth/signup/password {sessionId, password}  -> {accessToken, refreshToken, ...}
 //
-// Returns:
-//   - Access token string
+// Username is no longer stored on the global user (migration 000016). It now
+// lives per-server in server_member_profiles (migration 000017) and is supplied
+// at CreateServer / JoinServer time.
 //
 // Example:
 //
-//	token := setup.CreateTestUser(t, app, mailhogURL, "test@example.com", "testuser", "password123")
-func CreateTestUser(t *testing.T, app *fiber.App, mailhogURL, email, username, password string) string {
-	// Start signup
-	reqBody := []byte(fmt.Sprintf(`{"email":"%s"}`, email))
+//	token := setup.CreateTestUser(t, app, mailhogURL, "test@example.com", "password123")
+func CreateTestUser(t *testing.T, app *fiber.App, mailhogURL, email, password string) string {
+	// 1. Start signup -> sends OTP, returns sessionId.
+	reqBody := []byte(fmt.Sprintf(`{"email":%q}`, email))
 	req := CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err, "signup start should succeed")
 
 	result := RequireJSONResponse(t, resp, 200)
-	sessionIDRaw, ok := result["sessionId"]
-	require.True(t, ok, "sessionId should be in response, got: %v", result)
-	sessionId, ok := sessionIDRaw.(string)
-	require.True(t, ok, "sessionId should be a string, got: %T", sessionIDRaw)
+	sessionId, ok := result["sessionId"].(string)
+	require.True(t, ok, "sessionId should be a string, got: %v", result)
 
-	// Verify OTP
+	// 2. Verify OTP -> marks session as otp_verified.
 	otp := GetOTPFromMailhog(t, mailhogURL, email)
-	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","otp":"%s"}`, sessionId, otp))
+	reqBody = []byte(fmt.Sprintf(`{"sessionId":%q,"otp":%q}`, sessionId, otp))
 	req = CreateJSONRequest(http.MethodPost, "/api/auth/signup/otp", reqBody)
-	resp, err = app.Test(req)
+	resp, err = app.Test(req, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err, "verify OTP should succeed")
 	RequireStatus(t, resp, 200)
 
-	// Set username
-	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","username":"%s"}`, sessionId, username))
-	req = CreateJSONRequest(http.MethodPost, "/api/auth/signup/username", reqBody)
-	resp, err = app.Test(req)
-	require.NoError(t, err, "set username should succeed")
-	RequireStatus(t, resp, 200)
-
-	// Set password
-	reqBody = []byte(fmt.Sprintf(`{"sessionId":"%s","password":"%s"}`, sessionId, password))
+	// 3. Set password -> creates user and returns the initial token pair.
+	reqBody = []byte(fmt.Sprintf(`{"sessionId":%q,"password":%q}`, sessionId, password))
 	req = CreateJSONRequest(http.MethodPost, "/api/auth/signup/password", reqBody)
-	resp, err = app.Test(req)
+	resp, err = app.Test(req, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err, "set password should succeed")
-	RequireStatus(t, resp, 200)
-
-	// Login to get access token
-	reqBody = []byte(fmt.Sprintf(`{"username":"%s","password":"%s"}`, username, password))
-	req = CreateJSONRequest(http.MethodPost, "/api/auth/login", reqBody)
-	resp, err = app.Test(req)
-	require.NoError(t, err, "login should succeed")
 
 	result = RequireJSONResponse(t, resp, 200)
-	accessToken := result["accessToken"].(string)
+	accessToken, ok := result["accessToken"].(string)
+	require.True(t, ok, "accessToken should be a string, got: %v", result)
+	require.NotEmpty(t, accessToken, "accessToken should not be empty")
 
 	return accessToken
 }
 
-// CreateTestServer is a helper function to create a test server and return server ID
+// LoginTestUser authenticates an existing user via /api/auth/login and returns
+// the issued access token. Login is keyed by email (the global user no longer
+// has a username field).
+func LoginTestUser(t *testing.T, app *fiber.App, email, password string) string {
+	reqBody := []byte(fmt.Sprintf(`{"email":%q,"password":%q}`, email, password))
+	req := CreateJSONRequest(http.MethodPost, "/api/auth/login", reqBody)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
+	require.NoError(t, err, "login should succeed")
+
+	result := RequireJSONResponse(t, resp, 200)
+	accessToken, ok := result["accessToken"].(string)
+	require.True(t, ok, "accessToken should be a string, got: %v", result)
+	require.NotEmpty(t, accessToken, "accessToken should not be empty")
+
+	return accessToken
+}
+
+// CreateTestServer creates a server via the multipart POST /api/servers/create
+// endpoint and returns the server UUID.
+//
+// Multi-identity refactor: server creation now also bootstraps an owner
+// server_member_profiles row, so the multipart body must include nickname and
+// username on top of the server fields. The helper derives both from name and
+// shortName to keep call sites unchanged.
 //
 // Parameters:
-//   - t: testing instance
-//   - app: Fiber app instance
-//   - redisURL: Redis URL (not directly used, kept for consistency)
-//   - token: Access token for authentication
-//   - name: Server name
-//   - shortName: Server short name
-//   - categoryID: Category ID
-//   - isPrivate: Whether server is private
-//
-// Returns:
-//   - Server ID string
+//   - redisURL: kept for signature compatibility; the helper does not touch Redis.
 //
 // Example:
 //
 //	serverID := setup.CreateTestServer(t, app, redisURL, token, "My Server", "myserver", 1, false)
 func CreateTestServer(t *testing.T, app *fiber.App, redisURL, token, name, shortName string, categoryID int, isPrivate bool) string {
-	reqBody := []byte(fmt.Sprintf(`{
-		"name": "%s",
-		"shortName": "%s",
-		"categoryId": %d,
-		"description": "Test server description",
-		"settings": {"isPrivate": %t}
-	}`, name, shortName, categoryID, isPrivate))
+	_ = redisURL
+	username := deriveUsernameFromShortName(shortName)
 
-	req := CreateAuthRequest(http.MethodPost, "/api/servers/create", reqBody, token)
-	resp, err := app.Test(req)
+	fields := map[string]string{
+		"name":        name,
+		"shortName":   shortName,
+		"categoryId":  strconv.Itoa(categoryID),
+		"isPrivate":   strconv.FormatBool(isPrivate),
+		"nickname":    name,
+		"username":    username,
+		"description": "Test server description",
+	}
+	body, contentType := CreateMultipartTextOnly(t, fields)
+	req := CreateAuthMultipartRequest(http.MethodPost, "/api/servers/create", body, contentType, token)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err, "create server should succeed")
 
 	result := RequireJSONResponse(t, resp, 200)
-	serverID := result["id"].(string)
+	serverObj, ok := result["server"].(map[string]interface{})
+	require.True(t, ok, "response should contain server object, got: %v", result)
+	serverID, ok := serverObj["id"].(string)
+	require.True(t, ok, "server.id should be a string")
 	require.NotEmpty(t, serverID, "server id should not be empty")
 
 	return serverID
+}
+
+// JoinTestServer joins serverID via POST /api/servers/:serverId/join. The
+// endpoint is multipart and the per-server profile fields (nickname / username
+// / bio) are required by the multi-identity refactor. Use this from tests that
+// need an authenticated second user as a member of an existing server.
+func JoinTestServer(t *testing.T, app *fiber.App, token, serverID, nickname, username, bio string) {
+	fields := map[string]string{
+		"nickname": nickname,
+		"username": username,
+	}
+	if bio != "" {
+		fields["bio"] = bio
+	}
+	body, contentType := CreateMultipartTextOnly(t, fields)
+	req := CreateAuthMultipartRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/join", serverID), body, contentType, token)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
+	require.NoError(t, err, "join server should succeed")
+	RequireStatus(t, resp, 200)
+}
+
+// deriveUsernameFromShortName pads shortName so it satisfies the username
+// validator (MinLen 3, charset [a-zA-Z0-9_.]). shortName itself is constrained
+// to MinLen 2 / MaxLen 10 at the server layer, so a one-character pad is
+// always enough to clear the username minimum.
+func deriveUsernameFromShortName(shortName string) string {
+	if len(shortName) >= 3 {
+		return shortName
+	}
+	return shortName + "_u"
 }
 
 // ============================================================================
@@ -823,7 +875,7 @@ func TestRequestWithLogging(t *testing.T, app *fiber.App, req *http.Request) (*h
 	t.Logf("--- Executing Request: %s %s ---", req.Method, req.URL.Path)
 	LogHTTPRequest(t, req)
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
 
 	if err != nil {
 		t.Logf("❌ Request Error: %v", err)
@@ -882,7 +934,7 @@ func RequireJSONWithLog(t *testing.T, app *fiber.App, req *http.Request, expecte
 	t.Logf("--- Executing Request: %s %s ---", req.Method, req.URL.Path)
 	LogHTTPRequest(t, req)
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
 	if err != nil {
 		t.Logf("❌ Request Failed: %v", err)
 		t.Fatalf("Request failed: %v", err)

@@ -113,8 +113,8 @@ func TestSignupOTPPost_OTPLessThan6Chars(t *testing.T) {
 	result = setup.ParseJSONResponse(t, resp)
 	require.Contains(t, result, "error", "response should contain error field")
 	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "at least 6 characters", "error message should mention minimum length")
-	t.Logf("✅ Correctly rejected short OTP")
+	require.Contains(t, errMsg, "exactly 6 characters", "validator enforces Len(6) so the message says exactly")
+	t.Logf("Correctly rejected short OTP")
 }
 
 // TestSignupOTPPost_WrongOTP tests OTP verification with incorrect OTP

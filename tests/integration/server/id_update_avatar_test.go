@@ -20,7 +20,7 @@ func TestUpdateAvatar_Success(t *testing.T) {
 	defer db.Close()
 
 	// Setup: Create user and server
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "updateavatar@example.com", "updateavataruser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "updateavatar@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Update Avatar Server", "upavatar", 1, false)
 
 	// Test: Update server avatar
@@ -48,7 +48,7 @@ func TestUpdateAvatar_Unauthorized(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "unauthupdavatar@example.com", "unauthupdavataruser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "unauthupdavatar@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Unauth Update Avatar Server", "unauthupd", 1, false)
 
 	// Test: Update server avatar without token
@@ -78,11 +78,11 @@ func TestUpdateAvatar_NotOwner(t *testing.T) {
 	defer db.Close()
 
 	// Setup: Create user and server
-	token1 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "ownerupdavatar@example.com", "ownerupdavataruser", "password123")
+	token1 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "ownerupdavatar@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token1, "Owner Update Avatar Server", "ownerupd", 1, false)
 
 	// Create another user (not owner of the server)
-	token2 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "notownerupdavatar@example.com", "notownerupdavataruser", "password123")
+	token2 := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "notownerupdavatar@example.com", "password123")
 
 	// Test: Try to update server avatar as non-owner
 	setup.LogTestStep(t, "Testing Update Server Avatar as Non-Owner")
@@ -113,7 +113,7 @@ func TestUpdateBanner_Success(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "updatebanner@example.com", "updatebanneruser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "updatebanner@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Update Banner Server", "updbanner", 1, false)
 
 	// Test: Update server banner
@@ -141,7 +141,7 @@ func TestUpdateBanner_Unauthorized(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "unauthupdbanner@example.com", "unauthupdbanneruser", "password123")
+	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "unauthupdbanner@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Unauth Update Banner Server", "unbannr", 1, false)
 
 	// Test: Update server banner without token

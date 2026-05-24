@@ -91,7 +91,10 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 		t.Fatalf("failed to connect to minio: %v", err)
 	}
 
-	// Create bucket kalau belum ada
+	// Create bucket kalau belum ada. Multiple parallel tests can race here:
+	// BucketExists returns false for two callers, both invoke MakeBucket, and
+	// the second one fails with "BucketAlreadyOwnedByYou". Treat that response
+	// as success so the race becomes idempotent.
 	bucketName := "virdan-test"
 	exists, err := minioClient.BucketExists(ctx, bucketName)
 	if err != nil {
@@ -102,7 +105,11 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 		t.Logf("Creating MinIO bucket: %s", bucketName)
 		err = minioClient.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{})
 		if err != nil {
-			t.Fatalf("failed to create minio bucket: %v", err)
+			errResp := minio.ToErrorResponse(err)
+			if errResp.Code != "BucketAlreadyOwnedByYou" && errResp.Code != "BucketAlreadyExists" {
+				t.Fatalf("failed to create minio bucket: %v", err)
+			}
+			t.Logf("MinIO bucket already exists (race-safe): %s", bucketName)
 		}
 	} else {
 		t.Logf("MinIO bucket already exists: %s", bucketName)
@@ -118,16 +125,21 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 	serverRepository := repository.NewServerRepository(zapLogger, testConfig, dbPool, redisClient, minioClient)
 	userRepository := repository.NewUserRepository(zapLogger, testConfig, dbPool, redisClient, minioClient)
 	postRepository := repository.NewPostRepository(zapLogger, testConfig, dbPool, redisClient, minioClient)
+	profileRepository := repository.NewProfileRepository(zapLogger, testConfig, dbPool, minioClient)
 
-	// 8. Setup usecases
-	serverUsecase := usecase.NewServerUsecase(serverRepository, nil, dbPool, zapLogger, testConfig)
+	// 8. Setup usecases — ServerUsecase needs ProfileRepository for the
+	// copy-on-join multi-identity flow, otherwise CreateServer / JoinServer
+	// will nil-panic when they try to write the snapshot row.
+	serverUsecase := usecase.NewServerUsecase(serverRepository, profileRepository, dbPool, zapLogger, testConfig)
 	userUsecase := usecase.NewUserUsecase(userRepository, serverRepository, dbPool, zapLogger, testConfig)
 	postUsecase := usecase.NewPostUsecase(postRepository, serverRepository, dbPool, zapLogger, testConfig)
+	profileUsecase := usecase.NewProfileUsecase(profileRepository, serverRepository, dbPool, zapLogger, testConfig)
 
 	// 9. Setup controllers
 	serverController := http.NewServerController(serverUsecase, zapLogger, testConfig)
 	userController := http.NewUserController(userUsecase, zapLogger, testConfig)
 	postController := http.NewPostController(postUsecase, zapLogger, testConfig)
+	profileController := http.NewProfileController(profileUsecase, zapLogger, testConfig)
 
 	// 10. Setup middleware
 	authMiddleware := middleware.NewAuthMiddleware(testConfig, zapLogger, userUsecase)
@@ -147,13 +159,19 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 		},
 	})
 
-	// 12. Setup routes
+	// 12. Setup routes — the /api/health handler reads DB / DBCache / MinIO
+	// off RouteConfig and the profile endpoints need ProfileController, so
+	// every field RouteConfig declares must be wired here.
 	routeConfig := route.RouteConfig{
-		App:              fiberApp,
-		UserController:   userController,
-		ServerController: serverController,
-		PostController:   postController,
-		AuthMiddleware:   authMiddleware,
+		App:               fiberApp,
+		UserController:    userController,
+		ServerController:  serverController,
+		PostController:    postController,
+		ProfileController: profileController,
+		AuthMiddleware:    authMiddleware,
+		DB:                dbPool,
+		DBCache:           redisClient,
+		MinIO:             minioClient,
 	}
 
 	routeConfig.SetupRoute()

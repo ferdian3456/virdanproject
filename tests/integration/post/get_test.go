@@ -24,7 +24,7 @@ func TestGetServerPosts_Success(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user, server, and posts
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "getposts@example.com", "getpostsuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "getposts@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Get Posts Server", "getposts", 1, false)
 
 	// Create a post
@@ -64,7 +64,7 @@ func TestGetServerPosts_Unauthorized(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unauthgetposts@example.com", "unauthgetpostsuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unauthgetposts@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Unauth Get Posts Server", "unauthget", 1, false)
 
 	// Test: Get server posts without token
@@ -94,11 +94,11 @@ func TestGetServerPosts_NotAMember(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user and server (user is NOT a member)
-	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "ownergetposts@example.com", "ownergetpostsuser", "password123")
+	token1 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "ownergetposts@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token1, "Owner Get Posts Server", "ownerget", 1, false)
 
 	// Create another user (not a member of the server)
-	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "nonmembergetposts@example.com", "nonmembergetpostsuser", "password123")
+	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "nonmembergetposts@example.com", "password123")
 
 	// Test: Try to get server posts as non-member
 	setup.LogTestStep(t, "Testing Get Server Posts as Non-Member")
@@ -129,7 +129,7 @@ func TestGetServerPosts_WithPagination(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "pagposts@example.com", "pagpostsuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "pagposts@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Pag Posts Server", "pagposts", 1, false)
 
 	// Create multiple posts
@@ -173,7 +173,7 @@ func TestGetPost_Success(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	// Setup: Create user, server, and post
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "getpost@example.com", "getpostuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "getpost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Get Post Server", "getpost", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
@@ -184,7 +184,7 @@ func TestGetPost_Success(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Get single post
 	setup.LogTestStep(t, "Testing Get Single Post")
@@ -194,7 +194,7 @@ func TestGetPost_Success(t *testing.T) {
 	setup.RequireStatus(t, resp, 200)
 
 	result = setup.ParseJSONResponse(t, resp)
-	require.Contains(t, result, "postId", "response should contain post id")
+	require.Contains(t, result, "id", "response should contain post id")
 
 	t.Logf("Single post retrieved successfully")
 	setup.LogTestPass(t, "TestGetPost_Success")
@@ -214,8 +214,8 @@ func TestGetPost_Unauthorized(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unauthgetpost@example.com", "unauthgetpostuser", "password123")
-	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Unauth Get Post Server", "unauthgetpost", 1, false)
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "unauthgetpost@example.com", "password123")
+	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Unauth Get Post Server", "unauthgp", 1, false)
 
 	imageData := setup.CreateTestWebPImage(t)
 	body, contentType := setup.CreateMultipartFormData(t, "image", "test.webp", imageData, map[string]string{
@@ -225,7 +225,7 @@ func TestGetPost_Unauthorized(t *testing.T) {
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create post should succeed")
 	result := setup.ParseJSONResponse(t, resp)
-	postID := result["postId"].(string)
+	postID := result["id"].(string)
 
 	// Test: Get single post without token
 	setup.LogTestStep(t, "Testing Get Single Post Without Auth")
@@ -253,7 +253,7 @@ func TestGetPost_InvalidPostId(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "invalidgetpost@example.com", "invalidgetpostuser", "password123")
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "invalidgetpost@example.com", "password123")
 
 	// Test: Get single post with invalid post ID
 	setup.LogTestStep(t, "Testing Get Single Post with Invalid Post ID")

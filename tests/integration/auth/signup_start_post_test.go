@@ -3,6 +3,7 @@ package auth
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/ferdian3456/virdanproject/tests/integration/setup"
@@ -56,18 +57,20 @@ func TestSignupStartPost_EmailAlreadyRegistered(t *testing.T) {
 	// Setup: Create first user
 	testEmail := "existing@example.com"
 	setup.LogTestStep(t, "Creating existing user: %s", testEmail)
-	_ = setup.CreateTestUser(t, app, infra.MailhogURL, testEmail, "existinguser", "password123")
+	_ = setup.CreateTestUser(t, app, infra.MailhogURL, testEmail, "password123")
 
 	// Test: Try to signup with same email
 	setup.LogTestStep(t, "Testing Signup Start with Already Registered Email")
 	reqBody := []byte(fmt.Sprintf(`{"email":"%s"}`, testEmail))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
 
-	result := setup.RequireJSONWithLog(t, app, req, 400) // Expecting 400 for duplicate
+	// Duplicate-email path returns ConflictError → HTTP 409 with the
+	// "Email is already registered" copy from StartSignup.
+	result := setup.RequireJSONWithLog(t, app, req, 409)
 
 	require.Contains(t, result, "error", "response should contain error field")
 	errMsg := setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "already exists", "error message should mention email already exists")
+	require.Contains(t, errMsg, "already registered", "error message should mention email already registered")
 
 	setup.LogTestPass(t, "TestSignupStartPost_EmailAlreadyRegistered")
 	t.Logf("Correctly rejected duplicate email: %s", errMsg)
@@ -97,27 +100,30 @@ func TestSignupStartPost_EmailValidation(t *testing.T) {
 	require.Contains(t, errMsg, "required", "error message should mention email is required")
 	t.Logf("Correctly rejected empty email: %s", errMsg)
 
-	// Test 2: Email less than 16 characters
-	setup.LogTestStep(t, "Test 2: Email Less Than 16 Characters")
-	reqBody = []byte(`{"email":"short@x.co"}`)
+	// Test 2: Email shorter than the validator's MinLen(5).
+	setup.LogTestStep(t, "Test 2: Email shorter than 5 characters")
+	reqBody = []byte(`{"email":"a@b"}`)
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
 
 	result = setup.RequireJSONWithLog(t, app, req, 400)
 	require.Contains(t, result, "error", "response should contain error field")
 	errMsg = setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "at least 16 characters", "error message should mention minimum length")
+	require.Contains(t, errMsg, "at least 5 characters", "error message should mention minimum length")
 	t.Logf("Correctly rejected short email: %s", errMsg)
 
-	// Test 3: Email more than 80 characters
-	setup.LogTestStep(t, "Test 3: Email More Than 80 Characters")
-	longEmail := "thisemailaddressiswaytoolongtobevalidforthissystem123456789012345678901234567890@example.com"
+	// Test 3: Email longer than the validator's MaxLen(255). Build a 256-char
+	// string with a valid email suffix so the only failing constraint is
+	// length, not the Email() regex.
+	setup.LogTestStep(t, "Test 3: Email longer than 255 characters")
+	longEmail := strings.Repeat("a", 251) + "@b.co" // 251 + 5 = 256 chars
+	require.Equal(t, 256, len(longEmail), "longEmail should be 256 chars to exceed MaxLen(255)")
 	reqBody = []byte(fmt.Sprintf(`{"email":"%s"}`, longEmail))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
 
 	result = setup.RequireJSONWithLog(t, app, req, 400)
 	require.Contains(t, result, "error", "response should contain error field")
 	errMsg = setup.ParseErrorMessage(t, result)
-	require.Contains(t, errMsg, "at most 80 characters", "error message should mention maximum length")
+	require.Contains(t, errMsg, "at most 255 characters", "error message should mention maximum length")
 	t.Logf("Correctly rejected long email: %s", errMsg)
 
 	setup.LogTestPass(t, "TestSignupStartPost_EmailValidation")
