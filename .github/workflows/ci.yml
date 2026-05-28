@@ -12,6 +12,7 @@ env:
   GO_VERSION: "1.25.10"
   GOLANGCI_LINT_VERSION: "v1.64.8"
   GOVULNCHECK_VERSION: "v1.1.4"
+  SWAG_VERSION: "v1.16.4"
 
 jobs:
   setup:
@@ -43,6 +44,49 @@ jobs:
           name: app-binary
           path: app
           retention-days: 1
+
+  generate_swagger:
+    name: Generate Swagger (auto-commit on main)
+    runs-on: ubuntu-latest
+    needs: setup
+    # Only on push to main: regenerate docs/swagger.yaml from docs/flows/id and
+    # commit it back. Devs never need to generate swagger locally + commit.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Install swag
+        env:
+          VERSION: ${{ env.SWAG_VERSION }}
+        run: go install "github.com/swaggo/swag/cmd/swag@${VERSION}"
+
+      - name: Generate swagger.yaml from docs/flows/id
+        run: make generate-swagger-id
+
+      - name: Commit regenerated swagger.yaml if changed
+        run: |
+          if git diff --quiet -- docs/swagger.yaml; then
+            echo "docs/swagger.yaml unchanged — nothing to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/swagger.yaml
+          git commit -m "chore: regenerate docs/swagger.yaml [skip ci]"
+          git push origin HEAD:main
 
   lint:
     name: Lint (golangci-lint)
