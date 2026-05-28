@@ -1,3 +1,0 @@
-DROP INDEX IF EXISTS idx_users_uk_02;
-DROP INDEX IF EXISTS idx_users_uk_01;
-DROP TABLE IF EXISTS users;

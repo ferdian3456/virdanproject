@@ -1,44 +1,20 @@
 export $(shell sed 's/=.*//' .env)
 include .env
 
-# Database Migrations
-.PHONY: migrate-create
-migrate-create:
-	@migrate create -ext sql -dir db/migrations -seq $(name)
+# Database Migrations (Atlas) — edit db/schema.sql, then `make migrate-diff name=xyz`
+ATLAS_ENV := local
 
-.PHONY: migrate-up
-migrate-up:
-	@migrate -database ${POSTGRES_URL} -path db/migrations up
+.PHONY: migrate-diff
+migrate-diff:
+	@atlas migrate diff $(name) --env $(ATLAS_ENV)
 
-.PHONY: migrate-down
-migrate-down:
-	@migrate -database ${POSTGRES_URL} -path db/migrations down
+.PHONY: migrate-apply
+migrate-apply:
+	@atlas migrate apply --env $(ATLAS_ENV)
 
-.PHONY: migrate-fix
-migrate-fix:
-	@echo "Current migration status:"
-	@psql ${POSTGRES_URL} -c "SELECT version, dirty FROM schema_migrations;" 2>/dev/null || echo "No schema_migrations table found"
-	@echo ""
-	@echo "Fixing dirty migration state..."
-	@read -p "Enter the version to force (or press Enter to use current dirty version): " version; \
-	if [ -z "$$version" ]; then \
-		migrate -database ${POSTGRES_URL} -path db/migrations force $$(psql ${POSTGRES_URL} -t -c "SELECT version FROM schema_migrations;" | tr -d ' '); \
-	else \
-		migrate -database ${POSTGRES_URL} -path db/migrations force $$version; \
-	fi
-	@echo "Migration state fixed!"
-
-.PHONY: migrate-reset
-migrate-reset:
-	@echo "This will drop ALL tables and re-run migrations!"
-	@read -p "Are you sure? [y/N]: " confirm; \
-	if [ "$$confirm" = "y" ]; then \
-		migrate -database ${POSTGRES_URL} -path db/migrations drop -f; \
-		migrate -database ${POSTGRES_URL} -path db/migrations up; \
-		echo "Database reset complete!"; \
-	else \
-		echo "Aborted."; \
-	fi
+.PHONY: migrate-lint
+migrate-lint:
+	@atlas migrate lint --env $(ATLAS_ENV) --latest 1
 
 # Testing
 .PHONY: test
@@ -161,10 +137,6 @@ ci-test:
 	@echo "Integration tests: OK"
 
 # Tools
-.PHONY: tools
-tools:
-	@go run tools.go
-
 .PHONY: generate-swagger
 generate-swagger:
 	@swag init -g cmd/main.go -o docs --outputTypes yaml -md docs/flow
@@ -193,13 +165,10 @@ help:
 	@echo "  make test-list         - List all available tests"
 	@echo "  make test-coverage     - Generate coverage for integration tests"
 	@echo ""
-	@echo "Database Migrations:"
-	@echo "  make migrate-create name=xyz  - Create new migration"
-	@echo "  make migrate-up             - Run migrations up"
-	@echo "  make migrate-down           - Run migrations down"
-	@echo "  make migrate-fix            - Fix dirty migration state"
-	@echo "  make migrate-reset          - Drop all tables and re-migrate"
+	@echo "Database Migrations (Atlas — edit db/schema.sql first):"
+	@echo "  make migrate-diff name=xyz  - Author migration from schema changes"
+	@echo "  make migrate-apply          - Apply pending migrations"
+	@echo "  make migrate-lint           - Lint latest migration for unsafe changes"
 	@echo ""
 	@echo "Tools:"
-	@echo "  make tools            - Run tools.go"
 	@echo "  make generate-swagger - Generate Swagger docs"
