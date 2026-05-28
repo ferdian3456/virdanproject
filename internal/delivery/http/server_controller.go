@@ -154,7 +154,7 @@ func (controller *ServerController) GetUserServer(ctx fiber.Ctx) error {
 
 // GetCategoryServer godoc
 // @Summary      Get server categories
-// @Description.markdown get_category_server
+// @Description.markdown get_server_categories
 // @Tags         servers
 // @Produce      json
 // @Param        limit query int false "Items per page"
@@ -315,7 +315,7 @@ func (controller *ServerController) JoinServerFromInvite(ctx fiber.Ctx) error {
 
 // GetServerInfoForInvite godoc
 // @Summary      Get server info for invite preview
-// @Description.markdown get_server_info_for_invite
+// @Description.markdown get_invite_info
 // @Tags         server-invites
 // @Produce      json
 // @Param        inviteCode path string true "Invite code (8 characters)"
