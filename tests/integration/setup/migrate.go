@@ -1,53 +1,65 @@
 package setup
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// RunMigration applies every versioned migration in db/migrations to the target
+// database in ascending version order. Atlas authors these files (native,
+// forward-only: <version>_<name>.sql); the test runner executes them directly
+// via pgx so there is no migration-tool dependency at test time. Each test runs
+// against a fresh database that is dropped on cleanup, so forward-only
+// application is sufficient.
 func RunMigration(pgURL string, t *testing.T) error {
 	t.Log("Running database migrations...")
 
-	// Get current working directory (changes to test package dir during test execution)
 	wd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	// Go up 3 levels to reach project root
-	// tests/integration/auth -> tests/integration -> tests -> virdanproject (3 levels)
-	projectRoot := filepath.Join(wd, "..", "..", "..")
-	migrationPath := filepath.Join(projectRoot, "db", "migrations")
+	// Test packages run from tests/integration/<pkg>; the project root (and thus
+	// db/migrations) is three levels up.
+	migrationsDir := filepath.Join(wd, "..", "..", "..", "db", "migrations")
 
-	// Convert to absolute path
-	absPath, err := filepath.Abs(migrationPath)
+	files, err := filepath.Glob(filepath.Join(migrationsDir, "*.sql"))
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path: %w", err)
+		return fmt.Errorf("failed to list migration files: %w", err)
 	}
+	if len(files) == 0 {
+		return fmt.Errorf("no migration files found in %s", migrationsDir)
+	}
+	// Zero-padded sequence prefixes (and later timestamp prefixes) sort
+	// lexicographically into the correct apply order.
+	sort.Strings(files)
 
-	// Convert to file:// URL format
-	migrationURL := "file://" + absPath
-
-	t.Logf("Migration path: %s", migrationURL)
-
-	m, err := migrate.New(
-		migrationURL,
-		pgURL,
-	)
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, pgURL)
 	if err != nil {
-		return fmt.Errorf("failed to create migrate instance: %w", err)
+		return fmt.Errorf("failed to connect for migration: %w", err)
+	}
+	defer pool.Close()
+
+	for _, file := range files {
+		sqlBytes, err := os.ReadFile(file)
+		if err != nil {
+			return fmt.Errorf("failed to read migration %s: %w", filepath.Base(file), err)
+		}
+
+		// No-argument Exec uses the simple query protocol, which allows multiple
+		// statements per file (CREATE TABLE + indexes + seed INSERTs).
+		if _, err := pool.Exec(ctx, string(sqlBytes)); err != nil {
+			return fmt.Errorf("failed to apply migration %s: %w", filepath.Base(file), err)
+		}
 	}
 
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		return fmt.Errorf("failed to run migrations: %w", err)
-	}
-
-	t.Log("Database migrations completed successfully")
+	t.Logf("Applied %d migrations successfully", len(files))
 	return nil
 }
