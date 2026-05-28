@@ -147,7 +147,7 @@ func (controller UserController) ResendOtp(ctx fiber.Ctx) error {
 
 // VerifyPassword godoc
 // @Summary      Verify password and complete signup
-// @Description.markdown verify_password
+// @Description.markdown set_password
 // @Tags         auth
 // @Accept       json
 // @Produce      json
