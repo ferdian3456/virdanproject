@@ -1,51 +1,111 @@
-## Update Server Category Flow
+## Overview
 
-### Overview
-Updates the category of a server. Only the server owner can perform this action. Set `categoryId` to `null` to remove the category.
+This API is used to change a server category. Only the owner may do this. The backend checks that the category is active before updating.
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+---
 
-### Business Logic
-1. Get `userId` from context
-2. Parse `id` from URL path — must be a valid UUID
-3. If `categoryId` is provided (not null), verify the category exists in database
-4. Check server ownership
-5. Update category in database
-6. Return updated server details
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Check Category Exists (if categoryId not null)
-```sql
-SELECT 1 FROM server_categories WHERE id = $1
-```
-- **Table**: `server_categories`
+## Flow
 
-#### PostgreSQL — Check Server Ownership
-```sql
-SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
-```
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
 
-#### PostgreSQL — Update Category
-```sql
-UPDATE servers SET category_id = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
-```
-- **Table**: `servers`
-- **Columns updated**: `category_id` (nullable INT, FK to `server_categories`), `update_datetime`, `update_user_id`
-
-#### PostgreSQL — Get Server Detail (after update)
-```sql
-SELECT id, owner_id, name, short_name, category_id, avatar_image_id, banner_image_id, description, settings, create_datetime, update_datetime, create_user_id, update_user_id
-FROM servers WHERE id = $1
+    Client->>BE: PUT /api/servers/(id)/category {categoryId}
+    BE->>BE: Middleware extract userId
+    BE->>BE: Validate serverId (UUID), categoryId (int, positive)
+    alt Validation Error
+        BE-->>Client: 400 e.g.: categoryId must be positive
+    end
+    BE->>Postgres: Check ownership
+    alt Not the owner
+        BE-->>Client: 403 You are not the owner of this server
+    end
+    BE->>Postgres: SELECT 1 FROM server_categories WHERE id = $1 AND is_active = true
+    alt Category not found
+        BE-->>Client: 404 Category not found or inactive
+    end
+    BE->>Postgres: UPDATE servers SET category_id = $1, updated_at = $2, updated_by = $3 WHERE id = $4
+    BE-->>Client: 200 {id, updatedAt}
 ```
 
-### Error Cases
-- Invalid server id → `400` with "Invalid server id"
-- Category not found → `400` with "Category id is not found"
-- Not owner → `400` with "You are not the owner of this server"
+---
 
-### Flow
+## Notes Redis
+
+Does not use Redis.
+
+---
+
+## Notes Postgres/DB
+
+| Table               | Column        | Action | Notes                         |
+| ------------------- | ------------ | ------ | ----------------------------- |
+| `servers`           | owner_id     | SELECT | Check ownership               |
+| `server_categories` | id, is_active | SELECT | Check category exists & active |
+| `servers`           | category_id  | UPDATE | Set new category              |
+| `servers`           | updated_at   | UPDATE | UTC now                        |
+| `servers`           | updated_by   | UPDATE | userId                         |
+
+---
+
+## Prerequisites
+
+The user is the server owner.
+
+---
+
+## Request Validation
+
+| Field        | Type   | Required | Rules                   |
+| ------------ | ------ | -------- | ----------------------- |
+| `id` (path)  | string | yes      | Required, UUID          |
+| `categoryId` | int    | yes      | Required, positive > 0  |
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "id": "uuid",
+  "updatedAt": "2026-05-23T10:00:00Z"
+}
 ```
-Request → Auth Middleware → Parse ServerId → Check Category Exists (DB) → Check Ownership (DB) → Update (DB) → Get Detail (DB) → Response
-```
+
+### 400 Bad Request
+
+| `error_message`                  | Cause                          |
+| -------------------------------- | ------------------------------ |
+| `serverId is not a valid UUID`   | UUID invalid                    |
+| `categoryId is required`         | CategoryId empty                |
+| `categoryId must be positive`    | CategoryId <= 0                 |
+
+### 403 Forbidden
+
+| `error_message`                          | Cause             |
+| ---------------------------------------- | ----------------- |
+| `You are not the owner of this server`   | Not the owner     |
+
+### 404 Not Found
+
+| `error_message`                       | Cause                             |
+| ------------------------------------- | --------------------------------- |
+| `Category not found or inactive`      | Category not found / is_active=false |
+
+### 401 Unauthorized
+
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

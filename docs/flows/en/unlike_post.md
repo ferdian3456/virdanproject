@@ -1,64 +1,117 @@
-## Unlike Post Flow
+## Overview
 
-### Overview
-Removes a like from a post. Requires membership in the server where the post belongs.
+This API is used to unlike a post. Idempotent — if the user has not liked it yet, this request still returns 200 (no error). Returns the latest likeCount + `userLiked: false`.
 
-**Idempotent**: If the user hasn't liked the post, the request succeeds and returns the current like count (no error).
+---
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+## Auth
 
-### Business Logic
-1. Get `userId` from context
-2. Parse `postId` from URL path — must be a valid UUID
-3. Check if user is a member of the server where the post belongs
-4. Check if user has liked this post
-   - If liked → delete like record
-   - If not liked → **skip delete**, proceed to get like count (idempotent)
-5. Get updated like count
-6. Return updated like count
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-### Database Operations
+## Flow
 
-#### PostgreSQL — Check Post Server Membership
-```sql
-SELECT 1
-FROM server_posts sp
-INNER JOIN server_members sm ON sp.server_id = sm.server_id
-WHERE sp.id = $1 AND sm.user_id = $2 AND sm.status = $3
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+
+    Client->>BE: DELETE /api/posts/(postId)/likes
+    BE->>BE: Middleware extract userId
+    BE->>BE: Validate postId (UUID)
+    alt UUID invalid
+        BE-->>Client: 400 postId is not a valid UUID
+    end
+    BE->>Postgres: SELECT server_id from post
+    alt Post not found
+        BE-->>Client: 404 Post not found
+    end
+    BE->>Postgres: Check server membership
+    alt Not a member
+        BE-->>Client: 403 You are not a member of this server
+    end
+    BE->>Postgres: SELECT EXISTS like (post_id, user_id)
+    alt Already liked
+        BE->>Postgres: DELETE FROM server_post_likes WHERE post_id = $1 AND user_id = $2
+    end
+    BE->>Postgres: COUNT likes WHERE post_id = $1
+    BE-->>Client: 200 {postId, userLiked: false, likeCount}
 ```
 
-#### PostgreSQL — Check Already Liked
-```sql
-SELECT 1 FROM server_post_likes WHERE post_id = $1 AND user_id = $2
-```
-- If no row → hasn't liked yet (skip delete, return like count)
+---
 
-#### PostgreSQL — Delete Like (if already liked)
-```sql
-DELETE FROM server_post_likes WHERE post_id = $1 AND user_id = $2
-```
-- **Table**: `server_post_likes`
-- Only executed if user has already liked
+## Notes Redis
 
-#### PostgreSQL — Get Updated Like Count
-```sql
-SELECT COUNT(*) FROM server_post_likes WHERE post_id = $1
-```
-- **Table**: `server_post_likes`
-- Returns current like count after unlike operation
+Does not use Redis.
 
-### Error Cases
-- Invalid postId → `400` with "Invalid post id"
-- Not a member → `400` with "You are not a member of this server"
+---
 
-### Flow
-```
-Request → Auth Middleware → Parse PostId → Check Membership (DB) → Check Already Liked (DB) → [if liked: Delete Like (DB)] → Get Updated Count (DB) → Response
+## Notes Postgres/DB
+
+| Table                | Column             | Action | Notes                       |
+| -------------------- | ------------------ | ------ | --------------------------- |
+| `server_posts`       | server_id          | SELECT | Fetch server_id              |
+| `server_members`     | (count)            | SELECT | Check membership             |
+| `server_post_likes`  | (exists)           | SELECT | Check whether user already liked |
+| `server_post_likes`  | post_id, user_id   | DELETE | Delete like (if present)      |
+| `server_post_likes`  | (count)            | SELECT | New likeCount                 |
+
+---
+
+## Prerequisites
+
+The user is a member of the server the post belongs to.
+
+---
+
+## Request Validation
+
+Path parameter:
+
+| Field    | Type   | Required | Rules           |
+| -------- | ------ | -------- | --------------- |
+| `postId` | string | yes      | Required, UUID  |
+
+No body.
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "postId": "post-uuid",
+  "userLiked": false,
+  "likeCount": 12
+}
 ```
 
-### Idempotency
-- Calling this endpoint multiple times with the same user and post will:
-  - **First call** (when liked): Delete like record, return decremented like count
-  - **Subsequent calls**: Skip delete, return current like count (no error)
-- This allows for optimistic UI updates on the frontend without worrying about duplicate unlike requests
+### 400 Bad Request
+
+| `error_message`               | Cause        |
+| ----------------------------- | ------------ |
+| `postId is not a valid UUID`  | UUID invalid  |
+
+### 403 Forbidden
+
+| `error_message`                          | Cause        |
+| ---------------------------------------- | ------------ |
+| `You are not a member of this server`    | Not a member  |
+
+### 404 Not Found
+
+| `error_message`     | Cause               |
+| ------------------- | ------------------- |
+| `Post not found`    | Post not found       |
+
+### 401 Unauthorized
+
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

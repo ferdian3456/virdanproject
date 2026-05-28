@@ -1,55 +1,114 @@
-## Get Server By ID Flow
+## Overview
 
-### Overview
-Retrieves detailed information about a specific server. Access is controlled: public servers are visible to all authenticated users, private servers are only visible to members.
+This API is used to fetch server details by ID. Returnable for any user (no membership filter) — the frontend can check `isMember` in the response.
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+---
 
-### Business Logic
-1. Get `userId` from context
-2. Parse `id` from URL path parameter — must be a valid UUID
-3. Query server details with a single query that checks both existence AND membership for private servers
-4. If server not found (or private and user is not a member), return error
-5. Build full MinIO URLs for avatar and banner images
-6. Return server detail
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Get Server By ID (with access control)
-```sql
-SELECT A.id, A.name, A.short_name, B.name, C.object_key, D.object_key,
-       A.description, A.create_datetime, E.username, (A.settings->>'isPrivate')::boolean as is_private
-FROM servers A
-LEFT JOIN server_categories B ON A.category_id = B.id
-LEFT JOIN server_avatar_images C ON A.avatar_image_id = C.id
-LEFT JOIN server_banner_images D ON A.banner_image_id = D.id
-LEFT JOIN users E ON A.create_user_id = E.id
-WHERE A.id = $1
-AND (
-    (A.settings->>'isPrivate')::boolean = false
-    OR
-    EXISTS (
-        SELECT 1 FROM server_members F
-        WHERE F.server_id = A.id AND F.user_id = $2 AND F.status = 1
-    )
-)
-```
-- **Tables**: `servers` (A) LEFT JOIN `server_categories` (B), `server_avatar_images` (C), `server_banner_images` (D), `users` (E)
-- **Subquery**: checks `server_members` for active membership if server is private
-- **Columns returned**: `id`, `name`, `short_name`, `category_name`, avatar `object_key`, banner `object_key`, `description`, `create_datetime`, `username` (creator), `is_private`
+## Flow
 
-#### MinIO — Image URL Construction
-```
-Avatar: {MINIO_FULL_URL}/{object_key}  (e.g., server/avatar/{imageId}.webp)
-Banner: {MINIO_FULL_URL}/{object_key}  (e.g., server/banner/{imageId}.webp)
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+
+    Client->>BE: GET /api/servers/(id)
+    BE->>BE: Middleware extract userId
+    BE->>BE: Validate serverId UUID
+    alt UUID invalid
+        BE-->>Client: 400 serverId is not a valid UUID
+    end
+    BE->>Postgres: SELECT server + category + avatar + banner + memberCount + isMember + ownerNickname
+    alt Server not found
+        BE-->>Client: 404 Server not found
+    end
+    BE-->>Client: 200 ServerDetailResponse
 ```
 
-### Error Cases
-- Invalid server id → `400` with "Invalid server id"
-- Server not found or no permission → `400` with "Server not found or you don't have permission to access it"
+---
 
-### Flow
+## Notes Redis
+
+Does not use Redis (other than the auth-check middleware).
+
+---
+
+## Notes Postgres/DB
+
+| Table                     | Column                                   | Action | Notes                                       |
+| ------------------------- | ---------------------------------------- | ------ | ------------------------------------------- |
+| `servers`                 | (all)                                    | SELECT | Server details                               |
+| `server_categories`       | id, name                                 | SELECT | JOIN for categoryName                       |
+| `server_avatar_images`    | object_key                               | SELECT | Build avatarUrl                              |
+| `server_banner_images`    | object_key                               | SELECT | Build bannerUrl                              |
+| `server_members`          | (count + EXISTS)                         | SELECT | memberCount + isMember                       |
+| `server_member_profiles`  | nickname                                 | SELECT | Owner nickname                                |
+
+---
+
+## Prerequisites
+
+User is already logged in with a valid access token.
+
+---
+
+## Request Validation
+
+Path parameter:
+
+| Field | Type   | Required | Rules                      |
+| ----- | ------ | -------- | -------------------------- |
+| `id`  | string | yes      | Required, must be a valid UUID |
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "id": "uuid",
+  "ownerId": "user-uuid",
+  "ownerNickname": "OwnerNick",
+  "name": "Gaming Squad",
+  "shortName": "GS",
+  "categoryId": 3,
+  "categoryName": "Gaming",
+  "avatarUrl": "http://.../webp",
+  "bannerUrl": null,
+  "description": "Server gaming",
+  "settings": {"isPrivate": false},
+  "memberCount": 42,
+  "isMember": true,
+  "createdAt": "2026-05-23T10:00:00Z",
+  "updatedAt": "2026-05-23T10:00:00Z"
+}
 ```
-Request → Auth Middleware → Parse ServerId → Query Server (DB, checks visibility + membership) → Build Image URLs → Response
-```
+
+### 400 Bad Request
+
+| `error_message`                 | Cause                     |
+| ------------------------------- | ------------------------- |
+| `serverId is required`          | serverId empty             |
+| `serverId is not a valid UUID`  | Format is not a UUID      |
+
+### 404 Not Found
+
+| `error_message`        | Cause                 |
+| ---------------------- | --------------------- |
+| `Server not found`     | Server not found       |
+
+### 401 Unauthorized
+
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

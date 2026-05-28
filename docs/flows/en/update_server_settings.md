@@ -1,43 +1,99 @@
-## Update Server Settings Flow
+## Overview
 
-### Overview
-Updates the settings of a server (e.g., privacy settings). Only the server owner can perform this action.
+This API is used to change the server settings. Currently the settings only contain `isPrivate` (boolean). Only the owner is allowed.
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+---
 
-### Business Logic
-1. Get `userId` from context
-2. Parse `id` from URL path — must be a valid UUID
-3. Parse request body for settings
-4. Check server ownership
-5. Marshal settings to JSON
-6. Update settings in database
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Check Server Ownership
-```sql
-SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
+## Flow
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+
+    Client->>BE: PUT /api/servers/(id)/settings {isPrivate}
+    BE->>BE: Middleware extract userId
+    BE->>BE: Validate serverId (UUID)
+    alt Validation Error
+        BE-->>Client: 400 serverId is not a valid UUID
+    end
+    BE->>Postgres: Check ownership
+    alt Not owner
+        BE-->>Client: 403 You are not the owner of this server
+    end
+    BE->>BE: Marshal {isPrivate} to JSONB
+    BE->>Postgres: UPDATE servers SET settings = $1, updated_at = $2, updated_by = $3 WHERE id = $4
+    BE-->>Client: 200 {id, updatedAt}
 ```
 
-#### PostgreSQL — Update Settings
-```sql
-UPDATE servers SET settings = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
-```
-- **Table**: `servers`
-- **Columns updated**: `settings` (JSONB), `update_datetime`, `update_user_id`
-- **Settings schema**: `{"isPrivate": boolean}`
+---
 
-### Settings Fields
-- `isPrivate` — boolean, whether the server is private (only joinable via invite)
+## Notes Redis
 
-### Error Cases
-- Invalid server id → `400` with "Invalid server id"
-- Invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
-- Not owner → `400` with "You are not the owner of this server"
+Does not use Redis.
 
-### Flow
+---
+
+## Notes Postgres/DB
+
+| Table     | Column     | Action | Notes                   |
+| --------- | ---------- | ------ | ----------------------- |
+| `servers` | owner_id   | SELECT | Check ownership         |
+| `servers` | settings   | UPDATE | Set new JSONB settings  |
+| `servers` | updated_at | UPDATE | UTC now                 |
+| `servers` | updated_by | UPDATE | userId                  |
+
+---
+
+## Prerequisites
+
+The user is the server owner.
+
+---
+
+## Request Validation
+
+| Field       | Type   | Required | Rules           |
+| ----------- | ------ | -------- | --------------- |
+| `id` (path) | string | yes      | Required, UUID  |
+| `isPrivate` | bool   | no       | Default `false` |
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "id": "uuid",
+  "updatedAt": "2026-05-23T10:00:00Z"
+}
 ```
-Request → Auth Middleware → Parse ServerId → Parse Body → Check Ownership (DB) → Update Settings (DB) → Response (no data)
-```
+
+### 400 Bad Request
+
+| `error_message`                | Cause           |
+| ------------------------------ | --------------- |
+| `serverId is not a valid UUID` | Invalid UUID    |
+
+### 403 Forbidden
+
+| `error_message`                          | Cause        |
+| ---------------------------------------- | ------------ |
+| `You are not the owner of this server`   | Not owner    |
+
+### 401 Unauthorized
+
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

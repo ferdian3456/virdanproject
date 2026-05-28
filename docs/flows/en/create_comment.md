@@ -1,55 +1,140 @@
-## Create Comment Flow
+## Overview
 
-### Overview
-Creates a comment on a post. Requires membership in the server where the post belongs. Supports nested replies via `parentId`.
+This API is used to create a comment on a post. You can also reply to another comment by sending `parentId` (the UUID of the parent comment). The user must be a server member.
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+---
 
-### Business Logic
-1. Get `userId` from context
-2. Parse `postId` from URL path — must be a valid UUID
-3. Validate `content` (required, 1–1000 characters)
-4. If `parentId` provided, parse as UUID
-5. Check if user is a member of the server where the post belongs
-6. If `parentId` provided, verify parent comment exists and belongs to the same post
-7. Create comment record in database
-8. Return created comment details
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Check Post Server Membership
-```sql
-SELECT 1
-FROM server_posts sp
-INNER JOIN server_members sm ON sp.server_id = sm.server_id
-WHERE sp.id = $1 AND sm.user_id = $2 AND sm.status = $3
+## Flow
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+
+    Client->>BE: POST /api/posts/(postId)/comments {content, parentId?}
+    BE->>BE: Middleware extract userId
+    BE->>BE: Validate postId (UUID), content (req, max 1000), parentId (UUID if present)
+    alt Validation Error
+        BE-->>Client: 400 e.g.: content must be at most 1000 characters
+    end
+    BE->>Postgres: SELECT server_id FROM server_posts WHERE id = $1
+    alt Post not found
+        BE-->>Client: 404 Post not found
+    end
+    BE->>Postgres: Check server membership
+    alt Not a member
+        BE-->>Client: 403 You are not a member of this server
+    end
+    alt parentId provided
+        BE->>Postgres: SELECT 1 FROM server_post_comments WHERE id = parentId AND post_id = postId
+        alt Parent not found / different post
+            BE-->>Client: 404 Parent comment not found in this post
+        end
+    end
+    BE->>Postgres: INSERT INTO server_post_comments
+    BE->>Postgres: SELECT comment detail (author identity)
+    BE-->>Client: 200 ServerCommentResponse
 ```
 
-#### PostgreSQL — Check Parent Comment Exists (if parentId provided)
-```sql
-SELECT 1 FROM server_post_comments WHERE id = $1 AND post_id = $2
-```
-- **Table**: `server_post_comments`
-- **Filter**: `id` (parent comment UUID) + `post_id` (must match current post)
+---
 
-#### PostgreSQL — Create Comment
-```sql
-INSERT INTO server_post_comments (id, post_id, author_id, parent_id, content, create_datetime, update_datetime, create_user_id, update_user_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-```
-- **Table**: `server_post_comments`
-- **Columns**: `id` (UUID), `post_id`, `author_id`, `parent_id` (nullable UUID, for nested replies), `content` (1–1000 chars), timestamps, audit IDs
+## Notes Redis
 
-### Error Cases
-- Invalid postId → `400` with "Invalid post id"
-- Content empty → `400` with "Content is required"
-- Content > 1000 chars → `400` with "Content must be at most 1000 characters"
-- Invalid parentId format → `400` with "Invalid parent comment id"
-- Not a member → `400` with "You are not a member of this server"
-- Parent comment not found → `400` with "Parent comment not found"
+Does not use Redis.
 
-### Flow
+---
+
+## Notes Postgres/DB
+
+| Table                    | Column                                       | Action | Notes                                   |
+| ------------------------ | -------------------------------------------- | ------ | --------------------------------------- |
+| `server_posts`           | server_id                                    | SELECT | Fetch server_id                          |
+| `server_members`         | (count)                                      | SELECT | Check membership                         |
+| `server_post_comments`   | (count)                                      | SELECT | Check parent valid (if parentId provided) |
+| `server_post_comments`   | id, post_id, author_id, parent_id, content   | INSERT | New comment                              |
+| `server_member_profiles` | nickname, username, avatar_image_id          | SELECT | Author identity in the server            |
+
+---
+
+## Prerequisites
+
+User is a member of the server where the post resides. If replying, the parent comment must exist in the same post.
+
+---
+
+## Request Validation
+
+Path parameter:
+
+| Field    | Type   | Required | Rules           |
+| -------- | ------ | -------- | --------------- |
+| `postId` | string | yes      | Required, UUID  |
+
+Body JSON:
+
+| Field      | Type          | Required | Rules                                     |
+| ---------- | ------------- | -------- | ----------------------------------------- |
+| `content`  | string        | yes      | Required, max 1000 characters             |
+| `parentId` | string (UUID) | no       | If provided, must be a UUID + parent must exist in the same post |
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "id": "comment-uuid",
+  "postId": "post-uuid",
+  "parentId": null,
+  "content": "Mantap!",
+  "author": {
+    "userId": "user-uuid",
+    "nickname": "GamerX",
+    "username": "gamerx",
+    "avatarUrl": "http://.../webp",
+    "status": "ACTIVE"
+  },
+  "isOwner": true,
+  "createdAt": "2026-05-23T10:00:00Z",
+  "updatedAt": "2026-05-23T10:00:00Z"
+}
 ```
-Request → Auth Middleware → Parse PostId → Validate Content → Parse ParentId → Check Membership (DB) → Check Parent Exists (DB) → Create Comment (DB) → Response
-```
+
+### 400 Bad Request
+
+| `error_message`                              | Cause                          |
+| -------------------------------------------- | ------------------------------ |
+| `postId is not a valid UUID`                 | postId invalid                  |
+| `content is required`                        | Content empty                   |
+| `content must be at most 1000 characters`    | Content too long                |
+| `parentId is not a valid UUID`               | parentId is not a UUID          |
+
+### 403 Forbidden
+
+| `error_message`                          | Cause        |
+| ---------------------------------------- | ------------ |
+| `You are not a member of this server`    | Not a member  |
+
+### 404 Not Found
+
+| `error_message`                                 | Cause                                   |
+| ----------------------------------------------- | --------------------------------------- |
+| `Post not found`                                | Post not found                          |
+| `Parent comment not found in this post`         | parentId not found / parent on a different post |
+
+### 401 Unauthorized
+
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

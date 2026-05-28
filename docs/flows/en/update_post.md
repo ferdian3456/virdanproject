@@ -1,61 +1,125 @@
-## Update Post Flow
+## Overview
 
-### Overview
-Updates the caption of an existing post. Only the post author and server member can update the post.
+This API is used to update a post caption. The image cannot be changed. Only the post author may edit.
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+---
 
-### Business Logic
-1. Get `userId` from context
-2. Parse `serverId` and `postId` from URL path — must be valid UUIDs
-3. Parse request body for `caption` (required)
-4. Check if user is a member of the server
-5. Check if user is the author of the post
-6. Update post caption in database
-7. Fetch and return updated post details
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Check Server Member
-```sql
-SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2 AND status = $3
+## Flow
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+
+    Client->>BE: PUT /api/servers/(serverId)/posts/(postId) {caption}
+    BE->>BE: Middleware extract userId
+    BE->>BE: Validate serverId (UUID), postId (UUID), caption (req, max 2000)
+    alt Validation Error
+        BE-->>Client: 400 e.g.: caption must be at most 2000 characters
+    end
+    BE->>Postgres: Check server membership
+    alt Not a member
+        BE-->>Client: 403 You are not a member of this server
+    end
+    BE->>Postgres: Check post ownership (author_id = userId)
+    alt Not the author
+        BE-->>Client: 403 You are not the author of this post
+    end
+    BE->>Postgres: UPDATE server_posts SET caption = $1, updated_at = $2, updated_by = $3 WHERE id = $4
+    BE->>Postgres: SELECT post detail
+    BE-->>Client: 200 ServerPostResponse
 ```
 
-#### PostgreSQL — Check Post Ownership
-```sql
-SELECT 1 FROM server_posts WHERE id = $1 AND author_id = $2
-```
-- **Table**: `server_posts`
-- **Filter**: `id` (post UUID) + `author_id` (user UUID)
+---
 
-#### PostgreSQL — Update Caption
-```sql
-UPDATE server_posts SET caption = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
-```
-- **Table**: `server_posts`
-- **Columns updated**: `caption`, `update_datetime`, `update_user_id`
+## Notes Redis
 
-#### PostgreSQL — Get Post (after update)
-```sql
-SELECT sp.author_id, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
-       COALESCE(comment_counts.comment_count, 0), COALESCE(like_counts.like_count, 0)
-FROM server_posts sp
-INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
-LEFT JOIN (...) comment_counts ON sp.id = comment_counts.post_id
-LEFT JOIN (...) like_counts ON sp.id = like_counts.post_id
-WHERE sp.id = $1
+Does not use Redis.
+
+---
+
+## Notes Postgres/DB
+
+| Table            | Column             | Action | Notes               |
+| ---------------- | ------------------ | ------ | ------------------- |
+| `server_members` | (count)            | SELECT | Check membership    |
+| `server_posts`   | author_id          | SELECT | Check ownership     |
+| `server_posts`   | caption            | UPDATE | Update caption       |
+| `server_posts`   | updated_at         | UPDATE | UTC now              |
+| `server_posts`   | updated_by         | UPDATE | userId               |
+
+---
+
+## Prerequisites
+
+The user is a member of the server and the post author.
+
+---
+
+## Request Validation
+
+Path parameter:
+
+| Field      | Type   | Required | Rules           |
+| ---------- | ------ | -------- | --------------- |
+| `serverId` | string | yes      | Required, UUID  |
+| `postId`   | string | yes      | Required, UUID  |
+
+Body JSON:
+
+| Field     | Type   | Required | Rules                        |
+| --------- | ------ | -------- | ---------------------------- |
+| `caption` | string | yes      | Required, max 2000 characters |
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "id": "post-uuid",
+  "serverId": "server-uuid",
+  "caption": "Caption baru",
+  "imageUrl": "http://.../webp",
+  "author": { "userId": "...", "nickname": "...", "username": "...", "avatarUrl": null, "status": "ACTIVE" },
+  "likeCount": 5,
+  "commentCount": 2,
+  "userLiked": false,
+  "isOwner": true,
+  "createdAt": "2026-05-23T08:00:00Z",
+  "updatedAt": "2026-05-23T10:00:00Z"
+}
 ```
 
-### Error Cases
-- Invalid serverId → `400` with "Invalid server id"
-- Invalid postId → `400` with "Invalid post id"
-- Invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
-- Caption empty → `400` with "Caption is required"
-- Not a member → `400` with "You are not a member of this server"
-- Not the author → `400` with "You are not the author of this post"
+### 400 Bad Request
 
-### Flow
-```
-Request → Auth Middleware → Parse Params → Parse Body → Check Membership (DB) → Check Ownership (DB) → Update Caption (DB) → Get Post (DB) → Response
-```
+| `error_message`                              | Cause                          |
+| -------------------------------------------- | ------------------------------ |
+| `serverId is not a valid UUID`               | serverId invalid                |
+| `postId is not a valid UUID`                 | postId invalid                  |
+| `caption is required`                        | Caption empty                   |
+| `caption must be at most 2000 characters`    | Too long                        |
+
+### 403 Forbidden
+
+| `error_message`                          | Cause                   |
+| ---------------------------------------- | ----------------------- |
+| `You are not a member of this server`    | User is not a member    |
+| `You are not the author of this post`    | User is not the post author |
+
+### 401 Unauthorized
+
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

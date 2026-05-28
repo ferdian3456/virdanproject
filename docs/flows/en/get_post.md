@@ -1,76 +1,129 @@
-## Get Post Flow
+## Overview
 
-### Overview
-Retrieves a single post by its ID. Requires membership in the server where the post belongs.
+This API is used to fetch a single post by id. The user must be a member of the server where the post resides.
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+---
 
-### Business Logic
-1. Get `userId` from context
-2. Parse `postId` from URL path — must be a valid UUID
-3. Check if user is a member of the server where the post belongs (via joined query)
-4. Get post details from database with like status for current user
-5. Build MinIO image URLs
-6. Return post data
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Check Post Server Membership
-```sql
-SELECT 1
-FROM server_posts sp
-INNER JOIN server_members sm ON sp.server_id = sm.server_id
-WHERE sp.id = $1 AND sm.user_id = $2 AND sm.status = $3
+## Flow
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+
+    Client->>BE: GET /api/posts/(postId)
+    BE->>BE: Middleware extract userId
+    BE->>BE: Validate postId (UUID)
+    alt Invalid UUID
+        BE-->>Client: 400 postId is not a valid UUID
+    end
+    BE->>Postgres: SELECT server_id FROM server_posts WHERE id = $1
+    alt Post not found
+        BE-->>Client: 404 Post not found
+    end
+    BE->>Postgres: COUNT server_members WHERE server_id = $1 AND user_id = $2
+    alt Not a member of the server
+        BE-->>Client: 403 You are not a member of this server
+    end
+    BE->>Postgres: SELECT post detail (author, image, likeCount, commentCount, userLiked, isOwner)
+    BE-->>Client: 200 ServerPostResponse
 ```
-- **Tables**: `server_posts` JOIN `server_members`
-- Checks the post exists AND the user is an active member of that post's server
 
-#### PostgreSQL — Get Post
-```sql
-SELECT sp.author_id, us.username, uai.object_key, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
-       COALESCE(comment_counts.comment_count, 0) as comment_count,
-       COALESCE(like_counts.like_count, 0) as like_count,
-       user_likes.user_id is not null as is_liked
-FROM server_posts sp
-INNER JOIN users us ON sp.author_id = us.id
-LEFT JOIN user_avatar_images uai ON us.id = uai.user_id
-INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
-LEFT JOIN (
-    SELECT post_id, COUNT(*) as comment_count FROM server_post_comments GROUP BY post_id
-) comment_counts ON sp.id = comment_counts.post_id
-LEFT JOIN (
-    SELECT post_id, COUNT(*) as like_count FROM server_post_likes GROUP BY post_id
-) like_counts ON sp.id = like_counts.post_id
-LEFT JOIN server_post_likes user_likes ON sp.id = user_likes.post_id AND user_likes.user_id = $2
-WHERE sp.id = $1
-```
-- **Tables**: `server_posts`, `users`, `user_avatar_images`, `server_post_images`, `server_post_comments` (aggregated), `server_post_likes` (aggregated + current user check)
-- **Columns returned**: `author_id`, `username`, author avatar `object_key`, `id`, post image `object_key`, `caption`, timestamps, `comment_count`, `like_count`, `is_liked`
-- **`is_liked`**: `true` if current user has liked the post, `false` otherwise
+---
 
-### Response Format
+## Notes Redis
+
+Does not use Redis.
+
+---
+
+## Notes Postgres/DB
+
+| Table                    | Column             | Action | Notes                                     |
+| ------------------------ | ------------------ | ------ | ----------------------------------------- |
+| `server_posts`           | server_id          | SELECT | Fetch server_id from the post              |
+| `server_members`         | (count)            | SELECT | Check whether the user is a member of that server          |
+| `server_posts`           | (all)              | SELECT | Post detail                                 |
+| `server_post_images`     | object_key         | SELECT | Build imageUrl                              |
+| `server_post_likes`      | (count + EXISTS)   | SELECT | likeCount + userLiked                       |
+| `server_post_comments`   | (count)            | SELECT | commentCount                                |
+| `server_member_profiles` | nickname, username, avatar_image_id | SELECT | Author identity in the server   |
+
+---
+
+## Prerequisites
+
+User is a member of the server where the post resides.
+
+---
+
+## Request Validation
+
+Path parameter:
+
+| Field    | Type   | Required | Rules           |
+| -------- | ------ | -------- | --------------- |
+| `postId` | string | yes      | Required, UUID  |
+
+No body.
+
+---
+
+## Response
+
+### 200 OK
+
 ```json
 {
-  "postId": "uuid",
-  "ownerId": "uuid",
-  "ownerName": "username",
-  "ownerImageUrl": "http://...",
-  "postImageUrl": "http://...",
-  "caption": "Post caption",
-  "commentCount": 5,
-  "likeCount": 42,
-  "isLiked": true,
-  "createDatetime": "2024-01-15T10:30:00Z",
-  "updateDatetime": "2024-01-15T10:30:00Z"
+  "id": "post-uuid",
+  "serverId": "server-uuid",
+  "caption": "Hello!",
+  "imageUrl": "http://.../webp",
+  "author": {
+    "userId": "user-uuid",
+    "nickname": "GamerX",
+    "username": "gamerx",
+    "avatarUrl": "http://.../webp",
+    "status": "ACTIVE"
+  },
+  "likeCount": 12,
+  "commentCount": 3,
+  "userLiked": true,
+  "isOwner": false,
+  "createdAt": "2026-05-23T10:00:00Z",
+  "updatedAt": "2026-05-23T10:00:00Z"
 }
 ```
 
-### Error Cases
-- Invalid postId → `400` with "Invalid post id"
-- Not a member → `400` with "You are not a member of this server"
+### 400 Bad Request
 
-### Flow
-```
-Request → Auth Middleware → Parse PostId → Check Membership (DB) → Get Post with is_liked (DB) → Build Image URL → Response
-```
+| `error_message`               | Cause           |
+| ----------------------------- | --------------- |
+| `postId is not a valid UUID`  | Invalid UUID    |
+
+### 403 Forbidden
+
+| `error_message`                          | Cause                                   |
+| ---------------------------------------- | --------------------------------------- |
+| `You are not a member of this server`    | Not a member of the server where the post resides   |
+
+### 404 Not Found
+
+| `error_message`     | Cause               |
+| ------------------- | ------------------- |
+| `Post not found`    | Post not found       |
+
+### 401 Unauthorized
+
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

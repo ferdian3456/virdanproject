@@ -1,12 +1,12 @@
 ## Overview
 
-Api ini digunakan untuk logout. Authorization header yang dikirimkan akan diextract user idnya lalu hapus access token di redis dan revoke refresh tokennya di postgres.
+API ini digunakan untuk logout. Backend revoke SEMUA refresh token user dan hapus access token cache di Redis. Setelah logout, user harus login ulang.
 
 ---
 
 ## Auth
 
-API ini adalah api protected jadi perlu authorization header
+API ini adalah api protected jadi perlu authorization header `Bearer <accessToken>`.
 
 ## Flow
 
@@ -17,11 +17,15 @@ sequenceDiagram
     participant Postgres
     participant Redis
 
-    Client->>BE: POST /users/logout
-    BE->>BE: Extract jwt dari authorization header, lalu passing user id ke middleware
-    BE->>Postgres: Update tabel refresh token untuk revoke refresh token menggunakan user id
-    BE->>Redis: Hapus access token di cache
-    BE-->>Client: Mengembalikan response
+    Client->>BE: POST /api/users/logout (Bearer token)
+    BE->>BE: Middleware extract userId dari JWT
+    BE->>Redis: GET auth:accessToken:(userId)
+    alt Token invalid
+        BE-->>Client: 401 Unauthorized
+    end
+    BE->>Postgres: UPDATE refresh_tokens SET revoked_at=now, updated_at=now, updated_by=userId WHERE user_id = $1 AND revoked_at IS NULL
+    BE->>Redis: DEL auth:accessToken:(userId)
+    BE-->>Client: 200 {status: "OK"}
 ```
 
 ---
@@ -29,30 +33,30 @@ sequenceDiagram
 ## Notes Redis
 
 1. auth access token:
-   key: auth:accessToken:(userId)
-   value: hashed(accessToken)
-   expiry: 15 menit
-   aksi: DEL (Hapus key)
+   key: `auth:accessToken:(userId)`
+   aksi: DEL
 
 ---
 
 ## Notes Postgres/DB
 
-| Tabel            | Kolom      | Aksi   | Keterangan                                            |
-| ---------------- | ---------- | ------ | ----------------------------------------------------- |
-| `refresh_tokens` | revoked_at | UPDATE | Set timestamp pencabutan untuk semua token aktif user |
-| `refresh_tokens` | updated_at | UPDATE | Update timestamp pembaruan data                       |
-| `refresh_tokens` | updated_by | UPDATE | Set user id yang melakukan aksi logout                |
+| Tabel            | Kolom      | Aksi   | Keterangan                                          |
+| ---------------- | ---------- | ------ | --------------------------------------------------- |
+| `refresh_tokens` | revoked_at | UPDATE | Set timestamp revoke untuk semua token aktif user   |
+| `refresh_tokens` | updated_at | UPDATE | UTC now                                             |
+| `refresh_tokens` | updated_by | UPDATE | userId yang melakukan logout                        |
+
+---
 
 ## Prerequisites
 
-User harus sudah login dan memiliki access token yang valid.
+User sudah login dan punya access token valid.
 
 ---
 
 ## Validasi Request
 
-API ini tidak memerlukan request body. Identifikasi user dilakukan melalui Bearer Token pada Authorization Header.
+Endpoint ini tidak menerima body. Otentikasi via header `Authorization: Bearer <accessToken>`.
 
 ---
 
@@ -66,18 +70,18 @@ API ini tidak memerlukan request body. Identifikasi user dilakukan melalui Beare
 }
 ```
 
-| Field    | Tipe   | Deskripsi      |
-| -------- | ------ | -------------- |
-| `status` | string | Status message |
-
 ### 401 Unauthorized
 
-| `error_message` | Penyebab                                |
-| --------------- | --------------------------------------- |
-| `Unauthorized`  | Token tidak valid atau tidak disertakan |
+| `error_message`                              | Penyebab                                |
+| -------------------------------------------- | --------------------------------------- |
+| `Authorization header is missing`            | Header tidak ada                        |
+| `Invalid authorization scheme`               | Tidak pakai Bearer prefix               |
+| `Authentication token is expired`            | JWT sudah expired                       |
+| `Authentication token is invalid`            | JWT invalid                              |
+| `Authorization token not found or expired`   | Token tidak ada di cache Redis           |
 
 ---
 
 ## Update
 
-Dokumentasi ini diupdate tanggal 21 April 2026.
+Dokumentasi ini diupdate tanggal 23 Mei 2026.

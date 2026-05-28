@@ -1,71 +1,119 @@
-## Get Discovery Server Flow
+## Overview
 
-### Overview
-Retrieves a paginated list of discoverable (public) servers. Supports cursor-based pagination and optional filtering by category.
+This API is used for public server discovery — listing servers that a user can join. Cursor-based pagination (encoded base64 JSON). Can filter by category.
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+---
 
-### Business Logic
-1. Get `userId` from context
-2. Parse query parameters: `limit` (default: system default), `categoryId` (default: 0 = all), `cursor` (optional)
-3. Validate `limit` (>= 0 and <= max limit)
-4. If cursor provided, decode from base64 URL-safe encoding and unmarshal to `ServerDiscoveryCursor`
-5. Query discoverable servers from database (limit + 1 for cursor detection)
-6. Build MinIO image URLs for avatar and banner
-7. If results > limit, create next cursor from last item's ID and createDatetime
-8. Return paginated server list
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Get Discovery Servers (first page)
-```sql
-SELECT A.id, A.name, A.short_name, B.name, C.object_key, D.object_key, A.description, A.create_datetime
-FROM servers A
-LEFT JOIN server_categories B ON A.category_id = B.id
-LEFT JOIN server_avatar_images C ON A.avatar_image_id = C.id
-LEFT JOIN server_banner_images D ON A.banner_image_id = D.id
-WHERE ($1::int IS NULL OR B.id = $1)
-AND (A.settings->>'isPrivate')::boolean = false
-ORDER BY A.create_datetime DESC, A.id DESC
-LIMIT $2
+## Flow
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+
+    Client->>BE: GET /api/servers/?limit=10&categoryId=3&cursor=...
+    BE->>BE: Middleware extract userId
+    BE->>BE: Parse limit (default 10, max 50)
+    BE->>BE: Parse categoryId (int) if provided
+    alt categoryId is not int
+        BE-->>Client: 400 categoryId must be int
+    end
+    BE->>BE: Decode cursor (base64 JSON {id, createdAt})
+    alt Invalid cursor
+        BE-->>Client: 400 Invalid cursor
+    end
+    BE->>Postgres: SELECT public servers + categoryName + avatarUrl + memberCount + isMember (filter NOT private, after cursor, by categoryId)
+    BE->>BE: If len(servers) > limit, build nextCursor from the limit-th item, drop the rest
+    BE-->>Client: 200 {data, page}
 ```
 
-#### PostgreSQL — Get Discovery Servers (with cursor)
-```sql
-SELECT A.id, A.name, A.short_name, B.name, C.object_key, D.object_key, A.description, A.create_datetime
-FROM servers A
-LEFT JOIN server_categories B ON A.category_id = B.id
-LEFT JOIN server_avatar_images C ON A.avatar_image_id = C.id
-LEFT JOIN server_banner_images D ON A.banner_image_id = D.id
-WHERE (A.create_datetime < $1 OR (A.create_datetime = $1 AND A.id < $2))
-AND ($3::int IS NULL OR B.id = $3)
-AND (A.settings->>'isPrivate')::boolean = false
-ORDER BY A.create_datetime DESC, A.id DESC
-LIMIT $4
-```
-- **Tables**: `servers` (A) LEFT JOIN `server_categories` (B), `server_avatar_images` (C), `server_banner_images` (D)
-- **Filter**: Only public servers (`settings->>'isPrivate' = false`)
-- **Cursor**: keyset pagination on `(create_datetime, id)` DESC
-- **Category filter**: Optional, filters by `server_categories.id`
+---
 
-#### MinIO — Image URL Construction
-```
-{MINIO_FULL_URL}/{object_key}
-```
-- Avatar: `{MINIO_FULL_URL}/server/avatar/{imageId}.webp`
-- Banner: `{MINIO_FULL_URL}/server/banner/{imageId}.webp`
+## Notes Redis
 
-### Query Parameters
-- `limit` — number of items per page (optional, has default)
-- `categoryId` — filter by category (optional, 0 = all categories)
-- `cursor` — base64-encoded cursor for next page (optional)
+Does not use Redis (other than the auth-check middleware).
 
-### Error Cases
-- Limit < 0 → `400` with "Limit must be greater or equal than 0"
-- Limit > max → `400` with "Limit is exceeded max limit: {max}"
+---
 
-### Flow
+## Notes Postgres/DB
+
+| Table                  | Column                                                               | Action | Notes                                            |
+| ---------------------- | -------------------------------------------------------------------- | ------ | ------------------------------------------------ |
+| `servers`              | id, name, short_name, category_id, description, avatar_image_id, created_at, settings | SELECT | Filter `settings->>'isPrivate' = 'false'`        |
+| `server_categories`    | id, name                                                             | SELECT | Join to obtain categoryName                      |
+| `server_avatar_images` | object_key                                                           | SELECT | Build avatar URL                                  |
+| `server_members`       | (count + EXISTS)                                                     | SELECT | Member count + whether the user is a member      |
+
+---
+
+## Prerequisites
+
+User is logged in with a valid access token.
+
+---
+
+## Request Validation
+
+Query parameters:
+
+| Field        | Type   | Required | Rules                                                  |
+| ------------ | ------ | -------- | ------------------------------------------------------- |
+| `limit`      | int    | no       | 1-50, default 10 (if out of range, reverts to 10)     |
+| `categoryId` | int    | no       | Filter by category id (if not provided: all public) |
+| `cursor`     | string | no       | Base64 JSON `{id, createdAt}` from the previous nextCursor |
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "name": "Gaming Squad",
+      "shortName": "GS",
+      "categoryId": 3,
+      "categoryName": "Gaming",
+      "avatarUrl": "http://.../webp",
+      "bannerUrl": null,
+      "memberCount": 42,
+      "isMember": false,
+      "description": "Server gaming",
+      "createdAt": "2026-05-23T10:00:00Z"
+    }
+  ],
+  "page": {
+    "nextCursor": "base64-encoded-cursor"
+  }
+}
 ```
-Request → Auth Middleware → Parse Query Params → Validate Limit → Decode Cursor → Query Servers (DB) → Build Image URLs → Build Next Cursor → Response
-```
+
+`nextCursor` is empty if there is no next page.
+
+### 400 Bad Request
+
+| `error_message`           | Cause                                   |
+| ------------------------- | --------------------------------------- |
+| `categoryId must be int`  | categoryId is not an integer            |
+| `Invalid cursor`          | Cursor cannot be decoded as base64/JSON  |
+
+### 401 Unauthorized
+
+| `error_message`                          | Cause              |
+| ---------------------------------------- | ------------------ |
+| `Authorization header is missing`        | Header is missing   |
+| `Authentication token is invalid`        | Invalid JWT        |
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

@@ -1,53 +1,108 @@
-## Get User Server Flow
+## Overview
 
-### Overview
-Retrieves a paginated list of servers that the authenticated user is a member of. Supports cursor-based pagination.
+This API is used to fetch the list of servers the user has joined. Sorted by `joined_at` descending with cursor-based pagination.
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+---
 
-### Business Logic
-1. Get `userId` from context
-2. Parse query parameters: `limit` (default: system default), `cursor` (optional)
-3. Validate `limit` (>= 0 and <= max limit)
-4. If cursor provided, decode from base64 and unmarshal to `ServerUserCursor`
-5. Query servers where user is a member (limit + 1 for cursor detection)
-6. Build MinIO image URLs for server avatars
-7. If results > limit, create next cursor from last item
-8. Return paginated server list
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Get User Servers (first page)
-```sql
-SELECT B.id, B.name, B.short_name, C.object_key, A.joined_datetime
-FROM server_members A
-INNER JOIN servers B ON A.server_id = B.id
-LEFT JOIN server_avatar_images C ON C.id = B.avatar_image_id
-WHERE A.user_id = $1
-ORDER BY A.joined_datetime DESC, A.server_id DESC
-LIMIT $2
+## Flow
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+
+    Client->>BE: GET /api/servers/me?limit=10&cursor=...
+    BE->>BE: Middleware extract userId
+    BE->>BE: Parse limit (default 10, max 50)
+    alt Cursor invalid
+        BE-->>Client: 400 Invalid cursor
+    end
+    BE->>Postgres: SELECT server fields + memberCount + myNickname + myAvatar from server_members JOIN servers JOIN profiles WHERE user_id = $1 (after cursor)
+    BE->>BE: If len > limit, build nextCursor from the limit-th item
+    BE-->>Client: 200 {data, page}
 ```
 
-#### PostgreSQL — Get User Servers (with cursor)
-```sql
-SELECT B.id, B.name, B.short_name, C.object_key, A.joined_datetime
-FROM server_members A
-INNER JOIN servers B ON A.server_id = B.id
-LEFT JOIN server_avatar_images C ON C.id = B.avatar_image_id
-WHERE (A.joined_datetime < $1 OR (A.joined_datetime = $1 AND A.server_id < $2)) AND A.user_id = $3
-ORDER BY A.joined_datetime DESC, A.server_id DESC
-LIMIT $4
-```
-- **Tables**: `server_members` (A) INNER JOIN `servers` (B), LEFT JOIN `server_avatar_images` (C)
-- **Cursor**: keyset pagination on `(joined_datetime, server_id)` DESC
-- **Columns returned**: `id`, `name`, `short_name`, `object_key` (avatar), `joined_datetime`
+---
 
-### Error Cases
-- Limit < 0 → `400` with "Limit must be greater or equal than 0"
-- Limit > max → `400` with "Limit is exceeded max limit: {max}"
+## Notes Redis
 
-### Flow
+Does not use Redis (other than the auth-check middleware).
+
+---
+
+## Notes Postgres/DB
+
+| Table                     | Column                                   | Action | Notes                                             |
+| ------------------------- | ---------------------------------------- | ------ | ------------------------------------------------- |
+| `server_members`          | server_id, user_id, joined_at            | SELECT | Filter by user, sort joined_at DESC, after cursor |
+| `servers`                 | id, name, short_name, category_id, avatar_image_id | SELECT | JOIN to server detail                       |
+| `server_categories`       | id, name                                 | SELECT | JOIN for categoryName                             |
+| `server_avatar_images`    | object_key                               | SELECT | Build server avatarUrl                            |
+| `server_member_profiles`  | nickname, avatar_image_id                | SELECT | User identity in that server (myNickname, myAvatar) |
+| `profile_avatar_images`   | object_key                               | SELECT | Build myAvatarUrl                                 |
+
+---
+
+## Prerequisites
+
+User is already logged in with a valid access token.
+
+---
+
+## Request Validation
+
+Query parameters:
+
+| Field    | Type   | Required | Rules                                                   |
+| -------- | ------ | -------- | ------------------------------------------------------- |
+| `limit`  | int    | no       | 1-50, default 10                                        |
+| `cursor` | string | no       | Base64 JSON `{serverId, joinedAt}` from the previous page |
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "name": "Gaming Squad",
+      "shortName": "GS",
+      "avatarUrl": "http://.../webp",
+      "categoryId": 3,
+      "categoryName": "Gaming",
+      "memberCount": 42,
+      "joinedAt": "2026-05-20T08:00:00Z",
+      "myNickname": "GamerX",
+      "myAvatarUrl": "http://.../profile/avatar/uuid.webp"
+    }
+  ],
+  "page": {
+    "nextCursor": "base64-encoded-cursor"
+  }
+}
 ```
-Request → Auth Middleware → Parse Query Params → Validate Limit → Decode Cursor → Query User Servers (DB) → Build Image URLs → Build Next Cursor → Response
-```
+
+### 400 Bad Request
+
+| `error_message`  | Cause                             |
+| ---------------- | --------------------------------- |
+| `Invalid cursor` | Cursor cannot be decoded as JSON  |
+
+### 401 Unauthorized
+
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

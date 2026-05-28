@@ -1,79 +1,129 @@
-## Update Server Avatar Flow
+## Overview
 
-### Overview
-Updates the avatar image of a server. Only the server owner can perform this action. Accepts multipart form file upload.
+This API is used to update a server avatar. Request format is multipart, the file is validated (max 5MB, image format), converted to WebP, uploaded to MinIO, and replaces the old avatar in the DB. The old avatar is deleted from the DB (CASCADE handles child rows). Only the owner may do this.
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+---
 
-### Business Logic
-1. Get `userId` from context
-2. Parse `id` from URL path — must be a valid UUID
-3. Check server ownership
-4. Read `avatar` file from multipart form
-5. Validate image file (format, size)
-6. Begin database transaction
-7. Get current server detail to find old avatar
-8. If new avatar provided: create new image record → update server reference → upload to MinIO → delete old image if exists
-9. If no new avatar (empty file): update server to remove reference → delete old image if exists
-10. Commit transaction
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Check Server Ownership
-```sql
-SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
+## Flow
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+    participant MinIO
+
+    Client->>BE: PUT /api/servers/(id)/avatar (multipart, field "avatar")
+    BE->>BE: Check Content-Type multipart/form-data
+    BE->>BE: Middleware extract userId
+    BE->>BE: Validate serverId (UUID)
+    alt UUID invalid
+        BE-->>Client: 400 serverId is not a valid UUID
+    end
+    BE->>Postgres: Check ownership
+    alt Not the owner
+        BE-->>Client: 403 You are not the owner of this server
+    end
+    BE->>BE: Fetch FormFile "avatar"
+    alt File not found
+        BE-->>Client: 400 Avatar image is required
+    end
+    BE->>BE: ValidateImage (max 5MB, jpg/png/gif/webp), convert to WebP 512x512
+    BE->>Postgres: BEGIN
+    BE->>Postgres: SELECT old avatar_image_id
+    BE->>Postgres: INSERT INTO server_avatar_images (new uuid, bucket, object_key, mime, size)
+    BE->>Postgres: UPDATE servers SET avatar_image_id = new_uuid
+    alt Old avatar exists
+        BE->>Postgres: DELETE FROM server_avatar_images WHERE id = old
+    end
+    BE->>MinIO: PutObject server/avatar/(newId).webp
+    BE->>Postgres: COMMIT
+    BE-->>Client: 200 {status: "OK"}
 ```
 
-#### PostgreSQL — Get Server Detail (inside TX, for old avatar)
-```sql
-SELECT id, owner_id, name, short_name, category_id, avatar_image_id, banner_image_id, description, settings, create_datetime, update_datetime, create_user_id, update_user_id
-FROM servers WHERE id = $1
-```
-- Used to get `avatar_image_id` for old avatar cleanup
+---
 
-#### PostgreSQL — Create New Avatar Image (inside TX)
-```sql
-INSERT INTO server_avatar_images (id, bucket, object_key, mime_type, size, create_datetime, update_datetime, create_user_id, update_user_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-```
-- **Table**: `server_avatar_images`
-- **Columns**: `id` (UUID), `bucket`, `object_key` (e.g., `server/avatar/{imageId}.webp`), `mime_type` (`image/webp`), `size`
+## Notes Redis
 
-#### PostgreSQL — Update Server Avatar Reference (inside TX)
-```sql
-UPDATE servers SET avatar_image_id = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
-```
-- Sets `avatar_image_id` to new image UUID or NULL (when removing)
+Does not use Redis.
 
-#### PostgreSQL — Get Old Avatar Object Key (inside TX)
-```sql
-SELECT object_key FROM server_avatar_images WHERE id = $1 LIMIT 1
+---
+
+## Notes MinIO
+
+- Bucket: `MINIO_BUCKET_NAME` (default `virdan`)
+- Object key pattern: `server/avatar/{newImageId}.webp`
+- Content-Type: `image/webp` (converted from original)
+- Action: PutObject
+
+---
+
+## Notes Postgres/DB
+
+| Table                  | Column                                             | Action | Notes                               |
+| ---------------------- | -------------------------------------------------- | ------ | ----------------------------------- |
+| `servers`              | owner_id                                           | SELECT | Check ownership                     |
+| `servers`              | avatar_image_id                                    | SELECT | Fetch old avatar_image_id           |
+| `server_avatar_images` | id, bucket, object_key, mime_type, size, ...       | INSERT | New image row                        |
+| `servers`              | avatar_image_id, updated_at, updated_by            | UPDATE | Set to new avatar uuid              |
+| `server_avatar_images` | id                                                 | DELETE | Delete old image (if present)        |
+
+---
+
+## Prerequisites
+
+The user is the server owner. Has a valid image file.
+
+---
+
+## Request Validation
+
+Request format: `multipart/form-data`.
+
+| Field        | Type   | Required | Rules                                                  |
+| ------------ | ------ | -------- | ------------------------------------------------------ |
+| `id` (path)  | string | yes      | Required, UUID                                         |
+| `avatar`     | file   | yes      | Image (jpg/jpeg/png/gif/webp), max 5MB                 |
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "status": "OK"
+}
 ```
 
-#### PostgreSQL — Delete Old Avatar Image Record (inside TX)
-```sql
-DELETE FROM server_avatar_images WHERE id = $1
-```
+### 400 Bad Request
 
-#### MinIO — Upload New Avatar
-```
-PUT {bucket}/server/avatar/{imageId}.webp
-Content-Type: image/webp
-Cache-Control: public, max-age=31536000, immutable
-```
+| `error_message`                                                       | Cause                          |
+| --------------------------------------------------------------------- | ------------------------------ |
+| `Invalid Content-Type header. Endpoint requires multipart/form-data.` | Content-Type is not multipart  |
+| `serverId is not a valid UUID`                                        | UUID invalid                    |
+| `Avatar image is required`                                            | File `avatar` not found         |
+| `image size exceeded 5MB limit`                                       | File more than 5 MB            |
+| `invalid file extension: ...`                                         | Extension not allowed           |
+| `invalid image type: ...`                                             | MIME type not allowed           |
 
-#### MinIO — Delete Old Avatar (if exists)
-```
-DELETE {bucket}/{old_object_key}
-```
+### 403 Forbidden
 
-### Error Cases
-- Invalid server id → `400` with "Invalid server id"
-- Not owner → `400` with "You are not the owner of this server"
-- Invalid image → `400` validation error
+| `error_message`                          | Cause        |
+| ---------------------------------------- | ------------ |
+| `You are not the owner of this server`   | Not the owner |
 
-### Flow
-```
-Request → Auth Middleware → Parse ServerId → Check Ownership (DB) → Read File → Validate Image → Begin TX → Handle Old/New Avatar → Commit TX → Response (no data)
-```
+### 401 Unauthorized
+
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.
