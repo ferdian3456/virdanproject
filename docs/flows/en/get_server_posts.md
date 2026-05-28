@@ -1,104 +1,139 @@
-## Get Server Posts Flow
+## Overview
 
-### Overview
-Retrieves a paginated list of posts from a specific server. Requires server membership. Uses cursor-based pagination.
+This API is used to fetch the list of posts in a server (feed). Sorted by `created_at` descending (newest first). Cursor-based pagination. The user must be a member of that server.
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+---
 
-### Business Logic
-1. Get `userId` from context
-2. Parse `serverId` from URL path — must be a valid UUID
-3. Parse query parameters: `limit`, `cursor`
-4. Validate `limit` (>= 0 and <= max limit)
-5. Check if user is a member of the server
-6. If cursor provided, decode and unmarshal
-7. Query posts from database (limit + 1 for cursor detection) with author info, image URLs, and like status for current user
-8. Build next cursor if more data exists
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Check Server Member
-```sql
-SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2 AND status = $3
+## Flow
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+
+    Client->>BE: GET /api/servers/(serverId)/posts?limit=10&cursor=...
+    BE->>BE: Middleware extract userId
+    BE->>BE: Parse limit (default 10, max 20)
+    BE->>BE: Validate serverId (UUID), limit (0-20)
+    alt Validation Error
+        BE-->>Client: 400 limit must be at most 20
+    end
+    BE->>Postgres: Check server membership
+    alt Not a member
+        BE-->>Client: 403 You are not a member of this server
+    end
+    BE->>BE: Decode cursor (base64 JSON {id, createdAt})
+    alt Cursor invalid
+        BE-->>Client: 400 Invalid cursor
+    end
+    BE->>Postgres: SELECT posts + author + image + likeCount + commentCount + userLiked + isOwner WHERE server_id = $1 AND (created_at, id) < cursor ORDER BY created_at DESC, id DESC LIMIT $1
+    BE->>BE: If len > limit, build nextCursor from the limit-th item
+    BE-->>Client: 200 {data, page}
 ```
 
-#### PostgreSQL — Get Server Posts (first page)
-```sql
-SELECT sp.author_id, us.username, uai.object_key, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
-       COALESCE(comment_counts.comment_count, 0) as comment_count,
-       COALESCE(like_counts.like_count, 0) as like_count,
-       user_likes.user_id is not null as is_liked
-FROM server_posts sp
-INNER JOIN users us ON sp.author_id = us.id
-LEFT JOIN user_avatar_images uai ON us.id = uai.user_id
-INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
-LEFT JOIN (
-    SELECT post_id, COUNT(*) as comment_count FROM server_post_comments GROUP BY post_id
-) comment_counts ON sp.id = comment_counts.post_id
-LEFT JOIN (
-    SELECT post_id, COUNT(*) as like_count FROM server_post_likes GROUP BY post_id
-) like_counts ON sp.id = like_counts.post_id
-LEFT JOIN server_post_likes user_likes ON sp.id = user_likes.post_id AND user_likes.user_id = $3
-WHERE sp.server_id = $1
-ORDER BY sp.create_datetime DESC, sp.id DESC
-LIMIT $2
-```
+---
 
-#### PostgreSQL — Get Server Posts (with cursor)
-Same query with additional cursor filter:
-```sql
-WHERE sp.server_id = $1
-AND (sp.create_datetime < $2 OR (sp.create_datetime = $2 AND sp.id < $3))
-ORDER BY sp.create_datetime DESC, sp.id DESC
-LIMIT $4
-```
-- **Tables**: `server_posts`, `users`, `user_avatar_images`, `server_post_images`, `server_post_comments` (aggregated), `server_post_likes` (aggregated + current user check)
-- **Cursor**: keyset pagination on `(create_datetime, id)` DESC
-- **Columns returned**: `author_id`, `username`, author avatar `object_key`, post `id`, post image `object_key`, `caption`, timestamps, `comment_count`, `like_count`, `is_liked`
-- **`is_liked`**: `true` if current user has liked the post, `false` otherwise
+## Notes Redis
 
-#### MinIO — Image URL Construction
-```
-Post image: {MINIO_FULL_URL}/{object_key}  (e.g., server/post/{imageId}.webp)
-Author avatar: {MINIO_FULL_URL}/{object_key}  (e.g., user/avatar/{imageId}.webp)
-```
+Does not use Redis.
 
-### Query Parameters
-- `limit` — number of items per page (optional)
-- `cursor` — base64-encoded cursor for next page (optional)
+---
 
-### Response Format
+## Notes Postgres/DB
+
+| Table                    | Column                  | Action | Notes                                            |
+| ------------------------ | ----------------------- | ------ | ------------------------------------------------ |
+| `server_members`         | (count)                 | SELECT | Check membership                                  |
+| `server_posts`           | (all)                   | SELECT | Filter server_id, ORDER BY created_at DESC, id DESC |
+| `server_post_images`     | object_key              | SELECT | Build imageUrl                                    |
+| `server_post_likes`      | (count + EXISTS)        | SELECT | likeCount + userLiked                             |
+| `server_post_comments`   | (count)                 | SELECT | commentCount                                      |
+| `server_member_profiles` | nickname, username, avatar_image_id | SELECT | Author identity per server                  |
+
+---
+
+## Prerequisites
+
+User is a member of the server.
+
+---
+
+## Request Validation
+
+Path parameter:
+
+| Field      | Type   | Required | Rules           |
+| ---------- | ------ | -------- | --------------- |
+| `serverId` | string | yes      | Required, UUID  |
+
+Query parameters:
+
+| Field    | Type   | Required | Rules                                               |
+| -------- | ------ | -------- | --------------------------------------------------- |
+| `limit`  | int    | no       | 0-20, default 10                                    |
+| `cursor` | string | no       | Base64 JSON `{id, createdAt}` from the previous page |
+
+---
+
+## Response
+
+### 200 OK
+
 ```json
 {
   "data": [
     {
-      "postId": "uuid",
-      "ownerId": "uuid",
-      "ownerName": "username",
-      "ownerImageUrl": "http://...",
-      "postImageUrl": "http://...",
-      "caption": "Post caption",
-      "commentCount": 5,
-      "likeCount": 42,
-      "isLiked": true,
-      "createDatetime": "2024-01-15T10:30:00Z",
-      "updateDatetime": "2024-01-15T10:30:00Z"
+      "id": "post-uuid",
+      "serverId": "server-uuid",
+      "caption": "Hello!",
+      "imageUrl": "http://.../webp",
+      "author": {
+        "userId": "user-uuid",
+        "nickname": "GamerX",
+        "username": "gamerx",
+        "avatarUrl": "http://.../webp",
+        "status": "ACTIVE"
+      },
+      "likeCount": 12,
+      "commentCount": 3,
+      "userLiked": false,
+      "isOwner": false,
+      "createdAt": "2026-05-23T10:00:00Z",
+      "updatedAt": "2026-05-23T10:00:00Z"
     }
   ],
   "page": {
-    "nextCursor": "base64_cursor_or_null"
+    "nextCursor": "base64-encoded-cursor"
   }
 }
 ```
 
-### Error Cases
-- Invalid serverId → `400` with "Invalid server id"
-- Limit < 0 → `400` with "Limit must be greater or equal than 0"
-- Limit > max → `400` with "Limit is exceeded max limit: {max}"
-- Not a member → `400` with "You are not a member of this server"
+### 400 Bad Request
 
-### Flow
-```
-Request → Auth Middleware → Parse Params → Validate Limit → Check Membership (DB) → Decode Cursor → Query Posts with is_liked (DB) → Build Next Cursor → Response
-```
+| `error_message`                  | Cause                   |
+| -------------------------------- | ----------------------- |
+| `serverId is not a valid UUID`   | UUID invalid             |
+| `limit must be at most 20`       | Limit more than 20       |
+| `limit must be at least 0`       | Limit negative           |
+| `Invalid cursor`                 | Cursor cannot be decoded  |
+
+### 403 Forbidden
+
+| `error_message`                          | Cause        |
+| ---------------------------------------- | ------------ |
+| `You are not a member of this server`    | Not a member  |
+
+### 401 Unauthorized
+
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

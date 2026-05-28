@@ -1,47 +1,101 @@
-## Update Server Short Name Flow
+## Overview
 
-### Overview
-Updates the short name of a server. Only the server owner can perform this action.
+This API is used to change the server short name. Only the owner is allowed.
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+---
 
-### Business Logic
-1. Get `userId` from context
-2. Parse `id` from URL path — must be a valid UUID
-3. Validate `shortName` (required, 5–10 characters)
-4. Check server ownership
-5. Update short name in database
-6. Return updated server details
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Check Server Ownership
-```sql
-SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
+## Flow
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+
+    Client->>BE: PUT /api/servers/(id)/shortName {shortName}
+    BE->>BE: Middleware extract userId
+    BE->>BE: Validate serverId (UUID), shortName (req, 2-10)
+    alt Validation Error
+        BE-->>Client: 400 e.g.: shortName must be at most 10 characters
+    end
+    BE->>Postgres: SELECT count FROM servers WHERE id = $1 AND owner_id = $2
+    alt User not owner
+        BE-->>Client: 403 You are not the owner of this server
+    end
+    BE->>Postgres: UPDATE servers SET short_name = $1, updated_at = $2, updated_by = $3 WHERE id = $4
+    BE-->>Client: 200 {id, updatedAt}
 ```
 
-#### PostgreSQL — Update Short Name
-```sql
-UPDATE servers SET short_name = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
-```
-- **Table**: `servers`
-- **Columns updated**: `short_name`, `update_datetime`, `update_user_id`
+---
 
-#### PostgreSQL — Get Server Detail (after update)
-```sql
-SELECT id, owner_id, name, short_name, category_id, avatar_image_id, banner_image_id, description, settings, create_datetime, update_datetime, create_user_id, update_user_id
-FROM servers WHERE id = $1
+## Notes Redis
+
+Does not use Redis.
+
+---
+
+## Notes Postgres/DB
+
+| Table     | Column      | Action | Notes               |
+| --------- | ----------- | ------ | ------------------- |
+| `servers` | owner_id    | SELECT | Check ownership     |
+| `servers` | short_name  | UPDATE | Set new short name  |
+| `servers` | updated_at  | UPDATE | UTC now             |
+| `servers` | updated_by  | UPDATE | userId              |
+
+---
+
+## Prerequisites
+
+The user is the server owner.
+
+---
+
+## Request Validation
+
+| Field       | Type   | Required | Rules                             |
+| ----------- | ------ | -------- | --------------------------------- |
+| `id` (path) | string | yes      | Required, UUID                    |
+| `shortName` | string | yes      | Required, min 2, max 10 characters  |
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "id": "uuid",
+  "updatedAt": "2026-05-23T10:00:00Z"
+}
 ```
 
-### Error Cases
-- Invalid server id → `400` with "Invalid server id"
-- ShortName empty → `400` with "Short name is required to not be empty"
-- ShortName < 5 chars → `400` with "Short name must be at least 5 characters"
-- ShortName > 10 chars → `400` with "Short name must be at most 10 characters"
-- Not owner → `400` with "You are not the owner of this server"
+### 400 Bad Request
 
-### Flow
-```
-Request → Auth Middleware → Parse ServerId → Validate ShortName → Check Ownership (DB) → Update (DB) → Get Detail (DB) → Response
-```
+| `error_message`                            | Cause                          |
+| ------------------------------------------ | ------------------------------ |
+| `serverId is not a valid UUID`             | serverId is not a UUID         |
+| `shortName is required`                    | ShortName is empty             |
+| `shortName must be at least 2 characters`  | Less than 2                    |
+| `shortName must be at most 10 characters`  | More than 10                   |
+
+### 403 Forbidden
+
+| `error_message`                          | Cause             |
+| ---------------------------------------- | ----------------- |
+| `You are not the owner of this server`   | Not owner         |
+
+### 401 Unauthorized
+
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

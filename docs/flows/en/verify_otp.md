@@ -1,54 +1,105 @@
-## Verify OTP Flow
+## Overview
 
-### Overview
-Verifies the OTP code sent to the user's email during signup. This is step 2 of the multi-step signup process.
+This API is used to verify the OTP sent to the email during signup. The backend checks the OTP hash, expiry, then updates the session step to `otp_verified`.
 
-### Auth
-No authentication required.
+---
 
-### Business Logic
-1. Parse and validate `sessionId` — must be a valid UUID
-2. Validate OTP is not empty and at least 6 characters
-3. Retrieve OTP data from Redis using sessionId
-4. Check OTP and expiration data exist — return error if session expired
-5. Compare provided OTP hash with stored hash using constant-time comparison
-6. Check if OTP has expired (compare timestamps)
-7. Delete OTP state from session (otpHash, otpExpiresAt)
-8. Set verification state: `{step: "otp_verified", verifiedAt: timestamp}`
+## Auth
 
-### Database Operations
+This is a public API, so no authorization header is required. But it needs a valid `sessionId` from the `start_signup` step.
 
-#### Redis — Get OTP Data
-```
-HMGET signup:{sessionId} otp otp_expires_at
-```
-- Retrieves `otp` (SHA-256 hash) and `otp_expires_at` (unix timestamp)
-- If both are `nil`, session has expired or doesn't exist
+## Flow
 
-#### Redis — Delete OTP State
-```
-HDEL signup:{sessionId} otp otp_expires_at
-```
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Redis
 
-#### Redis — Set Verification State
-```
-HSET signup:{sessionId}
-  step            "otp_verified"
-  otp_verified_at {unix_timestamp}
-```
-
-### Error Cases
-- Invalid sessionId format → `400` with "Invalid session id"
-- OTP empty → `400` with "OTP is required to not be empty"
-- OTP < 6 chars → `400` with "OTP must be at least 6 characters"
-- Session expired or not found → `400` with "OTP does not exists or expired"
-- OTP mismatch → `400` with "Otp does not match"
-- OTP expired → `400` with "Otp is expired"
-
-### Flow
-```
-Request → Validate SessionId → Validate OTP → Get Session Data (Redis) → Compare OTP Hash → Check Expiration → Update Session State (Redis) → Response (no data)
+    Client->>BE: POST /api/auth/signup/otp {sessionId, otp}
+    BE->>BE: Validate sessionId (UUID) & otp (exactly 6 chars)
+    alt Validation Error
+        BE-->>Client: 400 e.g.: otp must be exactly 6 characters
+    end
+    BE->>Redis: HMGET signup:(sessionId) otp otp_expires_at
+    alt OTP does not exist / already deleted
+        BE-->>Client: 400 OTP does not exist or has expired
+    end
+    BE->>BE: Check otp_expires_at vs now
+    alt OTP expired
+        BE-->>Client: 400 OTP has expired
+    end
+    BE->>BE: Constant-time compare hash(otp) vs Redis
+    alt OTP does not match
+        BE-->>Client: 400 OTP does not match
+    end
+    BE->>Redis: HDEL signup:(sessionId) otp otp_expires_at
+    BE->>Redis: HSET signup:(sessionId) step=otp_verified, otp_verified_at=(now)
+    BE-->>Client: 200 {status: "OK"}
 ```
 
-### Next Step
-After OTP verification, call `POST /api/auth/signup/username` with `sessionId` and desired `username`.
+---
+
+## Notes Redis
+
+1. signup session:
+   key: `signup:(sessionId)`
+   type: HASH
+
+| Field             | Type   | Action | Notes                                            |
+| ----------------- | ------ | ------ | ------------------------------------------------ |
+| `otp`             | string | HDEL   | OTP hash is deleted after successful verification |
+| `otp_expires_at`  | string | HDEL   | Expiry timestamp is deleted after verification    |
+| `step`            | string | HSET   | Updated to `otp_verified`                        |
+| `otp_verified_at` | string | HSET   | Unix timestamp of the successful verification     |
+
+---
+
+## Notes Postgres/DB
+
+This endpoint does not access Postgres.
+
+---
+
+## Prerequisites
+
+The user must have already hit `start_signup` and have an active `sessionId` in Redis. The OTP sent to the email must not be expired yet (OTP TTL 5 minutes).
+
+---
+
+## Request Validation
+
+| Field       | Type   | Required | Rules                                 |
+| ----------- | ------ | -------- | ------------------------------------- |
+| `sessionId` | string | yes      | Required, must be a valid UUID        |
+| `otp`       | string | yes      | Required, exactly 6 characters        |
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "status": "OK"
+}
+```
+
+### 400 Bad Request
+
+| `error_message`                       | Cause                                          |
+| ------------------------------------- | ---------------------------------------------- |
+| `sessionId is required`               | sessionId is empty                             |
+| `sessionId is not a valid UUID`       | sessionId is not in UUID format                |
+| `otp is required`                     | OTP is empty                                   |
+| `otp must be exactly 6 characters`    | OTP length is not 6 characters                 |
+| `OTP does not exist or has expired`   | OTP is no longer in Redis (TTL elapsed / deleted) |
+| `OTP has expired`                     | The `otp_expires_at` field has passed          |
+| `OTP does not match`                  | The user's OTP hash does not match the stored one |
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

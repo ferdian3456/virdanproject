@@ -137,9 +137,13 @@ ci-test:
 	@echo "Integration tests: OK"
 
 # Tools
-.PHONY: generate-swagger
-generate-swagger:
-	@swag init -g cmd/main.go -o docs --outputTypes yaml -md docs/flow
+.PHONY: generate-swagger-id
+generate-swagger-id:
+	@swag init -g cmd/main.go -o docs --outputTypes yaml -md docs/flows/id
+
+.PHONY: generate-swagger-en
+generate-swagger-en:
+	@swag init -g cmd/main.go -o docs --outputTypes yaml -md docs/flows/en
 
 .PHONY: help
 help:
@@ -171,4 +175,5 @@ help:
 	@echo "  make migrate-lint           - Lint latest migration for unsafe changes"
 	@echo ""
 	@echo "Tools:"
-	@echo "  make generate-swagger - Generate Swagger docs"
+	@echo "  make generate-swagger-id - Generate Swagger docs (Indonesian, docs/flows/id -> docs/swagger.yaml)"
+	@echo "  make generate-swagger-en - Generate Swagger docs (English, docs/flows/en -> docs/swagger.yaml)"

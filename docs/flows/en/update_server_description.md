@@ -1,43 +1,99 @@
-## Update Server Description Flow
+## Overview
 
-### Overview
-Updates the description of a server. Only the server owner can perform this action.
+This API is used to change a server description. Only the owner may do this. The description may be empty (it becomes NULL in the DB).
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+---
 
-### Business Logic
-1. Get `userId` from context
-2. Parse `id` from URL path — must be a valid UUID
-3. Check server ownership
-4. Update description in database
-5. Return updated server details
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Check Server Ownership
-```sql
-SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
+## Flow
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+
+    Client->>BE: PUT /api/servers/(id)/description {description}
+    BE->>BE: Middleware extract userId
+    BE->>BE: Validate serverId (UUID), description (max 2000)
+    alt Validation Error
+        BE-->>Client: 400 description must be at most 2000 characters
+    end
+    BE->>Postgres: Check ownership
+    alt Not the owner
+        BE-->>Client: 403 You are not the owner of this server
+    end
+    BE->>Postgres: UPDATE servers SET description = $1 (or NULL), updated_at = $2, updated_by = $3 WHERE id = $4
+    BE-->>Client: 200 {id, updatedAt}
 ```
 
-#### PostgreSQL — Update Description
-```sql
-UPDATE servers SET description = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
-```
-- **Table**: `servers`
-- **Columns updated**: `description` (nullable TEXT), `update_datetime`, `update_user_id`
+---
 
-#### PostgreSQL — Get Server Detail (after update)
-```sql
-SELECT id, owner_id, name, short_name, category_id, avatar_image_id, banner_image_id, description, settings, create_datetime, update_datetime, create_user_id, update_user_id
-FROM servers WHERE id = $1
+## Notes Redis
+
+Does not use Redis.
+
+---
+
+## Notes Postgres/DB
+
+| Table     | Column      | Action | Notes                                             |
+| --------- | ----------- | ------ | ------------------------------------------------- |
+| `servers` | owner_id    | SELECT | Check ownership                                   |
+| `servers` | description | UPDATE | Set new description (NULL if empty string)        |
+| `servers` | updated_at  | UPDATE | UTC now                                            |
+| `servers` | updated_by  | UPDATE | userId                                             |
+
+---
+
+## Prerequisites
+
+The user is the server owner.
+
+---
+
+## Request Validation
+
+| Field         | Type   | Required | Rules                        |
+| ------------- | ------ | -------- | ---------------------------- |
+| `id` (path)   | string | yes      | Required, UUID               |
+| `description` | string | no       | Max 2000 characters          |
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "id": "uuid",
+  "updatedAt": "2026-05-23T10:00:00Z"
+}
 ```
 
-### Error Cases
-- Invalid server id → `400` with "Invalid server id"
-- Not owner → `400` with "You are not the owner of this server"
+### 400 Bad Request
 
-### Flow
-```
-Request → Auth Middleware → Parse ServerId → Check Ownership (DB) → Update Description (DB) → Get Detail (DB) → Response
-```
+| `error_message`                              | Cause             |
+| -------------------------------------------- | ----------------- |
+| `serverId is not a valid UUID`               | UUID invalid       |
+| `description must be at most 2000 characters` | Description > 2000 |
+
+### 403 Forbidden
+
+| `error_message`                          | Cause        |
+| ---------------------------------------- | ------------ |
+| `You are not the owner of this server`   | Not the owner |
+
+### 401 Unauthorized
+
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

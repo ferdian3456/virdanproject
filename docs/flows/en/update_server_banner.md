@@ -1,71 +1,129 @@
-## Update Server Banner Flow
+## Overview
 
-### Overview
-Updates the banner image of a server. Only the server owner can perform this action. Accepts multipart form file upload.
+This API is used to update a server banner. Multipart format, validate image, convert to WebP, upload to MinIO, replace the old banner. Only the owner may do this.
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+---
 
-### Business Logic
-1. Get `userId` from context
-2. Parse `id` from URL path — must be a valid UUID
-3. Check server ownership
-4. Read `banner` file from multipart form
-5. Validate image file (format, size)
-6. Begin database transaction
-7. Get current server detail to find old banner
-8. If new banner provided: create new image record → update server reference → upload to MinIO → delete old image if exists
-9. If no new banner: update server to remove reference → delete old image if exists
-10. Commit transaction
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Check Server Ownership
-```sql
-SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
+## Flow
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+    participant MinIO
+
+    Client->>BE: PUT /api/servers/(id)/banner (multipart, field "banner")
+    BE->>BE: Check Content-Type multipart/form-data
+    BE->>BE: Middleware extract userId
+    BE->>BE: Validate serverId (UUID)
+    alt UUID invalid
+        BE-->>Client: 400 serverId is not a valid UUID
+    end
+    BE->>Postgres: Check ownership
+    alt Not the owner
+        BE-->>Client: 403 You are not the owner of this server
+    end
+    BE->>BE: Fetch FormFile "banner"
+    alt File not found
+        BE-->>Client: 400 Banner image is required
+    end
+    BE->>BE: ValidateImage (max 5MB, jpg/png/gif/webp), convert WebP 512x512
+    BE->>Postgres: BEGIN
+    BE->>Postgres: SELECT old banner_image_id
+    BE->>Postgres: INSERT INTO server_banner_images
+    BE->>Postgres: UPDATE servers SET banner_image_id = newId
+    alt Old banner exists
+        BE->>Postgres: DELETE FROM server_banner_images WHERE id = old
+    end
+    BE->>MinIO: PutObject server/banner/(newId).webp
+    BE->>Postgres: COMMIT
+    BE-->>Client: 200 {status: "OK"}
 ```
 
-#### PostgreSQL — Create New Banner Image (inside TX)
-```sql
-INSERT INTO server_banner_images (id, bucket, object_key, mime_type, size, create_datetime, update_datetime, create_user_id, update_user_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-```
-- **Table**: `server_banner_images`
-- **Columns**: `id` (UUID), `bucket`, `object_key` (e.g., `server/banner/{imageId}.webp`), `mime_type` (`image/webp`), `size`
+---
 
-#### PostgreSQL — Update Server Banner Reference (inside TX)
-```sql
-UPDATE servers SET banner_image_id = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
+## Notes Redis
+
+Does not use Redis.
+
+---
+
+## Notes MinIO
+
+- Bucket: `MINIO_BUCKET_NAME` (default `virdan`)
+- Object key: `server/banner/{newImageId}.webp`
+- Content-Type: `image/webp`
+- Action: PutObject
+
+---
+
+## Notes Postgres/DB
+
+| Table                  | Column                                             | Action | Notes                       |
+| ---------------------- | -------------------------------------------------- | ------ | --------------------------- |
+| `servers`              | owner_id                                           | SELECT | Check ownership             |
+| `servers`              | banner_image_id                                    | SELECT | Fetch old banner             |
+| `server_banner_images` | id, bucket, object_key, mime_type, size, ...       | INSERT | New image row                |
+| `servers`              | banner_image_id, updated_at, updated_by            | UPDATE | Set new banner               |
+| `server_banner_images` | id                                                 | DELETE | Delete old image             |
+
+---
+
+## Prerequisites
+
+The user is the server owner. Has a valid image file.
+
+---
+
+## Request Validation
+
+Format: `multipart/form-data`.
+
+| Field        | Type   | Required | Rules                                   |
+| ------------ | ------ | -------- | --------------------------------------- |
+| `id` (path)  | string | yes      | Required, UUID                           |
+| `banner`     | file   | yes      | Image (jpg/jpeg/png/gif/webp), max 5MB  |
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "status": "OK"
+}
 ```
 
-#### PostgreSQL — Get Old Banner Object Key (inside TX)
-```sql
-SELECT object_key FROM server_banner_images WHERE id = $1 LIMIT 1
-```
+### 400 Bad Request
 
-#### PostgreSQL — Delete Old Banner Image Record (inside TX)
-```sql
-DELETE FROM server_banner_images WHERE id = $1
-```
+| `error_message`                                                       | Cause                          |
+| --------------------------------------------------------------------- | ------------------------------ |
+| `Invalid Content-Type header. Endpoint requires multipart/form-data.` | Content-Type is not multipart  |
+| `serverId is not a valid UUID`                                        | UUID invalid                    |
+| `Banner image is required`                                            | Banner file not found           |
+| `image size exceeded 5MB limit`                                       | File too large                  |
+| `invalid file extension: ...`                                         | Extension not allowed           |
+| `invalid image type: ...`                                             | MIME type not allowed           |
 
-#### MinIO — Upload New Banner
-```
-PUT {bucket}/server/banner/{imageId}.webp
-Content-Type: image/webp
-Cache-Control: public, max-age=31536000, immutable
-```
+### 403 Forbidden
 
-#### MinIO — Delete Old Banner (if exists)
-```
-DELETE {bucket}/{old_object_key}
-```
+| `error_message`                          | Cause        |
+| ---------------------------------------- | ------------ |
+| `You are not the owner of this server`   | Not the owner |
 
-### Error Cases
-- Invalid server id → `400` with "Invalid server id"
-- Not owner → `400` with "You are not the owner of this server"
-- Invalid image → `400` validation error
+### 401 Unauthorized
 
-### Flow
-```
-Request → Auth Middleware → Parse ServerId → Check Ownership (DB) → Read File → Validate Image → Begin TX → Handle Old/New Banner → Commit TX → Response (no data)
-```
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

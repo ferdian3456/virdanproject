@@ -1,36 +1,99 @@
-## Delete Server Flow
+## Overview
 
-### Overview
-Deletes a server permanently. Only the server owner can perform this action.
+This API is used to hard-delete a server. Only the owner is allowed. FK CASCADE cleans up `server_roles`, `server_members`, `server_invites`, `server_member_profiles`, `server_posts`, `server_post_comments`, `server_post_likes`. The MinIO objects are intentionally left orphan in Phase 1 (cleanup job in Phase 2).
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+---
 
-### Business Logic
-1. Get `userId` from context
-2. Parse `id` from URL path — must be a valid UUID
-3. Check server ownership
-4. Delete server from database (CASCADE deletes related records)
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Check Server Ownership
-```sql
-SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
+## Flow
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+
+    Client->>BE: DELETE /api/servers/(id)
+    BE->>BE: Middleware extract userId
+    BE->>BE: Validate serverId (UUID)
+    alt Invalid UUID
+        BE-->>Client: 400 serverId is not a valid UUID
+    end
+    BE->>Postgres: SELECT count FROM servers WHERE id = $1 AND owner_id = $2
+    alt Not the owner
+        BE-->>Client: 403 You are not the owner of this server
+    end
+    BE->>Postgres: DELETE FROM servers WHERE id = $1
+    note over Postgres: FK CASCADE deletes roles, members, invites, profiles, posts, comments, likes
+    BE-->>Client: 200 {status: "OK"}
 ```
 
-#### PostgreSQL — Delete Server
-```sql
-DELETE FROM servers WHERE id = $1
-```
-- **Table**: `servers`
-- **CASCADE**: Database constraints cascade-delete related records: `server_members`, `server_roles`, `server_invites`, `server_posts` (which cascade-delete `server_post_likes`, `server_post_comments`), `server_avatar_images`, `server_banner_images`
+---
 
-### Error Cases
-- Invalid server id → `400` with "Invalid server id"
-- Not owner → `400` with "You are not the owner of this server"
+## Notes Redis
 
-### Flow
+Does not use Redis.
+
+---
+
+## Notes Postgres/DB
+
+| Table     | Column   | Action | Notes                                                 |
+| --------- | -------- | ------ | ----------------------------------------------------- |
+| `servers` | owner_id | SELECT | Check ownership                                       |
+| `servers` | id       | DELETE | Hard delete (FK CASCADE → roles, members, profiles, posts, comments, likes, invites) |
+
+---
+
+## Prerequisites
+
+User is the owner of the server.
+
+---
+
+## Request Validation
+
+Path parameter:
+
+| Field | Type   | Required | Rules           |
+| ----- | ------ | -------- | --------------- |
+| `id`  | string | yes      | Required, UUID  |
+
+No body.
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "status": "OK"
+}
 ```
-Request → Auth Middleware → Parse ServerId → Check Ownership (DB) → Delete Server (DB, CASCADE) → Response (no data)
-```
+
+### 400 Bad Request
+
+| `error_message`                  | Cause        |
+| -------------------------------- | ------------ |
+| `serverId is not a valid UUID`   | Invalid UUID  |
+
+### 403 Forbidden
+
+| `error_message`                          | Cause        |
+| ---------------------------------------- | ------------ |
+| `You are not the owner of this server`   | Not the owner |
+
+### 401 Unauthorized
+
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

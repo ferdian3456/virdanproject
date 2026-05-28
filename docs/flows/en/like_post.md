@@ -1,67 +1,119 @@
-## Like Post Flow
+## Overview
 
-### Overview
-Likes a post. Requires membership in the server where the post belongs. Each user can only like a post once.
+This API is used to like a post. Idempotent — if the user has already liked it before, the second request does not error (uses `ON CONFLICT (post_id, user_id) DO NOTHING`). Returns the latest likeCount + `userLiked: true`.
 
-**Idempotent**: If the user has already liked the post, the request succeeds and returns the current like count (no error).
+---
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+## Auth
 
-### Business Logic
-1. Get `userId` from context
-2. Parse `postId` from URL path — must be a valid UUID
-3. Check if user is a member of the server where the post belongs
-4. Check if user already liked this post
-   - If already liked → **skip insert**, proceed to get like count (idempotent)
-   - If not liked → create like record
-5. Get updated like count
-6. Return updated like count
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-### Database Operations
+## Flow
 
-#### PostgreSQL — Check Post Server Membership
-```sql
-SELECT 1
-FROM server_posts sp
-INNER JOIN server_members sm ON sp.server_id = sm.server_id
-WHERE sp.id = $1 AND sm.user_id = $2 AND sm.status = $3
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+
+    Client->>BE: POST /api/posts/(postId)/likes
+    BE->>BE: Middleware extract userId
+    BE->>BE: Validate postId (UUID)
+    alt UUID invalid
+        BE-->>Client: 400 postId is not a valid UUID
+    end
+    BE->>Postgres: SELECT server_id FROM server_posts WHERE id = $1
+    alt Post does not exist
+        BE-->>Client: 404 Post not found
+    end
+    BE->>Postgres: Check server membership
+    alt Not a member
+        BE-->>Client: 403 You are not a member of this server
+    end
+    BE->>Postgres: INSERT INTO server_post_likes ... ON CONFLICT (post_id, user_id) DO NOTHING
+    BE->>Postgres: COUNT likes WHERE post_id = $1
+    BE-->>Client: 200 {postId, userLiked: true, likeCount}
 ```
 
-#### PostgreSQL — Check Already Liked
-```sql
-SELECT 1 FROM server_post_likes WHERE post_id = $1 AND user_id = $2
-```
-- **Table**: `server_post_likes`
-- If row exists → already liked (skip insert, return like count)
+---
 
-#### PostgreSQL — Create Like (if not already liked)
-```sql
-INSERT INTO server_post_likes (id, post_id, user_id, create_datetime, update_datetime, create_user_id, update_user_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-```
-- **Table**: `server_post_likes`
-- **Columns**: `id` (UUID), `post_id`, `user_id`, timestamps, audit IDs
-- Only executed if user hasn't liked yet
+## Notes Redis
 
-#### PostgreSQL — Get Updated Like Count
-```sql
-SELECT COUNT(*) FROM server_post_likes WHERE post_id = $1
-```
-- **Table**: `server_post_likes`
-- Returns current like count after like operation
+Does not use Redis.
 
-### Error Cases
-- Invalid postId → `400` with "Invalid post id"
-- Not a member → `400` with "You are not a member of this server"
+---
 
-### Flow
-```
-Request → Auth Middleware → Parse PostId → Check Membership (DB) → Check Already Liked (DB) → [if not liked: Create Like (DB)] → Get Updated Count (DB) → Response
+## Notes Postgres/DB
+
+| Table                | Column                                 | Action | Notes                                               |
+| -------------------- | -------------------------------------- | ------ | --------------------------------------------------- |
+| `server_posts`       | server_id                              | SELECT | Fetch server_id for the membership check            |
+| `server_members`     | (count)                                | SELECT | Check membership                                    |
+| `server_post_likes`  | id, post_id, user_id, created_at, ... | INSERT | Idempotent with `ON CONFLICT (post_id, user_id) DO NOTHING` |
+| `server_post_likes`  | (count)                                | SELECT | New likeCount                                       |
+
+---
+
+## Prerequisites
+
+User is a member of the server where the post resides.
+
+---
+
+## Request Validation
+
+Path parameter:
+
+| Field    | Type   | Required | Rules           |
+| -------- | ------ | -------- | --------------- |
+| `postId` | string | yes      | Required, UUID  |
+
+No body.
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "postId": "post-uuid",
+  "userLiked": true,
+  "likeCount": 13
+}
 ```
 
-### Idempotency
-- Calling this endpoint multiple times with the same user and post will:
-  - **First call**: Create like record, return incremented like count
-  - **Subsequent calls**: Skip insert, return current like count (no error)
-- This allows for optimistic UI updates on the frontend without worrying about duplicate like requests
+| Field       | Type   | Description                                     |
+| ----------- | ------ | ----------------------------------------------- |
+| `postId`    | string | Post UUID                                       |
+| `userLiked` | bool   | Always `true` after this endpoint succeeds      |
+| `likeCount` | int    | Latest total likes                              |
+
+### 400 Bad Request
+
+| `error_message`               | Cause        |
+| ----------------------------- | ------------ |
+| `postId is not a valid UUID`  | Invalid UUID |
+
+### 403 Forbidden
+
+| `error_message`                          | Cause        |
+| ---------------------------------------- | ------------ |
+| `You are not a member of this server`    | Not a member |
+
+### 404 Not Found
+
+| `error_message`     | Cause                 |
+| ------------------- | --------------------- |
+| `Post not found`    | Post does not exist   |
+
+### 401 Unauthorized
+
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

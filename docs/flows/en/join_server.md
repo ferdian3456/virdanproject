@@ -1,75 +1,163 @@
-## Join Server Flow
+## Overview
 
-### Overview
-Allows an authenticated user to join a public (non-private) server directly without an invite code.
+This API is used to join a public server directly. The request format is multipart (for uploading the per-server profileAvatar). A private server will be rejected — you must use an invite code. On join, a row is created in `server_members` + a snapshot in `server_member_profiles` (copy-on-join Option B).
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+---
 
-### Business Logic
-1. Get `userId` from context
-2. Parse `serverId` from URL path parameter — must be a valid UUID
-3. Check if server exists and is eligible to join (not private)
-4. Check if user is already a member — return error if already joined
-5. **Check if "Member" role already exists for this server** (outside transaction)
-6. If role exists, reuse the role ID; otherwise create a new "Member" role
-7. Create server member record linking user to server with the role ID
-8. All write operations wrapped in a database transaction
-9. Return success with no data
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Check Server Eligible (public)
-```sql
-SELECT 1 FROM servers WHERE id = $1 AND (settings->>'isPrivate')::boolean = false
-```
-- **Table**: `servers`
-- **Filter**: `id` + `settings->>'isPrivate' = false`
+## Flow
 
-#### PostgreSQL — Check Server Member
-```sql
-SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2 AND status = 1
-```
-- **Table**: `server_members`
-- **Filter**: `server_id`, `user_id`, `status = 1` (active)
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+    participant MinIO
 
-#### PostgreSQL — Get Role by Name (outside TX)
-```sql
-SELECT id FROM server_roles WHERE server_id = $1 AND LOWER(name) = LOWER($2) LIMIT 1
-```
-- **Table**: `server_roles`
-- **Filter**: `server_id`, `LOWER(name) = LOWER('Member')`
-- Returns `id` (UUID) or no rows if not found
-- **Note**: Executed outside transaction to reduce lock time
-
-#### PostgreSQL — Create Server Role (inside TX, only if not exists)
-```sql
-INSERT INTO server_roles (id, server_id, name, permissions, create_datetime, update_datetime, create_user_id, update_user_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-```
-- **Table**: `server_roles`
-- **Values**: `name` = "Member", `permissions` = `{}`
-- **Note**: Only executed if "Member" role doesn't exist for this server
-
-#### PostgreSQL — Create Server Member (inside TX)
-```sql
-INSERT INTO server_members (id, server_id, user_id, server_role_id, status, joined_datetime, left_datetime, create_datetime, update_datetime, create_user_id, update_user_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-```
-- **Table**: `server_members`
-- **Values**: `status = 1` (active), `left_datetime = NULL`, `server_role_id` = existing or new role ID
-
-### Error Cases
-- Invalid serverId → `400` with "Invalid server id"
-- Server not found or private → `400` with "Unable to join server because server is not exists or private"
-- Already a member → `400` with "Unable to join server because user is already a member"
-
-### Flow
-```
-Request → Auth Middleware → Parse ServerId → Check Server Eligible (DB) → Check Not Already Member (DB) → Get "Member" Role (DB, outside TX) → Begin TX → Create Role IF NOT EXISTS (DB) → Create Member (DB) → Commit TX → Response
+    Client->>BE: POST /api/servers/(serverId)/join (multipart)
+    BE->>BE: Check Content-Type multipart/form-data
+    BE->>BE: Middleware extract userId
+    BE->>BE: Validate serverId (UUID), nickname (3-50), username (3-22 + regex), bio (max 150)
+    alt Validation Error
+        BE-->>Client: 400 e.g.: nickname must be at least 3 characters
+    end
+    BE->>BE: Lowercase username
+    BE->>Postgres: Check server exists & fetch isPrivate
+    alt Server does not exist
+        BE-->>Client: 404 Server not found
+    end
+    alt Private server
+        BE-->>Client: 403 Server is private. Use invite code.
+    end
+    BE->>Postgres: COUNT server_members WHERE server_id = $1 AND user_id = $2
+    alt Already a member
+        BE-->>Client: 409 Already a member of this server
+    end
+    BE->>Postgres: SELECT role "Member" id
+    BE->>Postgres: BEGIN
+    BE->>BE: ResolveProfileAvatar (upload profileAvatar if present or reuse avatarImageId)
+    BE->>Postgres: SELECT existing server_member_profiles
+    alt Profile exists (rejoin)
+        BE->>Postgres: UPDATE server_member_profiles
+    else Profile does not exist yet
+        BE->>Postgres: INSERT INTO server_member_profiles (snapshot copy-on-join)
+    end
+    BE->>Postgres: INSERT INTO server_members
+    BE->>Postgres: COMMIT
+    BE-->>Client: 200 {status: "OK"}
 ```
 
-### Important Notes
-- **Role Reuse**: The "Member" role is shared across all members of a server. It's created once when the first user joins, and subsequent users reuse the same role.
-- **Unique Constraint**: The `idx_roles_uk_01` unique index on `(server_id, name)` ensures only one "Member" role per server.
-- **Optimization**: Checking for existing role outside transaction reduces database lock time and improves concurrency.
+---
+
+## Notes Redis
+
+Does not use Redis.
+
+---
+
+## Notes MinIO
+
+If there is a `profileAvatar` upload:
+- Bucket: `MINIO_BUCKET_NAME`
+- Object key: `profile/avatar/{uuid}.webp`
+- Action: PutObject
+
+---
+
+## Notes Postgres/DB
+
+| Table                     | Column                                           | Action        | Notes                                       |
+| ------------------------- | ------------------------------------------------ | ------------- | ------------------------------------------- |
+| `servers`                 | id, settings                                     | SELECT        | Check exists & isPrivate                    |
+| `server_members`          | (count)                                          | SELECT        | Check whether already a member              |
+| `server_roles`            | id                                               | SELECT        | Fetch id of role "Member"                   |
+| `profile_avatar_images`   | (full)                                           | INSERT        | If there is a profileAvatar upload          |
+| `server_member_profiles`  | (full)                                           | INSERT/UPDATE | Snapshot copy-on-join (or update if rejoin) |
+| `server_members`          | id, server_id, user_id, server_role_id, joined_at | INSERT        | New membership                              |
+
+---
+
+## Prerequisites
+
+User is already logged in. The target server is public (not private). The user is not yet a member.
+
+---
+
+## Request Validation
+
+Path parameter:
+
+| Field      | Type   | Required | Rules           |
+| ---------- | ------ | -------- | --------------- |
+| `serverId` | string | yes      | Required, UUID  |
+
+Multipart body:
+
+| Field           | Type          | Required | Rules                                                              |
+| --------------- | ------------- | -------- | ------------------------------------------------------------------- |
+| `nickname`      | string        | yes      | Required, min 3, max 50                                             |
+| `username`      | string        | yes      | Required, min 3, max 22, regex `^[a-zA-Z0-9_.]+$`                   |
+| `bio`           | string        | no       | Max 150 characters                                                 |
+| `avatarImageId` | string (UUID) | no       | Reuse existing profile_avatar_images UUID owned by the user        |
+| `profileAvatar` | file          | no       | New image (jpg/jpeg/png/gif/webp), max 5MB                          |
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "status": "OK"
+}
+```
+
+### 400 Bad Request
+
+| `error_message`                                                       | Cause                          |
+| --------------------------------------------------------------------- | ------------------------------ |
+| `Invalid Content-Type header. Endpoint requires multipart/form-data.` | Wrong Content-Type             |
+| `serverId is not a valid UUID`                                        | Invalid UUID                   |
+| `nickname is required`                                                | Nickname empty                 |
+| `nickname must be at least 3 characters`                              | Nickname less than 3           |
+| `nickname must be at most 50 characters`                              | Nickname more than 50          |
+| `username is required`                                                | Username empty                 |
+| `username must be at least 3 characters`                              | Username less than 3           |
+| `username must be at most 22 characters`                              | Username more than 22          |
+| `Username may only contain letters, digits, underscores and dots`     | Username failed regex          |
+| `bio must be at most 150 characters`                                  | Bio more than 150              |
+
+### 403 Forbidden
+
+| `error_message`                          | Cause                               |
+| ---------------------------------------- | ----------------------------------- |
+| `Server is private. Use invite code.`    | Private server (settings.isPrivate=true) |
+
+### 404 Not Found
+
+| `error_message`        | Cause                 |
+| ---------------------- | --------------------- |
+| `Server not found`     | Server does not exist |
+
+### 409 Conflict
+
+| `error_message`                                       | Cause                                                                 |
+| ----------------------------------------------------- | --------------------------------------------------------------------- |
+| `Already a member of this server`                     | User is already a member                                              |
+| `Nickname is already taken in this server`            | Collision `idx_server_member_profiles_uk_02` (`server_id, nickname`)  |
+| `Username is already taken in this server`            | Collision `idx_server_member_profiles_uk_03` (`server_id, username`)  |
+| `You already have a profile in this server`           | Race condition collision `idx_server_member_profiles_uk_01` (rare)    |
+
+### 401 Unauthorized
+
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

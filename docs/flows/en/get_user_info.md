@@ -1,54 +1,109 @@
-## Get User Info Flow
+## Overview
 
-### Overview
-Retrieves the authenticated user's profile information including avatar URL.
+This API is used to get account info for the currently logged-in user. It fetches the global user data (id, email, settings, timestamps). Per-server fields (nickname/bio/avatar) live in the profile endpoint, not here (multi-identity Option B).
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token. The `userId` is extracted from the token by the auth middleware.
+---
 
-### Business Logic
-1. Get `userId` from context (set by auth middleware)
-2. Query user info from database by userId
-3. If user has an avatar image, construct the full MinIO URL for the avatar
-4. Return user profile data
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Get User Info
-```sql
-SELECT A.id, A.username, A.fullname, A.email, B.object_key, A.bio, A.create_datetime, A.update_datetime
-FROM users A
-LEFT JOIN user_avatar_images B ON A.id = B.user_id
-WHERE A.id = $1
-LIMIT 1
-```
-- **Tables**: `users` (A) LEFT JOIN `user_avatar_images` (B)
-- **Join condition**: `users.id = user_avatar_images.user_id`
-- **Columns returned**: `id`, `username`, `fullname`, `email`, `object_key` (avatar), `bio`, `create_datetime`, `update_datetime`
+## Flow
 
-#### MinIO — Avatar URL Construction
-```
-{MINIO_FULL_URL}/{object_key}
-```
-- If `object_key` is not NULL, full URL is built as: `http(s)://{host}:{port}/{bucket}/{object_key}`
-- Object key format: `user/avatar/{imageId}.webp`
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+    participant Redis
 
-### Error Cases
-- No/invalid auth token → `404` (handled by auth middleware)
-- Token expired → `404` with "Authorization token is expired"
-- User not found → `404` validation error
-
-### Flow
-```
-Request → Auth Middleware (JWT) → Get UserId → Query User (DB) → Build Avatar URL (MinIO) → Response
+    Client->>BE: GET /api/users/me (Bearer token)
+    BE->>BE: Middleware: parse JWT, extract userId
+    BE->>Redis: GET auth:accessToken:(userId)
+    alt Token cache miss / mismatch
+        BE-->>Client: 401 Authorization token not found or expired
+    end
+    BE->>BE: Validate userId (UUID)
+    BE->>Postgres: SELECT id, email, settings, created_at, updated_at FROM users WHERE id = $1 AND deleted_at IS NULL
+    alt User does not exist / soft-deleted
+        BE-->>Client: 404 User not found
+    end
+    BE-->>Client: 200 UserResponse
 ```
 
-### Response Fields
-- `id` — user UUID
-- `username` — unique username
-- `fullname` — display name
-- `email` — user email
-- `avatarImage` — full URL to avatar image (nullable)
-- `bio` — user bio (nullable)
-- `createDatetime` — account creation timestamp
-- `updateDatetime` — last update timestamp
+---
+
+## Notes Redis
+
+1. auth access token (checked by middleware):
+   key: `auth:accessToken:(userId)`
+   action: GET
+
+---
+
+## Notes Postgres/DB
+
+| Table   | Column                                      | Action | Notes                                   |
+| ------- | ------------------------------------------- | ------ | --------------------------------------- |
+| `users` | id, email, settings, created_at, updated_at | SELECT | Fetch global user data, filter soft-delete |
+
+---
+
+## Prerequisites
+
+User is already logged in and has a valid access token (not yet expired).
+
+---
+
+## Request Validation
+
+This endpoint does not accept a body. Authentication is done via the `Authorization: Bearer <accessToken>` header.
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "email": "user@example.com",
+  "settings": {},
+  "createdAt": "2026-05-23T10:00:00Z",
+  "updatedAt": "2026-05-23T10:00:00Z"
+}
+```
+
+| Field       | Type   | Description                            |
+| ----------- | ------ | -------------------------------------- |
+| `id`        | string | User UUID                              |
+| `email`     | string | User email                             |
+| `settings`  | object | JSONB settings (default `{}`)          |
+| `createdAt` | string | ISO 8601 timestamp UTC                 |
+| `updatedAt` | string | ISO 8601 timestamp UTC                 |
+
+### 401 Unauthorized
+
+| `error_message`                              | Cause                                          |
+| -------------------------------------------- | ---------------------------------------------- |
+| `Authorization header is missing`            | The `Authorization` header is missing          |
+| `Invalid authorization scheme`               | Not using the `Bearer ` prefix                 |
+| `Authentication token is empty`              | Token is empty after stripping the prefix      |
+| `Authentication token is malformed`          | Malformed JWT format                           |
+| `Authentication token is expired`            | JWT expired                                    |
+| `Authentication token is invalid`            | JWT signature invalid / claim invalid          |
+| `Authorization token not found or expired`   | Token is not in the Redis cache                |
+| `Authorization token is expired`             | Token hash differs from the one in the cache   |
+
+### 404 Not Found
+
+| `error_message`    | Cause                                   |
+| ------------------ | --------------------------------------- |
+| `User not found`   | User does not exist or has been soft-deleted |
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

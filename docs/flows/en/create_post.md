@@ -1,76 +1,146 @@
-## Create Post Flow
+## Overview
 
-### Overview
-Creates a new post in a server. Requires server membership. Posts must include an image (uploaded as multipart form) and a caption.
+This API is used to create a post in a specific server. The request format is multipart, image required (validated + converted to WebP). Only server members may post.
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+---
 
-### Business Logic
-1. Get `userId` from context
-2. Parse `serverId` from URL path — must be a valid UUID
-3. Check if user is a member of the server
-4. Read `image` file from multipart form (required, cannot be empty)
-5. Validate image file (format, size)
-6. Read `caption` from form value (required)
-7. Begin database transaction
-8. Upload image to MinIO (`server/post/{imageId}.webp`)
-9. Create post image record in database
-10. Create post record in database
-11. Commit transaction
-12. Fetch and return full post details including author info and image URL
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Check Server Member
-```sql
-SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2 AND status = $3
-```
-- **Table**: `server_members`
-- **Filter**: `server_id`, `user_id`, `status = 1` (active)
+## Flow
 
-#### PostgreSQL — Create Post Image (inside TX)
-```sql
-INSERT INTO server_post_images (id, bucket, object_key, mime_type, size, create_datetime, update_datetime, create_user_id, update_user_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-```
-- **Table**: `server_post_images`
-- **Columns**: `id` (UUID), `bucket`, `object_key` (e.g., `server/post/{imageId}.webp`), `mime_type` (`image/webp`), `size`
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+    participant MinIO
 
-#### PostgreSQL — Create Post (inside TX)
-```sql
-INSERT INTO server_posts (id, server_id, author_id, post_image_id, caption, create_datetime, update_datetime, create_user_id, update_user_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-```
-- **Table**: `server_posts`
-- **Columns**: `id` (UUID), `server_id`, `author_id`, `post_image_id` (FK to `server_post_images`), `caption`
-
-#### PostgreSQL — Get Post Details (after creation)
-```sql
-SELECT sp.author_id, sp.id, spi.object_key, sp.caption, sp.create_datetime, sp.update_datetime,
-       COALESCE(comment_counts.comment_count, 0), COALESCE(like_counts.like_count, 0)
-FROM server_posts sp
-INNER JOIN server_post_images spi ON sp.post_image_id = spi.id
-LEFT JOIN (SELECT post_id, COUNT(*) as comment_count FROM server_post_comments GROUP BY post_id) comment_counts ON sp.id = comment_counts.post_id
-LEFT JOIN (SELECT post_id, COUNT(*) as like_count FROM server_post_likes GROUP BY post_id) like_counts ON sp.id = like_counts.post_id
-WHERE sp.id = $1
+    Client->>BE: POST /api/servers/(serverId)/posts (multipart)
+    BE->>BE: Middleware extract userId
+    BE->>BE: Validate serverId (UUID)
+    alt UUID invalid
+        BE-->>Client: 400 serverId is not a valid UUID
+    end
+    BE->>Postgres: COUNT server_members WHERE server_id = $1 AND user_id = $2
+    alt Not a member
+        BE-->>Client: 403 You are not a member of this server
+    end
+    BE->>BE: ExtractAndValidateImage field "image" (max 5MB, jpg/png/gif/webp), convert WebP 512x512
+    BE->>BE: Validate caption (req, max 2000)
+    alt Caption invalid
+        BE-->>Client: 400 caption is required / caption must be at most 2000 characters
+    end
+    BE->>Postgres: BEGIN
+    BE->>Postgres: INSERT INTO server_post_images
+    BE->>Postgres: INSERT INTO server_posts
+    BE->>MinIO: PutObject server/post/(postImageId).webp
+    BE->>Postgres: COMMIT
+    BE->>Postgres: SELECT post detail (join author identity, likeCount, commentCount, userLiked, isOwner)
+    BE-->>Client: 200 ServerPostResponse
 ```
 
-#### MinIO — Upload Post Image
-```
-PUT {bucket}/server/post/{imageId}.webp
-Content-Type: image/webp
-Cache-Control: public, max-age=31536000, immutable
+---
+
+## Notes Redis
+
+Does not use Redis (other than the auth-check middleware).
+
+---
+
+## Notes MinIO
+
+- Bucket: `MINIO_BUCKET_NAME` (default `virdan`)
+- Object key: `server/post/{postImageId}.webp`
+- Content-Type: `image/webp`
+- Action: PutObject
+
+---
+
+## Notes Postgres/DB
+
+| Table                | Column                                             | Action | Notes                               |
+| -------------------- | -------------------------------------------------- | ------ | ----------------------------------- |
+| `server_members`     | (count)                                            | SELECT | Check whether user is a member       |
+| `server_post_images` | id, bucket, object_key, mime_type, size, ...       | INSERT | Image row                            |
+| `server_posts`       | id, server_id, author_id, post_image_id, caption   | INSERT | Post row                             |
+
+---
+
+## Prerequisites
+
+User is a member of the target server. Has a valid image file.
+
+---
+
+## Request Validation
+
+Path parameter:
+
+| Field      | Type   | Required | Rules           |
+| ---------- | ------ | -------- | --------------- |
+| `serverId` | string | yes      | Required, UUID  |
+
+Multipart body:
+
+| Field     | Type   | Required | Rules                                           |
+| --------- | ------ | -------- | ----------------------------------------------- |
+| `image`   | file   | yes      | Image (jpg/jpeg/png/gif/webp), max 5MB           |
+| `caption` | string | yes      | Required, max 2000 characters                   |
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "id": "post-uuid",
+  "serverId": "server-uuid",
+  "caption": "Hello world!",
+  "imageUrl": "http://.../server/post/imageId.webp",
+  "author": {
+    "userId": "user-uuid",
+    "nickname": "GamerX",
+    "username": "gamerx",
+    "avatarUrl": "http://.../profile/avatar/uuid.webp",
+    "status": "ACTIVE"
+  },
+  "likeCount": 0,
+  "commentCount": 0,
+  "userLiked": false,
+  "isOwner": true,
+  "createdAt": "2026-05-23T10:00:00Z",
+  "updatedAt": "2026-05-23T10:00:00Z"
+}
 ```
 
-### Error Cases
-- Invalid serverId → `400` with "Invalid server id"
-- Not a member → `400` with "You are not a member of this server"
-- No image file → `400` with "Image is required"
-- Invalid image format → `400` validation error
-- Caption empty → `400` with "Caption is required"
+### 400 Bad Request
 
-### Flow
-```
-Request → Auth Middleware → Parse ServerId → Check Membership (DB) → Read Image → Validate Image → Read Caption → Begin TX → Upload Image (MinIO) → Create Image Record (DB) → Create Post (DB) → Commit TX → Get Post (DB) → Response
-```
+| `error_message`                              | Cause                          |
+| -------------------------------------------- | ------------------------------ |
+| `serverId is not a valid UUID`               | UUID invalid                    |
+| `image is required`                          | Image file not present          |
+| `image size exceeded 5MB limit`              | File too large                  |
+| `invalid file extension: ...`                | Extension not allowed           |
+| `invalid image type: ...`                    | MIME type not allowed           |
+| `caption is required`                        | Caption empty                   |
+| `caption must be at most 2000 characters`    | Caption too long                |
+
+### 403 Forbidden
+
+| `error_message`                          | Cause                   |
+| ---------------------------------------- | ----------------------- |
+| `You are not a member of this server`    | User is not a server member |
+
+### 401 Unauthorized
+
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

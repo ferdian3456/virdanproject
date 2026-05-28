@@ -1,12 +1,12 @@
 ## Overview
 
-Api ini digunakan untuk memulai proses registrasi dari awal.
+API ini digunakan untuk memulai proses signup dengan mengirim OTP ke email yang diberikan. Akan dibuat session di Redis dan email dikirim via SMTP.
 
 ---
 
 ## Auth
 
-API ini adalah api public jadi tidak perlu authorization header
+API ini adalah api public jadi tidak perlu authorization header.
 
 ## Flow
 
@@ -16,82 +16,77 @@ sequenceDiagram
     participant BE
     participant Postgres
     participant Redis
-    participant Google
+    participant SMTP
 
-    Client->>BE: POST /auth/signup/start
-    BE->>BE: Validasi email
+    Client->>BE: POST /api/auth/signup/start
+    BE->>BE: Validasi email (required, min 5, max 255, format email)
     alt Error Validasi
-        BE-->>Client: Mengembalikan response, contohnya: Email is required to not be empty
+        BE-->>Client: Mengembalikan response, contohnya: email is required
     end
-    BE->>Postgres: Cek apakah email sudah terdaftar
-    alt Email sudah ada
-        BE-->>Client: Email is already exists
+    BE->>BE: Normalize email ke lowercase
+    BE->>Postgres: SELECT 1 FROM users WHERE email = $1 AND deleted_at IS NULL
+    alt Email sudah terdaftar
+        BE-->>Client: 409 Email is already registered
     end
-    BE->>Redis: Cek apakah ada session yang aktif untuk signup email session di redis
-    alt Ada signup email session yang sedang aktif
-        BE->>Redis: Hapus signup email session dan signup session yang sedang aktif
+    BE->>Redis: GET signup_email:(email)
+    alt Ada session aktif
+        BE->>Redis: DEL signup:(prevSessionId)
+        BE->>Redis: DEL signup_email:(email)
     end
-    BE->>BE: Generate OTP
-    BE->>Google: Kirim OTP ke google
-    Google->>Client: Forward emailnya ke client atau customer
-    BE->>Redis: Set signup session id
-    BE->>Redis: Set signup email session
-    BE-->>Client: Mengembalikan response
+    BE->>BE: Generate OTP 6 digit & SHA256 hash
+    BE->>SMTP: Kirim OTP ke email user (template otp.html)
+    SMTP-->>Client: Email OTP sampai ke inbox
+    BE->>Redis: HSET signup:(sessionId) {email, otp, otp_expires_at, step, created_at}
+    BE->>Redis: EXPIRE signup:(sessionId) 30 menit
+    BE->>Redis: SET signup_email:(email) = sessionId, EX 30 menit
+    BE-->>Client: 200 {sessionId, otpExpiresAt}
 ```
 
 ---
 
 ## Notes Redis
 
-1. Session email session:
-   key: signup_email:(email)
+1. signup session:
+   key: `signup:(sessionId)`
+   type: HASH
+   ttl: 30 menit
+   fields:
+   - `email`
+   - `otp` (SHA256 hash dari OTP)
+   - `otp_expires_at` (unix timestamp, 5 menit dari sekarang)
+   - `step` = `start_signup`
+   - `created_at` (unix timestamp)
+
+2. signup email session:
+   key: `signup_email:(email)`
    value: sessionId
-
-2. Session signup (HSET):
-   key: signup:(sessionId)
-   value:
-   1. "email"
-   2. "user@example.com"
-   3. "otp"
-   4. "123456"
-   5. "otp_expires_at"
-   6. "2024-01-15 10:30:00 +0000 UTC"
-   7. "step"
-   8. "0"
-   9. "create_at"
-   10. "1705312200"
-
-   atau kalau dicodinganya itu
-
-```go
-   err = repository.DBCache.HSet(ctx, key, map[string]interface{}{
-   "email": email,
-   "otp": otp,
-   "otp_expires_at": otpExpiresAt,
-   "step": model.SignupStepStart,
-   "created_at": time.Now().Unix(),
-   }).Err()
-```
+   ttl: 30 menit
 
 ---
 
 ## Notes Postgres/DB
 
-| Tabel   | Kolom | Aksi   | Keterangan                                                   |
-| ------- | ----- | ------ | ------------------------------------------------------------ |
-| `users` | email | SELECT | Select email menggunakan email dari payload untuk cek unique |
+| Tabel   | Kolom | Aksi   | Keterangan                                                |
+| ------- | ----- | ------ | --------------------------------------------------------- |
+| `users` | email | SELECT | Cek email unique (filter `deleted_at IS NULL`) sebelum kirim OTP |
+
+---
 
 ## Prerequisites
 
-Tidak ada, bisa hit api ini pada kondisi apapun misalnya sedang ada sesi register yang aktif atau tidak.
+Tidak ada. Endpoint bisa dipanggil dalam kondisi apapun. Kalau ada session signup aktif untuk email yang sama, session lama akan dihapus dan diganti session baru.
 
 ---
 
 ## Validasi Request
 
-| Field   | Tipe   | Wajib | Aturan                                                                 |
-| ------- | ------ | ----- | ---------------------------------------------------------------------- |
-| `email` | string | ya    | Email harus unique, min 16 karakter, max 80, dan formatnya harus email |
+| Field   | Tipe   | Wajib | Aturan                                                              |
+| ------- | ------ | ----- | ------------------------------------------------------------------- |
+| `email` | string | ya    | Required, min 5 karakter, max 255 karakter, harus format email valid |
+
+Email otomatis di-lowercase setelah validasi.
+
+---
 
 ## Response
 
@@ -99,21 +94,33 @@ Tidak ada, bisa hit api ini pada kondisi apapun misalnya sedang ada sesi registe
 
 ```json
 {
-  "session_id": "123e4567-e89b-12d3-a456-426614174000",
-  "otp_expires_at": "2025-01-01T12:00:00Z"
+  "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+  "otpExpiresAt": 1714829400
 }
 ```
 
+| Field          | Tipe   | Deskripsi                                            |
+| -------------- | ------ | ---------------------------------------------------- |
+| `sessionId`    | string | UUID session untuk lanjut ke verify OTP              |
+| `otpExpiresAt` | int64  | Unix timestamp expiry OTP (5 menit dari sekarang) |
+
 ### 400 Bad Request
 
-| `error_message`                        | Penyebab                      |
-| -------------------------------------- | ----------------------------- |
-| `Email is required to not be empty`    | Email tidak diisi             |
-| `Email must be at least 16 characters` | Email kurang dari 16 karakter |
-| `Email must be at most 80 characters`  | Email lebih dari 80 karakter  |
-| `Email must be a valid email address`  | Email tidak valid             |
-| `Email is already registered`          | Email sudah terdaftar         |
+| `error_message`                       | Penyebab                      |
+| ------------------------------------- | ----------------------------- |
+| `email is required`                   | Email tidak diisi             |
+| `email must be at least 5 characters` | Email kurang dari 5 karakter  |
+| `email must be at most 255 characters`| Email lebih dari 255 karakter |
+| `email must be a valid email address` | Format email tidak valid      |
+
+### 409 Conflict
+
+| `error_message`                | Penyebab                              |
+| ------------------------------ | ------------------------------------- |
+| `Email is already registered`  | Email sudah terdaftar di tabel users  |
+
+---
 
 ## Update
 
-Dokumentasi ini diupdate tanggal 20 April 2026.
+Dokumentasi ini diupdate tanggal 23 Mei 2026.

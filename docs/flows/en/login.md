@@ -1,76 +1,124 @@
-## Login Flow
+## Overview
 
-### Overview
-Authenticates a user with username and password, returns JWT token pair (access + refresh). Access token is cached in Redis, refresh token is stored in PostgreSQL with token rotation support.
+This API is used to log in with email and password. The backend checks that the email exists + the password matches (bcrypt), then generates a token pair (access JWT + refresh UUID).
 
-### Auth
-No authentication required.
+---
 
-### Business Logic
-1. Validate request payload — `username` and `password` are required
-2. Validate username length (4–22 characters)
-3. Validate password length (5–20 characters)
-4. Convert username to lowercase
-5. Look up user by username in database — return validation error if not found
-6. Compare password with bcrypt hash — return validation error if incorrect
-7. Generate JWT access token (15 minutes expiry)
-8. Generate refresh token (UUID)
-9. Create refresh token record in PostgreSQL with token family
-10. Store access token hash in Redis cache
-11. Return token pair to client
+## Auth
 
-### Database Operations
+This is a public API, so no authorization header is required.
 
-#### PostgreSQL — Get User Auth
-```sql
-SELECT id, password FROM users WHERE username = $1 LIMIT 1
-```
-- **Table**: `users`
-- **Columns read**: `id` (UUID), `password` (bcrypt hash)
-- **Filter**: `username` (case-insensitive, lowered before query)
+## Flow
 
-#### PostgreSQL — Create Refresh Token
-```sql
-INSERT INTO refresh_tokens
-(id, user_id, token_hash, token_family, expires_at, created_at, updated_at, created_by, updated_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
-```
-- **Table**: `refresh_tokens`
-- **Columns**: `id` (UUID), `user_id`, `token_hash` (SHA-256), `token_family` (UUID), `expires_at` (7 days), timestamps, audit
-- **Note**: `created_by` and `updated_by` use the same value (user ID)
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+    participant Redis
 
-#### Redis — Store Access Token
-```
-SET auth:accessToken:{userId} {sha256(accessToken)} EX 900
-```
-- **Key**: `auth:accessToken:{userId}`
-- **TTL**: 15 minutes (900 seconds)
-- **Value**: SHA-256 hash of the access token
-
-### Error Cases
-- Missing/invalid request body → `400` with `ERR_INVALID_REQUEST_BODY`
-- Username empty → `400` with "Username is required to not be empty"
-- Username < 4 chars → `400` with "Username must be at least 4 characters"
-- Username > 22 chars → `400` with "Username must be at most 22 characters"
-- Password empty → `400` with "Password is required to not be empty"
-- Password < 5 chars → `400` with "Password must be at least 5 characters"
-- Password > 20 chars → `400` with "Password must be at most 20 characters"
-- Username not found in database → `400` validation error
-- Password incorrect → `400` with "Password is incorrect"
-- Failed to create refresh token → `500` internal server error
-- Failed to store access token → `500` internal server error
-
-### Flow
-```
-Request → Validate Payload → Validate Username → Validate Password → Lookup User (DB) → Compare Password (bcrypt) → Generate Access Token → Generate Refresh Token → Store Refresh Token (PostgreSQL) → Store Access Token (Redis) → Response
+    Client->>BE: POST /api/auth/login {email, password}
+    BE->>BE: Validate email (required, email format, max 255) & password (required, min 5, max 20)
+    alt Validation Error
+        BE-->>Client: 400 e.g.: email is required
+    end
+    BE->>BE: Normalize email to lowercase
+    BE->>Postgres: SELECT id, password FROM users WHERE email = $1 AND deleted_at IS NULL
+    alt Email not found
+        BE-->>Client: 400 Email is not found
+    end
+    BE->>BE: bcrypt.CompareHashAndPassword(hash, password)
+    alt Password does not match
+        BE-->>Client: 400 Password is incorrect
+    end
+    BE->>BE: Generate access token (JWT, 15m) + refresh token (UUID, 7d)
+    BE->>Postgres: INSERT INTO refresh_tokens (no tx)
+    BE->>Redis: SET auth:accessToken:(userId) = hash(accessToken), EX 15m
+    BE-->>Client: 200 TokenResponse
 ```
 
-### Token Info
-- **Access Token** — JWT, short-lived (15 minutes), used for API authentication, cached in Redis
-- **Refresh Token** — UUID, long-lived (7 days), used to get new access tokens, stored in PostgreSQL
-- **Token Family** — UUID group identifier for token rotation security
-- **Token Type** — Bearer
+---
 
-### Durations
-- **Access Token**: 15 minutes (900 seconds)
-- **Refresh Token**: 7 days (604800 seconds)
+## Notes Redis
+
+1. auth access token:
+   key: `auth:accessToken:(userId)`
+   value: SHA256 hash of access token
+   ttl: 15 minutes
+
+---
+
+## Notes Postgres/DB
+
+| Table            | Column       | Action | Notes                                            |
+| ---------------- | ------------ | ------ | ------------------------------------------------ |
+| `users`          | id, password | SELECT | Check email exists + fetch password hash for bcrypt |
+| `refresh_tokens` | id           | INSERT | UUID primary key refresh token                   |
+| `refresh_tokens` | user_id      | INSERT | Refresh token owner                              |
+| `refresh_tokens` | token_hash   | INSERT | SHA256 hash of refresh token                     |
+| `refresh_tokens` | token_family | INSERT | UUID family for rotation strategy                |
+| `refresh_tokens` | expires_at   | INSERT | now + 7 days                                     |
+| `refresh_tokens` | created_at   | INSERT | UTC now                                          |
+| `refresh_tokens` | updated_at   | INSERT | UTC now                                          |
+| `refresh_tokens` | created_by   | INSERT | userId                                           |
+| `refresh_tokens` | updated_by   | INSERT | userId                                           |
+
+---
+
+## Prerequisites
+
+None. The endpoint can be called under any condition.
+
+---
+
+## Request Validation
+
+| Field      | Type   | Required | Rules                                                |
+| ---------- | ------ | -------- | ----------------------------------------------------- |
+| `email`    | string | yes      | Required, valid email format, max 255 characters      |
+| `password` | string | yes      | Required, min 5 characters, max 20 characters         |
+
+The email is automatically lowercased after validation.
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "accessTokenExpiresIn": 900,
+  "refreshToken": "550e8400-e29b-41d4-a716-446655440000",
+  "refreshTokenExpiresIn": 604800,
+  "tokenType": "Bearer"
+}
+```
+
+| Field                   | Type   | Description                                     |
+| ----------------------- | ------ | ----------------------------------------------- |
+| `accessToken`           | string | JWT access token                                |
+| `accessTokenExpiresIn`  | int    | Access token TTL in seconds (900 = 15 minutes)  |
+| `refreshToken`          | string | UUID refresh token                              |
+| `refreshTokenExpiresIn` | int    | Refresh token TTL in seconds (604800 = 7 days)  |
+| `tokenType`             | string | Always "Bearer"                                 |
+
+### 400 Bad Request
+
+| `error_message`                       | Cause                          |
+| ------------------------------------- | ------------------------------ |
+| `email is required`                   | Email empty                    |
+| `email must be a valid email address` | Invalid email format           |
+| `email must be at most 255 characters`| Email more than 255 characters |
+| `password is required`                | Password empty                 |
+| `password must be at least 5 characters` | Password less than 5        |
+| `password must be at most 20 characters` | Password more than 20       |
+| `Email is not found`                  | Email not registered           |
+| `Password is incorrect`               | Wrong password                 |
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.

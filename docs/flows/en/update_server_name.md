@@ -1,51 +1,108 @@
-## Update Server Name Flow
+## Overview
 
-### Overview
-Updates the name of a server. Only the server owner can perform this action.
+This API is used to change the server name. Only the server owner is allowed.
 
-### Auth
-Requires `Authorization` header with Bearer JWT access token.
+---
 
-### Business Logic
-1. Get `userId` from context
-2. Parse `id` from URL path parameter — must be a valid UUID
-3. Validate `name` (required, 5–40 characters)
-4. Check server ownership — only the owner can update
-5. Update server name in database
-6. Fetch and return updated server details
+## Auth
 
-### Database Operations
+This is a protected API, so it requires the authorization header `Bearer <accessToken>`.
 
-#### PostgreSQL — Check Server Ownership
-```sql
-SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
+## Flow
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant BE
+    participant Postgres
+
+    Client->>BE: PUT /api/servers/(id)/name {name}
+    BE->>BE: Middleware extract userId
+    BE->>BE: Validate serverId (UUID), name (req, 3-40)
+    alt Validation Error
+        BE-->>Client: 400 e.g.: name must be at least 3 characters
+    end
+    BE->>Postgres: SELECT count FROM servers WHERE id = $1 AND owner_id = $2
+    alt User not owner
+        BE-->>Client: 403 You are not the owner of this server
+    end
+    BE->>Postgres: UPDATE servers SET name = $1, updated_at = $2, updated_by = $3 WHERE id = $4
+    BE-->>Client: 200 {id, updatedAt}
 ```
-- **Table**: `servers`
-- **Filter**: `id` + `owner_id`
 
-#### PostgreSQL — Update Server Name
-```sql
-UPDATE servers SET name = $1, update_datetime = $2, update_user_id = $3 WHERE id = $4
-```
-- **Table**: `servers`
-- **Columns updated**: `name`, `update_datetime`, `update_user_id`
+---
 
-#### PostgreSQL — Get Server Detail (after update)
-```sql
-SELECT id, owner_id, name, short_name, category_id, avatar_image_id, banner_image_id, description, settings, create_datetime, update_datetime, create_user_id, update_user_id
-FROM servers WHERE id = $1
-```
-- **Table**: `servers`
-- Returns full server detail for response
+## Notes Redis
 
-### Error Cases
-- Invalid server id → `400` with "Invalid server id"
-- Name empty → `400` with "Name is required to not be empty"
-- Name < 5 chars → `400` with "Name must be at least 4 characters"
-- Name > 40 chars → `400` with "Name must be at most 40 characters"
-- Not owner → `400` with "You are not the owner of this server"
+Does not use Redis (other than the auth-check middleware).
 
-### Flow
+---
+
+## Notes Postgres/DB
+
+| Table     | Column             | Action | Notes                            |
+| --------- | ------------------ | ------ | -------------------------------- |
+| `servers` | owner_id           | SELECT | Check ownership                  |
+| `servers` | name               | UPDATE | Set new name                     |
+| `servers` | updated_at         | UPDATE | UTC now                          |
+| `servers` | updated_by         | UPDATE | userId (self)                    |
+
+---
+
+## Prerequisites
+
+The user is the server owner and has a valid access token.
+
+---
+
+## Request Validation
+
+Path parameter:
+
+| Field | Type   | Required | Rules           |
+| ----- | ------ | -------- | --------------- |
+| `id`  | string | yes      | Required, UUID  |
+
+Body JSON:
+
+| Field  | Type   | Required | Rules                             |
+| ------ | ------ | -------- | --------------------------------- |
+| `name` | string | yes      | Required, min 3, max 40 characters  |
+
+---
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "id": "uuid",
+  "updatedAt": "2026-05-23T10:00:00Z"
+}
 ```
-Request → Auth Middleware → Parse ServerId → Validate Name → Check Ownership (DB) → Update Name (DB) → Get Server Detail (DB) → Response
-```
+
+### 400 Bad Request
+
+| `error_message`                       | Cause                          |
+| ------------------------------------- | ------------------------------ |
+| `serverId is not a valid UUID`        | serverId is not a UUID         |
+| `name is required`                    | Name is empty                  |
+| `name must be at least 3 characters`  | Name is less than 3            |
+| `name must be at most 40 characters`  | Name is more than 40           |
+
+### 403 Forbidden
+
+| `error_message`                          | Cause                   |
+| ---------------------------------------- | ----------------------- |
+| `You are not the owner of this server`   | User is not the owner   |
+
+### 401 Unauthorized
+
+Standard auth errors.
+
+---
+
+## Update
+
+This documentation was last updated on 23 May 2026.
