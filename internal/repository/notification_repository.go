@@ -224,7 +224,7 @@ func (repository *NotificationRepository) InsertNotification(ctx context.Context
 // batch), so paging never skips or duplicates a row. Joins server_member_profiles via
 // actor_profile_id (PK lookup) for the actor's per-server username + avatar. Returns raw rows
 // only — cursor encoding lives in the usecase.
-func (repository *NotificationRepository) ListByRecipient(ctx context.Context, userId string, cursor *model.NotificationCursor, limit int, minioFullUrl string) ([]model.NotificationResponse, error) {
+func (repository *NotificationRepository) ListByRecipient(ctx context.Context, userId string, serverId string, cursor *model.NotificationCursor, limit int, minioFullUrl string) ([]model.NotificationResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.ListNotificationsByRecipient")
 	var err error
@@ -248,21 +248,21 @@ func (repository *NotificationRepository) ListByRecipient(ctx context.Context, u
 		          FROM notifications n
 		          JOIN server_member_profiles smp ON smp.id = n.actor_profile_id
 		          LEFT JOIN profile_avatar_images pai ON pai.id = smp.avatar_image_id
-		          WHERE n.recipient_user_id = $1
+		          WHERE n.recipient_user_id = $1 AND n.server_id = $2
 		          ORDER BY n.created_at DESC, n.id DESC
-		          LIMIT $2`
-		rows, err = repository.DB.Query(ctx, query, userId, limit)
+		          LIMIT $3`
+		rows, err = repository.DB.Query(ctx, query, userId, serverId, limit)
 	} else {
 		query := `SELECT n.id, n.type, smp.username, pai.object_key,
 		                 n.server_id, n.post_id, n.comment_id, n.read_at, n.created_at
 		          FROM notifications n
 		          JOIN server_member_profiles smp ON smp.id = n.actor_profile_id
 		          LEFT JOIN profile_avatar_images pai ON pai.id = smp.avatar_image_id
-		          WHERE n.recipient_user_id = $1
-		            AND (n.created_at, n.id) < ($2, $3)
+		          WHERE n.recipient_user_id = $1 AND n.server_id = $2
+		            AND (n.created_at, n.id) < ($3, $4)
 		          ORDER BY n.created_at DESC, n.id DESC
-		          LIMIT $4`
-		rows, err = repository.DB.Query(ctx, query, userId, cursor.CreatedAt, cursor.Id, limit)
+		          LIMIT $5`
+		rows, err = repository.DB.Query(ctx, query, userId, serverId, cursor.CreatedAt, cursor.Id, limit)
 	}
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to list notifications", zap.Error(err))
@@ -294,7 +294,7 @@ func (repository *NotificationRepository) ListByRecipient(ctx context.Context, u
 // MarkRead stamps read_at on one notification. Scoped recipient_user_id (a user can only mark
 // their own) and guarded read_at IS NULL (a second tap won't overwrite the original read time).
 // readAt comes from the usecase (time generated in Go, not SQL NOW()).
-func (repository *NotificationRepository) MarkRead(ctx context.Context, userId string, notifId string, readAt time.Time) error {
+func (repository *NotificationRepository) MarkRead(ctx context.Context, userId string, serverId string, notifId string, readAt time.Time) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.MarkNotificationRead")
 	var err error
@@ -313,8 +313,8 @@ func (repository *NotificationRepository) MarkRead(ctx context.Context, userId s
 	)
 
 	query := `UPDATE notifications SET read_at = $3, updated_at = $4, updated_by = $5
-	          WHERE id = $1 AND recipient_user_id = $2 AND read_at IS NULL`
-	_, err = repository.DB.Exec(ctx, query, notifId, userId, readAt, readAt, userId)
+	          WHERE id = $1 AND recipient_user_id = $2 AND server_id = $6 AND read_at IS NULL`
+	_, err = repository.DB.Exec(ctx, query, notifId, userId, readAt, readAt, userId, serverId)
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to mark notification as read", zap.Error(err))
 		return err
@@ -323,7 +323,7 @@ func (repository *NotificationRepository) MarkRead(ctx context.Context, userId s
 }
 
 // CountUnread returns the number of unread notifications (read_at IS NULL) for the tab badge.
-func (repository *NotificationRepository) CountUnread(ctx context.Context, userId string) (int, error) {
+func (repository *NotificationRepository) CountUnread(ctx context.Context, userId string, serverId string) (int, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CountUnreadNotifications")
 	var err error
@@ -340,9 +340,9 @@ func (repository *NotificationRepository) CountUnread(ctx context.Context, userI
 		attribute.String("user.id", userId),
 	)
 
-	query := `SELECT COUNT(*) FROM notifications WHERE recipient_user_id = $1 AND read_at IS NULL`
+	query := `SELECT COUNT(*) FROM notifications WHERE recipient_user_id = $1 AND server_id = $2 AND read_at IS NULL`
 	var count int
-	err = repository.DB.QueryRow(ctx, query, userId).Scan(&count)
+	err = repository.DB.QueryRow(ctx, query, userId, serverId).Scan(&count)
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to count unread notifications", zap.Error(err))
 		return 0, err

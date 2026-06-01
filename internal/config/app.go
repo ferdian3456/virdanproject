@@ -38,7 +38,7 @@ func Server(config *ServerConfig) {
 
 	// NotificationUsecase is built before PostUsecase because PostUsecase injects it (notif triggers).
 	notificationRepository := repository.NewNotificationRepository(config.Log, config.Config, config.DB)
-	notificationUsecase := usecase.NewNotificationUsecase(notificationRepository, config.FCM, config.DB, config.Log, config.Config)
+	notificationUsecase := usecase.NewNotificationUsecase(notificationRepository, serverRepository, config.FCM, config.DB, config.Log, config.Config)
 	notificationController := http.NewNotificationController(notificationUsecase, config.Log, config.Config)
 
 	postRepository := repository.NewPostRepository(config.Log, config.Config, config.DB, config.DBCache, config.MinIO)

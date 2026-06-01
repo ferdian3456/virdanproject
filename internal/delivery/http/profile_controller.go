@@ -150,3 +150,45 @@ func (controller *ProfileController) UpdateServerProfile(ctx fiber.Ctx) error {
 
 	return util.SendSuccessResponseWithData(ctx, response)
 }
+
+// GetServerProfileByUserId godoc
+// @Summary      Get another member's profile in a server
+// @Description.markdown get_server_member_profile
+// @Tags         profiles
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
+// @Param        userId path string true "Target user UUID"
+// @Success      200 {object} model.ServerMemberProfileResponse
+// @Failure      400 {object} model.BadRequestError
+// @Failure      401 {object} model.UnauthorizedError
+// @Failure      403 {object} model.ForbiddenError
+// @Failure      404 {object} model.NotFoundError
+// @Failure      500 {object} model.BadRequestError
+// @Router       /servers/{serverId}/members/{userId}/profile [get]
+func (controller *ProfileController) GetServerProfileByUserId(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.GetServerProfileByUserId")
+	ctx.SetContext(ctxContext)
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	requesterUserId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
+	targetUserId := ctx.Params("userId")
+
+	var response model.ServerMemberProfileResponse
+	response, err = controller.ProfileUsecase.GetServerMemberProfileByUserId(ctx, requesterUserId, serverId, targetUserId)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseWithData(ctx, response)
+}

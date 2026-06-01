@@ -124,10 +124,12 @@ func (c *RouteConfig) SetupRoute() {
 	serverGroup.Delete("/:id", c.ServerController.DeleteServer)
 	serverGroup.Delete("/:serverId/membership", c.ServerController.LeaveServer)
 	serverGroup.Get("/:serverId/posts/me", c.PostController.GetServerPostForMe)
+	serverGroup.Get("/:serverId/members/:userId/posts", c.PostController.GetServerPostsByUserId)
 
 	profileGroup := api.Group("", c.AuthMiddleware.ProtectedRoute())
 	profileGroup.Get("/profiles/history", c.ProfileController.GetProfileHistory)
 	profileGroup.Get("/servers/:serverId/profile/me", c.ProfileController.GetServerProfileMe)
+	profileGroup.Get("/servers/:serverId/members/:userId/profile", c.ProfileController.GetServerProfileByUserId)
 	profileGroup.Put("/servers/:serverId/profile", c.ProfileController.UpdateServerProfile)
 
 	postGroup := api.Group("/posts", c.AuthMiddleware.ProtectedRoute())
@@ -144,9 +146,11 @@ func (c *RouteConfig) SetupRoute() {
 	deviceGroup.Delete("/", c.NotificationController.UnregisterDevice)
 
 	notifGroup := api.Group("/notifications", c.AuthMiddleware.ProtectedRoute())
-	// unread-count BEFORE /:id/read so Fiber doesn't match "unread-count" as :id
-	notifGroup.Get("/unread-count", c.NotificationController.GetUnreadCount)
-	notifGroup.Get("/", c.NotificationController.GetFeed)
 	notifGroup.Post("/test-send", c.NotificationController.TestSend)
-	notifGroup.Post("/:id/read", c.NotificationController.MarkRead)
+
+	// Per-server notification feed/badge/read — nested under the server, member-guarded.
+	// unread-count BEFORE the feed route so Fiber matches the literal segment first.
+	serverGroup.Get("/:serverId/notifications/unread-count", c.NotificationController.GetUnreadCount)
+	serverGroup.Get("/:serverId/notifications", c.NotificationController.GetFeed)
+	serverGroup.Post("/:serverId/notifications/:id/read", c.NotificationController.MarkRead)
 }

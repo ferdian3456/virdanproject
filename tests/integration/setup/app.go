@@ -136,7 +136,7 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 	// tokens, so Notify's `len(tokens) == 0` short-circuits before touching the client (and the
 	// goroutine recover() would catch it anyway). DB-side notif behaviour (rows inserted) is testable.
 	notificationRepository := repository.NewNotificationRepository(zapLogger, testConfig, dbPool)
-	notificationUsecase := usecase.NewNotificationUsecase(notificationRepository, nil, dbPool, zapLogger, testConfig)
+	notificationUsecase := usecase.NewNotificationUsecase(notificationRepository, serverRepository, nil, dbPool, zapLogger, testConfig)
 	postUsecase := usecase.NewPostUsecase(postRepository, serverRepository, profileRepository, notificationUsecase, dbPool, zapLogger, testConfig)
 	profileUsecase := usecase.NewProfileUsecase(profileRepository, serverRepository, dbPool, zapLogger, testConfig)
 

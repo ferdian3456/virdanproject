@@ -145,12 +145,14 @@ func (controller *NotificationController) TestSend(ctx fiber.Ctx) error {
 // @Tags         notifications
 // @Produce      json
 // @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
 // @Param        cursor query string false "Pagination cursor"
 // @Param        limit query int false "Items per page (default 10, max 20)"
 // @Success      200 {object} model.NotificationListResponse
 // @Failure      401 {object} model.UnauthorizedError
+// @Failure      403 {object} model.ForbiddenError
 // @Failure      500 {object} model.BadRequestError
-// @Router       /notifications [get]
+// @Router       /servers/{serverId}/notifications [get]
 func (controller *NotificationController) GetFeed(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
@@ -165,6 +167,7 @@ func (controller *NotificationController) GetFeed(ctx fiber.Ctx) error {
 	}()
 
 	userId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
 	cursorStr := ctx.Query("cursor", "")
 	limitStr := ctx.Query("limit", "10")
 
@@ -174,7 +177,7 @@ func (controller *NotificationController) GetFeed(ctx fiber.Ctx) error {
 	}
 
 	var response model.NotificationListResponse
-	response, err = controller.NotificationUsecase.GetFeed(ctx, userId, cursorStr, limit)
+	response, err = controller.NotificationUsecase.GetFeed(ctx, userId, serverId, cursorStr, limit)
 	if err != nil {
 		return util.SendError(ctx, err)
 	}
@@ -188,12 +191,14 @@ func (controller *NotificationController) GetFeed(ctx fiber.Ctx) error {
 // @Tags         notifications
 // @Produce      json
 // @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
 // @Param        id path string true "Notification UUID"
 // @Success      200 {object} map[string]string
 // @Failure      400 {object} model.BadRequestError
 // @Failure      401 {object} model.UnauthorizedError
+// @Failure      403 {object} model.ForbiddenError
 // @Failure      500 {object} model.BadRequestError
-// @Router       /notifications/{id}/read [post]
+// @Router       /servers/{serverId}/notifications/{id}/read [post]
 func (controller *NotificationController) MarkRead(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
@@ -208,9 +213,10 @@ func (controller *NotificationController) MarkRead(ctx fiber.Ctx) error {
 	}()
 
 	userId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
 	notifId := ctx.Params("id")
 
-	if err = controller.NotificationUsecase.MarkRead(ctx, userId, notifId); err != nil {
+	if err = controller.NotificationUsecase.MarkRead(ctx, userId, serverId, notifId); err != nil {
 		return util.SendError(ctx, err)
 	}
 
@@ -223,10 +229,12 @@ func (controller *NotificationController) MarkRead(ctx fiber.Ctx) error {
 // @Tags         notifications
 // @Produce      json
 // @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
 // @Success      200 {object} model.UnreadCountResponse
 // @Failure      401 {object} model.UnauthorizedError
+// @Failure      403 {object} model.ForbiddenError
 // @Failure      500 {object} model.BadRequestError
-// @Router       /notifications/unread-count [get]
+// @Router       /servers/{serverId}/notifications/unread-count [get]
 func (controller *NotificationController) GetUnreadCount(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
@@ -241,9 +249,10 @@ func (controller *NotificationController) GetUnreadCount(ctx fiber.Ctx) error {
 	}()
 
 	userId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
 
 	var response model.UnreadCountResponse
-	response, err = controller.NotificationUsecase.GetUnreadCount(ctx, userId)
+	response, err = controller.NotificationUsecase.GetUnreadCount(ctx, userId, serverId)
 	if err != nil {
 		return util.SendError(ctx, err)
 	}

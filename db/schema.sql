@@ -97,5 +97,5 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_by        uuid NOT NULL,
     updated_by        uuid NOT NULL
 );
-CREATE INDEX idx_notifications_pk_01 ON notifications(recipient_user_id, created_at DESC);
-CREATE INDEX idx_notifications_pk_02 ON notifications(recipient_user_id) WHERE read_at IS NULL;
+CREATE INDEX idx_notifications_pk_01 ON notifications(recipient_user_id, server_id, created_at DESC);
+CREATE INDEX idx_notifications_pk_02 ON notifications(recipient_user_id, server_id) WHERE read_at IS NULL;
