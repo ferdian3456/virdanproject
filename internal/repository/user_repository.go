@@ -1415,3 +1415,42 @@ func (repository *UserRepository) GetUserEmail(ctx context.Context, userId strin
 	}
 	return email, nil
 }
+
+// UpdateNotificationPrefs merges only the notif_* keys into users.settings via jsonb_build_object,
+// leaving other settings keys untouched. updatedAt is passed in from the usecase (time from Go).
+func (repository *UserRepository) UpdateNotificationPrefs(ctx context.Context, userId string, prefs model.NotificationPrefs, updatedAt time.Time) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UpdateNotificationPrefs")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("user.id", userId),
+	)
+
+	query := `UPDATE users
+	          SET settings = settings || jsonb_build_object(
+	              'notif_like',    $1::boolean,
+	              'notif_comment', $2::boolean,
+	              'notif_reply',   $3::boolean
+	          ),
+	          updated_at = $4,
+	          updated_by = $5
+	          WHERE id = $6 AND deleted_at IS NULL`
+
+	_, err = repository.DB.Exec(ctx, query,
+		prefs.NotifLike, prefs.NotifComment, prefs.NotifReply,
+		updatedAt, userId, userId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to update notification prefs", zap.Error(err))
+		return err
+	}
+	return nil
+}

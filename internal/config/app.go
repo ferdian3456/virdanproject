@@ -36,16 +36,17 @@ func Server(config *ServerConfig) {
 	userUsecase := usecase.NewUserUsecase(userRepository, serverRepository, config.DB, config.Log, config.Config)
 	userController := http.NewUserController(userUsecase, config.Log, config.Config)
 
+	// NotificationUsecase is built before PostUsecase because PostUsecase injects it (notif triggers).
+	notificationRepository := repository.NewNotificationRepository(config.Log, config.Config, config.DB)
+	notificationUsecase := usecase.NewNotificationUsecase(notificationRepository, config.FCM, config.DB, config.Log, config.Config)
+	notificationController := http.NewNotificationController(notificationUsecase, config.Log, config.Config)
+
 	postRepository := repository.NewPostRepository(config.Log, config.Config, config.DB, config.DBCache, config.MinIO)
-	postUsecase := usecase.NewPostUsecase(postRepository, serverRepository, config.DB, config.Log, config.Config)
+	postUsecase := usecase.NewPostUsecase(postRepository, serverRepository, profileRepository, notificationUsecase, config.DB, config.Log, config.Config)
 	postController := http.NewPostController(postUsecase, config.Log, config.Config)
 
 	profileUsecase := usecase.NewProfileUsecase(profileRepository, serverRepository, config.DB, config.Log, config.Config)
 	profileController := http.NewProfileController(profileUsecase, config.Log, config.Config)
-
-	notificationRepository := repository.NewNotificationRepository(config.Log, config.Config, config.DB)
-	notificationUsecase := usecase.NewNotificationUsecase(notificationRepository, config.FCM, config.DB, config.Log, config.Config)
-	notificationController := http.NewNotificationController(notificationUsecase, config.Log, config.Config)
 
 	authMiddleware := middleware.NewAuthMiddleware(config.Config, config.Log, userUsecase)
 

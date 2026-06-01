@@ -85,6 +85,7 @@ func (c *RouteConfig) SetupRoute() {
 	userGroup.Put("/password", c.UserController.ChangePassword)
 	userGroup.Post("/email/change/request", c.UserController.RequestEmailChange)
 	userGroup.Post("/email/change/confirm", c.UserController.ConfirmEmailChange)
+	userGroup.Put("/me/notification-preferences", c.UserController.UpdateNotificationPreferences)
 
 	// Public server routes (NO AUTH) - must be defined BEFORE protected routes
 	// to ensure Fiber matches these routes first
@@ -143,5 +144,9 @@ func (c *RouteConfig) SetupRoute() {
 	deviceGroup.Delete("/", c.NotificationController.UnregisterDevice)
 
 	notifGroup := api.Group("/notifications", c.AuthMiddleware.ProtectedRoute())
+	// unread-count BEFORE /:id/read so Fiber doesn't match "unread-count" as :id
+	notifGroup.Get("/unread-count", c.NotificationController.GetUnreadCount)
+	notifGroup.Get("/", c.NotificationController.GetFeed)
 	notifGroup.Post("/test-send", c.NotificationController.TestSend)
+	notifGroup.Post("/:id/read", c.NotificationController.MarkRead)
 }

@@ -81,3 +81,21 @@ CREATE TABLE IF NOT EXISTS device_tokens (
 );
 CREATE UNIQUE INDEX idx_device_tokens_uk_01 ON device_tokens(token);
 CREATE INDEX        idx_device_tokens_pk_01 ON device_tokens(user_id);
+-- Create "notifications" table
+CREATE TABLE IF NOT EXISTS notifications (
+    id                uuid PRIMARY KEY,
+    recipient_user_id uuid NOT NULL REFERENCES users(id)                  ON DELETE CASCADE,
+    actor_user_id     uuid NOT NULL REFERENCES users(id)                  ON DELETE CASCADE,
+    actor_profile_id  uuid NOT NULL REFERENCES server_member_profiles(id) ON DELETE CASCADE,
+    type              varchar(20) NOT NULL,
+    server_id         uuid NOT NULL REFERENCES servers(id)                ON DELETE CASCADE,
+    post_id           uuid NULL REFERENCES server_posts(id)               ON DELETE CASCADE,
+    comment_id        uuid NULL REFERENCES server_post_comments(id)       ON DELETE CASCADE,
+    read_at           timestamptz NULL,
+    created_at        timestamptz NOT NULL,
+    updated_at        timestamptz NOT NULL,
+    created_by        uuid NOT NULL,
+    updated_by        uuid NOT NULL
+);
+CREATE INDEX idx_notifications_pk_01 ON notifications(recipient_user_id, created_at DESC);
+CREATE INDEX idx_notifications_pk_02 ON notifications(recipient_user_id) WHERE read_at IS NULL;

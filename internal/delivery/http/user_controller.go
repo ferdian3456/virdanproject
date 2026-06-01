@@ -568,3 +568,43 @@ func (controller UserController) ConfirmEmailChange(ctx fiber.Ctx) error {
 	}
 	return util.SendSuccessResponseNoData(ctx)
 }
+
+// UpdateNotificationPreferences godoc
+// @Summary      Update notification preferences
+// @Description.markdown update_notification_preferences
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        body body model.UpdateNotificationPreferencesRequest true "Payload"
+// @Success      200 {object} map[string]string
+// @Failure      400 {object} model.BadRequestError
+// @Failure      401 {object} model.UnauthorizedError
+// @Failure      500 {object} model.BadRequestError
+// @Router       /users/me/notification-preferences [put]
+func (controller UserController) UpdateNotificationPreferences(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.UpdateNotificationPreferences")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+
+	var request model.UpdateNotificationPreferencesRequest
+	if err = util.ReadRequestBody(ctx, &request); err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	if err = controller.UserUsecase.UpdateNotificationPreferences(ctx, userId, request); err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseNoData(ctx)
+}

@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"firebase.google.com/go/v4/messaging"
@@ -14,6 +15,7 @@ import (
 	"github.com/knadh/koanf/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -194,4 +196,296 @@ func (usecase *NotificationUsecase) TestSend(ctx context.Context, userId string)
 	}
 
 	return nil
+}
+
+// Notify delivers notifications for a batch of domain events. Fire-and-forget goroutine: called
+// after the action commits, it must never block or fail the user's request. The request ctx is
+// cancelled when the HTTP response returns, so the goroutine uses a fresh Background ctx — but it
+// CARRIES the request's span context, so its span is a child in the SAME trace (one trace = like
+// request -> Notify), not a disconnected new root. recover() keeps a goroutine panic from crashing
+// the process. IG model: the row is ALWAYS persisted (feed archive); the per-type preference gates
+// only the PUSH. Per recipient it dedups to the highest-priority event (mention>reply>comment>like).
+// Every error is logged with trace context; one recipient's failure continues to the next.
+// Self-notif (actor==recipient) is filtered by the caller in post_usecase.
+func (usecase *NotificationUsecase) Notify(ctx context.Context, events []model.NotificationEvent) {
+	// Capture the request's span context BEFORE spawning — the request ctx is about to be
+	// cancelled, but its SpanContext (trace_id + span_id) is immutable and safe to carry.
+	parentSpanCtx := trace.SpanContextFromContext(ctx)
+
+	go func() {
+		// Fresh Background ctx (own lifecycle, not cancelled with the request) carrying the parent
+		// trace, so the span below is a child of the request span — same trace_id.
+		backgroundCtx := trace.ContextWithSpanContext(context.Background(), parentSpanCtx)
+		backgroundCtx, cancel := context.WithTimeout(backgroundCtx, 30*time.Second)
+		defer cancel()
+
+		serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+		backgroundCtx, span := otel.Tracer(serviceName + "-usecase").Start(backgroundCtx, "usecase.Notify")
+		defer span.End()
+
+		logger := util.GetLoggerWithTraceContext(backgroundCtx, usecase.Log)
+
+		// recover() is mandatory: a panic in a goroutine is NOT caught by the HTTP recover
+		// middleware — an unrecovered goroutine panic crashes the whole process.
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				logger.Error("panic in Notify goroutine", zap.Any("recover", recovered))
+			}
+		}()
+
+		// 1. Dedup per recipient — priority: mention=4 > reply=3 > comment=2 > like=1
+		priority := map[string]int{"like": 1, "comment": 2, "reply": 3, "mention": 4}
+		deduped := make(map[string]model.NotificationEvent, len(events))
+		for _, event := range events {
+			existing, exists := deduped[event.RecipientUserId]
+			if !exists || priority[event.Type] > priority[existing.Type] {
+				deduped[event.RecipientUserId] = event
+			}
+		}
+
+		minioFullUrl := fmt.Sprintf("%s%s/%s",
+			usecase.Config.String("MINIO_HTTP"),
+			usecase.Config.String("MINIO_URL"),
+			usecase.Config.String("MINIO_BUCKET_NAME"),
+		)
+
+		// Single err reused across the loop. Each error is handled inline (log + continue) — a
+		// goroutine can't propagate it to a caller.
+		var err error
+		for _, event := range deduped {
+			// 2. Persist the row — ALWAYS (IG model: feed archive complete regardless of push pref).
+			now := time.Now()
+			postId := &event.PostId
+			notification := model.Notification{
+				Id:              uuid.New().String(),
+				RecipientUserId: event.RecipientUserId,
+				ActorUserId:     event.ActorUserId,
+				ActorProfileId:  event.ActorProfileId,
+				Type:            event.Type,
+				ServerId:        event.ServerId,
+				PostId:          postId,
+				CommentId:       event.CommentId,
+				CreatedAt:       now,
+				UpdatedAt:       now,
+				CreatedBy:       event.ActorUserId,
+				UpdatedBy:       event.ActorUserId,
+			}
+			if err = usecase.NotificationRepository.InsertNotification(backgroundCtx, notification); err != nil {
+				logger.Error("notif: failed to insert row, skipping recipient",
+					zap.String("recipient_user_id", event.RecipientUserId), zap.Error(err))
+				continue
+			}
+
+			// 3. Push path. No registered device -> nothing to push (row already in feed).
+			var tokens []string
+			if tokens, err = usecase.NotificationRepository.ListTokensByUserId(backgroundCtx, event.RecipientUserId); err != nil {
+				logger.Error("notif: failed to list device tokens, skipping push",
+					zap.String("recipient_user_id", event.RecipientUserId), zap.Error(err))
+				continue
+			}
+			if len(tokens) == 0 {
+				continue
+			}
+
+			// 4. Per-type PUSH preference (IG model: gates push only). Fail-closed: read error ->
+			//    skip push (row already saved; don't risk pushing to an opt-out user).
+			var prefs model.NotificationPrefs
+			if prefs, err = usecase.NotificationRepository.GetUserNotificationPrefs(backgroundCtx, event.RecipientUserId); err != nil {
+				logger.Error("notif: failed to read prefs, skipping push (fail-closed)",
+					zap.String("recipient_user_id", event.RecipientUserId), zap.Error(err))
+				continue
+			}
+			if !pushEnabledForType(prefs, event.Type) {
+				continue
+			}
+
+			// 5. Actor's per-server username for the push title. Profile is FK-guaranteed, so a miss
+			//    is a real anomaly -> log + skip push.
+			var actorUsername string
+			if actorUsername, _, err = usecase.NotificationRepository.GetActorUsernameAndAvatar(backgroundCtx, event.ActorProfileId, minioFullUrl); err != nil {
+				logger.Error("notif: failed to resolve actor username, skipping push",
+					zap.String("actor_profile_id", event.ActorProfileId), zap.Error(err))
+				continue
+			}
+
+			// 6. Send push.
+			usecase.sendPush(backgroundCtx, tokens, actorUsername, event)
+		}
+	}()
+}
+
+func (usecase *NotificationUsecase) sendPush(ctx context.Context, tokens []string, actorUsername string, event model.NotificationEvent) {
+	body := notifBodyForType(event.Type)
+
+	data := map[string]string{
+		"type":     event.Type,
+		"serverId": event.ServerId,
+		"postId":   event.PostId,
+	}
+	if event.CommentId != nil {
+		data["commentId"] = *event.CommentId
+	}
+
+	message := &messaging.MulticastMessage{
+		Tokens: tokens,
+		Notification: &messaging.Notification{
+			Title: actorUsername,
+			Body:  body,
+		},
+		Data:    data,
+		Android: &messaging.AndroidConfig{Priority: "high"},
+	}
+
+	response, fcmErr := usecase.FCMClient.SendEachForMulticast(ctx, message)
+	if fcmErr != nil {
+		util.GetLoggerWithTraceContext(ctx, usecase.Log).Error("Failed to send FCM push", zap.Error(fcmErr))
+		return
+	}
+
+	var invalidTokens []string
+	for i, result := range response.Responses {
+		if !result.Success && (messaging.IsUnregistered(result.Error) || messaging.IsInvalidArgument(result.Error)) {
+			invalidTokens = append(invalidTokens, tokens[i])
+		}
+	}
+
+	if len(invalidTokens) > 0 {
+		if deleteErr := usecase.NotificationRepository.DeleteInvalidTokens(ctx, invalidTokens); deleteErr != nil {
+			util.GetLoggerWithTraceContext(ctx, usecase.Log).Warn("Failed to delete invalid tokens after push", zap.Error(deleteErr))
+		}
+	}
+}
+
+func notifBodyForType(notifType string) string {
+	switch notifType {
+	case "like":
+		return "menyukai postinganmu."
+	case "comment":
+		return "mengomentari postinganmu."
+	case "reply":
+		return "membalas komentarmu."
+	default:
+		return "berinteraksi denganmu."
+	}
+}
+
+// pushEnabledForType maps a notification type to its per-type push toggle. mention has no toggle in
+// Fase 2 prefs -> defaults to push-on (add a mention toggle to NotificationPrefs when needed).
+func pushEnabledForType(prefs model.NotificationPrefs, notifType string) bool {
+	switch notifType {
+	case "like":
+		return prefs.NotifLike
+	case "comment":
+		return prefs.NotifComment
+	case "reply":
+		return prefs.NotifReply
+	default:
+		return true
+	}
+}
+
+func (usecase *NotificationUsecase) GetFeed(ctx context.Context, userId string, cursorStr string, limit int) (model.NotificationListResponse, error) {
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-usecase").Start(ctx, "usecase.GetNotificationFeed")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(attribute.String("user.id", userId))
+
+	if limit <= 0 {
+		limit = constant.DEFAULT_LIMIT
+	}
+	if limit > constant.MAX_LIMIT {
+		limit = constant.MAX_LIMIT
+	}
+
+	var cursor *model.NotificationCursor
+	if cursorStr != "" {
+		cursor, err = util.DecodeCursor[model.NotificationCursor](cursorStr)
+		if err != nil {
+			err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "Invalid cursor", Param: "cursor"}
+			return model.NotificationListResponse{}, err
+		}
+	}
+
+	minioFullUrl := fmt.Sprintf("%s%s/%s",
+		usecase.Config.String("MINIO_HTTP"),
+		usecase.Config.String("MINIO_URL"),
+		usecase.Config.String("MINIO_BUCKET_NAME"),
+	)
+
+	// Fetch limit+1: if we get more than limit, there is a next page. Encode the cursor here
+	// (usecase), not in the repo — matches GetServerPosts.
+	var items []model.NotificationResponse
+	items, err = usecase.NotificationRepository.ListByRecipient(ctx, userId, cursor, limit+1, minioFullUrl)
+	if err != nil {
+		return model.NotificationListResponse{}, err
+	}
+
+	response := model.NotificationListResponse{Data: []model.NotificationResponse{}}
+	if len(items) > limit {
+		response.Data = items[:limit]
+		last := items[limit-1]
+		response.Page.NextCursor = util.EncodeCursor(model.NotificationCursor{
+			CreatedAt: last.CreatedAt,
+			Id:        last.Id,
+		})
+	} else {
+		response.Data = items
+	}
+
+	return response, nil
+}
+
+func (usecase *NotificationUsecase) MarkRead(ctx context.Context, userId string, notifId string) error {
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-usecase").Start(ctx, "usecase.MarkNotificationRead")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId),
+		attribute.String("notification.id", notifId),
+	)
+
+	v := util.NewValidator()
+	v.UUID("id", notifId)
+	if err = v.Validate(); err != nil {
+		return err
+	}
+
+	now := time.Now()
+	err = usecase.NotificationRepository.MarkRead(ctx, userId, notifId, now)
+	return err
+}
+
+func (usecase *NotificationUsecase) GetUnreadCount(ctx context.Context, userId string) (model.UnreadCountResponse, error) {
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-usecase").Start(ctx, "usecase.GetUnreadNotificationCount")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(attribute.String("user.id", userId))
+
+	var count int
+	count, err = usecase.NotificationRepository.CountUnread(ctx, userId)
+	if err != nil {
+		return model.UnreadCountResponse{}, err
+	}
+	return model.UnreadCountResponse{Count: count}, nil
 }
