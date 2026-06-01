@@ -397,7 +397,7 @@ func (repository *ProfileRepository) GetServerMemberProfile(ctx context.Context,
 		if errors.Is(err, pgx.ErrNoRows) {
 			err = &model.NotFoundError{
 				Code:    constant.ERR_NOT_FOUND_CODE,
-				Message: "You don't have a profile in this server",
+				Message: "Profile not found in this server",
 				Param:   "serverId",
 			}
 			return resp, err

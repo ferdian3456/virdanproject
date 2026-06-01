@@ -189,6 +189,47 @@ func (controller *PostController) GetServerPostForMe(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// GetServerPostsByUserId godoc
+// @Summary      Get another member's posts in a server
+// @Description.markdown get_server_posts_by_user
+// @Tags         posts
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
+// @Param        userId path string true "Target user UUID"
+// @Param        limit query int false "Items per page"
+// @Param        cursor query string false "Pagination cursor"
+// @Success      200   {object}  model.ServerPostListResponse
+// @Failure      400   {object}  model.BadRequestError
+// @Failure      403   {object}  model.ForbiddenError
+// @Failure      500   {object}  model.BadRequestError
+// @Router       /servers/{serverId}/members/{userId}/posts [get]
+func (controller *PostController) GetServerPostsByUserId(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.GetServerPostsByUserId")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	requesterUserId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
+	targetUserId := ctx.Params("userId")
+
+	var response model.ServerPostListResponse
+	response, err = controller.PostUsecase.GetServerPostsByUserId(ctx, requesterUserId, serverId, targetUserId)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseWithData(ctx, response)
+}
+
 // DeletePost godoc
 // @Summary      Delete a post
 // @Description.markdown delete_post

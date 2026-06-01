@@ -308,6 +308,87 @@ func (usecase *PostUsecase) GetServerPostForMe(ctx fiber.Ctx, serverId string, u
 	return response, nil
 }
 
+// GetServerPostsByUserId returns another member's posts in a server (their
+// profile grid). The requester must be a member; ownership is computed
+// relative to the requester. Reuses the author-filtered repository query.
+func (usecase *PostUsecase) GetServerPostsByUserId(ctx fiber.Ctx, requesterUserId, serverId, targetUserId string) (model.ServerPostListResponse, error) {
+	limit := fiber.Query[int](ctx, "limit", constant.DEFAULT_LIMIT)
+	cursorStr := ctx.Query("cursor", "")
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId)
+	v.UUID("userId", targetUserId)
+	v.Int("limit", limit).Min(0).Max(constant.MAX_LIMIT)
+	if valErr := v.Validate(); valErr != nil {
+		return model.ServerPostListResponse{}, valErr
+	}
+
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.GetServerPostsByUserId")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("user.id", requesterUserId),
+		attribute.String("target.user.id", targetUserId),
+		attribute.String("server.id", serverId),
+		attribute.Int("limit", limit),
+		attribute.String("cursor", cursorStr),
+	)
+
+	memberCount, err := usecase.ServerRepository.CheckServerMember(ctxContext, serverId, requesterUserId)
+	if err != nil {
+		return model.ServerPostListResponse{}, err
+	}
+	if memberCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not a member of this server", Param: "serverId"}
+		return model.ServerPostListResponse{}, err
+	}
+
+	var cursor model.ServerPostCursor
+	if cursorStr != "" {
+		decoded, decErr := util.DecodeCursor[model.ServerPostCursor](cursorStr)
+		if decErr != nil {
+			err = &model.BadRequestError{Code: constant.ERR_BAD_REQUEST_CODE, Message: "Invalid cursor", Param: "cursor"}
+			return model.ServerPostListResponse{}, err
+		}
+		cursor = *decoded
+	}
+
+	minioFullUrl := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
+
+	posts, err := usecase.PostRepository.GetServerPostForMe(ctxContext, limit+1, serverId, targetUserId, &cursor, minioFullUrl)
+	if err != nil {
+		return model.ServerPostListResponse{}, err
+	}
+
+	// Ownership is relative to the requester, not the post author.
+	isOwner := requesterUserId == targetUserId
+	for i := range posts {
+		posts[i].IsOwner = isOwner
+	}
+
+	response := model.ServerPostListResponse{Data: []model.ServerPostResponse{}}
+	if len(posts) > limit {
+		response.Data = posts[:limit]
+		last := posts[limit-1]
+		response.Page.NextCursor = util.EncodeCursor(model.ServerPostCursor{
+			Id:        last.Id,
+			CreatedAt: last.CreatedAt,
+		})
+	} else if len(posts) > 0 {
+		response.Data = posts
+	}
+
+	return response, nil
+}
+
 func (usecase *PostUsecase) GetPost(ctx fiber.Ctx, postId string, userId string) (model.ServerPostResponse, error) {
 	v := util.NewValidator()
 	v.UUID("postId", postId)

@@ -124,10 +124,12 @@ func (c *RouteConfig) SetupRoute() {
 	serverGroup.Delete("/:id", c.ServerController.DeleteServer)
 	serverGroup.Delete("/:serverId/membership", c.ServerController.LeaveServer)
 	serverGroup.Get("/:serverId/posts/me", c.PostController.GetServerPostForMe)
+	serverGroup.Get("/:serverId/members/:userId/posts", c.PostController.GetServerPostsByUserId)
 
 	profileGroup := api.Group("", c.AuthMiddleware.ProtectedRoute())
 	profileGroup.Get("/profiles/history", c.ProfileController.GetProfileHistory)
 	profileGroup.Get("/servers/:serverId/profile/me", c.ProfileController.GetServerProfileMe)
+	profileGroup.Get("/servers/:serverId/members/:userId/profile", c.ProfileController.GetServerProfileByUserId)
 	profileGroup.Put("/servers/:serverId/profile", c.ProfileController.UpdateServerProfile)
 
 	postGroup := api.Group("/posts", c.AuthMiddleware.ProtectedRoute())

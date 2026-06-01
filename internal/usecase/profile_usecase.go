@@ -223,3 +223,60 @@ func (usecase *ProfileUsecase) UpdateServerProfile(ctx fiber.Ctx, userId, server
 	return response, nil
 }
 
+// GetServerMemberProfileByUserId returns another member's per-server profile.
+// The requester must be a member of the server (guards against enumerating a
+// private server's roster). Reuses the same repository read as the self
+// endpoint, scoped to the target user.
+func (usecase *ProfileUsecase) GetServerMemberProfileByUserId(ctx fiber.Ctx, requesterUserId, serverId, targetUserId string) (model.ServerMemberProfileResponse, error) {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.GetServerMemberProfileByUserId")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	var response model.ServerMemberProfileResponse
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	v.UUID("userId", targetUserId).Required()
+	err = v.Validate()
+	if err != nil {
+		return response, err
+	}
+
+	span.SetAttributes(
+		attribute.String("user.id", requesterUserId),
+		attribute.String("target.user.id", targetUserId),
+		attribute.String("server.id", serverId),
+	)
+
+	var memberCount int
+	memberCount, err = usecase.ServerRepository.CheckServerMember(ctxContext, serverId, requesterUserId)
+	if err != nil {
+		return response, err
+	}
+	if memberCount == 0 {
+		err = &model.ForbiddenError{
+			Code:    constant.ERR_FORBIDDEN_CODE,
+			Message: "You are not a member of this server",
+			Param:   "serverId",
+		}
+		return response, err
+	}
+
+	minioFullUrl := usecase.Config.String("MINIO_HTTP") + usecase.Config.String("MINIO_URL") + "/" + usecase.Config.String("MINIO_BUCKET_NAME")
+
+	response, err = usecase.ProfileRepository.GetServerMemberProfile(ctxContext, serverId, targetUserId, minioFullUrl)
+	if err != nil {
+		return response, err
+	}
+
+	return response, nil
+}
+

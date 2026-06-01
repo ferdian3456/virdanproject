@@ -599,6 +599,20 @@ func JoinTestServer(t *testing.T, app *fiber.App, token, serverID, nickname, use
 	RequireStatus(t, resp, 200)
 }
 
+// GetUserId returns the authenticated user's id via GET /api/users/me. Useful
+// when a test needs another user's id to build a path (e.g. viewing another
+// member's profile or posts).
+func GetUserId(t *testing.T, app *fiber.App, token string) string {
+	req := CreateAuthRequest(http.MethodGet, "/api/users/me", nil, token)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
+	require.NoError(t, err, "get users/me should succeed")
+	result := RequireJSONResponse(t, resp, 200)
+	id, ok := result["id"].(string)
+	require.True(t, ok, "users/me should return id, got: %v", result)
+	require.NotEmpty(t, id, "user id should not be empty")
+	return id
+}
+
 // deriveUsernameFromShortName pads shortName so it satisfies the username
 // validator (MinLen 3, charset [a-zA-Z0-9_.]). shortName itself is constrained
 // to MinLen 2 / MaxLen 10 at the server layer, so a one-character pad is
