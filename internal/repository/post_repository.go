@@ -495,6 +495,105 @@ func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit 
 	return posts, nil
 }
 
+// GetServerPostsByAuthor returns a member's posts in a server for viewing by
+// another user. Like GetServerPostForMe but the author filter (authorId) and
+// the userLiked check (requesterId) are separate params, so userLiked reflects
+// the viewer, not the author. IsOwner is true only when the viewer is the author.
+func (repository *PostRepository) GetServerPostsByAuthor(ctx context.Context, limit int, serverId, authorId, requesterId string, cursor *model.ServerPostCursor, minioFullUrl string) ([]model.ServerPostResponse, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerPostsByAuthor")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("server.id", serverId),
+		attribute.String("author.id", authorId),
+		attribute.String("user.id", requesterId),
+	)
+
+	baseSelect := `
+		SELECT sp.id, sp.server_id, sp.caption, sp.author_id,
+			sp.created_at, sp.updated_at,
+			spi.object_key,
+			smp.nickname,
+			smp.username,
+			pai.object_key,
+			(SELECT COUNT(*) FROM server_post_likes WHERE post_id = sp.id) AS like_count,
+			(SELECT COUNT(*) FROM server_post_comments WHERE post_id = sp.id) AS comment_count,
+			EXISTS (SELECT 1 FROM server_post_likes l WHERE l.post_id = sp.id AND l.user_id = $3) AS user_liked
+		FROM server_posts sp
+		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = sp.author_id
+		LEFT JOIN server_post_images spi ON sp.post_image_id = spi.id
+		LEFT JOIN profile_avatar_images pai ON smp.avatar_image_id = pai.id`
+
+	var rows pgx.Rows
+	if cursor.Id != "" && !cursor.CreatedAt.IsZero() {
+		query := baseSelect + `
+		WHERE sp.server_id = $1 AND sp.author_id = $2
+		AND (sp.created_at < $4 OR (sp.created_at = $4 AND sp.id < $5))
+		ORDER BY sp.created_at DESC, sp.id DESC
+		LIMIT $6`
+		rows, err = repository.DB.Query(ctx, query, serverId, authorId, requesterId, cursor.CreatedAt, cursor.Id, limit)
+	} else {
+		query := baseSelect + `
+		WHERE sp.server_id = $1 AND sp.author_id = $2
+		ORDER BY sp.created_at DESC, sp.id DESC
+		LIMIT $4`
+		rows, err = repository.DB.Query(ctx, query, serverId, authorId, requesterId, limit)
+	}
+
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to query server posts by author", zap.Error(err))
+		return nil, err
+	}
+	defer rows.Close()
+
+	posts := []model.ServerPostResponse{}
+	for rows.Next() {
+		var resp model.ServerPostResponse
+		err = rows.Scan(
+			&resp.Id,
+			&resp.ServerId,
+			&resp.Caption,
+			&resp.Author.UserId,
+			&resp.CreatedAt,
+			&resp.UpdatedAt,
+			&resp.ImageUrl,
+			&resp.Author.Nickname,
+			&resp.Author.Username,
+			&resp.Author.AvatarUrl,
+			&resp.LikeCount,
+			&resp.CommentCount,
+			&resp.UserLiked,
+		)
+		if err != nil {
+			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan server post by author row", zap.Error(err))
+			return nil, err
+		}
+
+		resp.Author.Status = model.AuthorStatusActive
+		resp.IsOwner = resp.Author.UserId == requesterId
+
+		if resp.ImageUrl != nil {
+			*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
+		}
+		if resp.Author.AvatarUrl != nil {
+			*resp.Author.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarUrl)
+		}
+
+		posts = append(posts, resp)
+	}
+
+	return posts, nil
+}
+
 func (repository *PostRepository) GetPostServerId(ctx context.Context, postId string) (string, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetPostServerId")

@@ -21,6 +21,7 @@ import (
 
 type NotificationUsecase struct {
 	NotificationRepository *repository.NotificationRepository
+	ServerRepository       *repository.ServerRepository
 	FCMClient              *messaging.Client
 	DB                     *pgxpool.Pool
 	Log                    *zap.Logger
@@ -29,6 +30,7 @@ type NotificationUsecase struct {
 
 func NewNotificationUsecase(
 	notificationRepository *repository.NotificationRepository,
+	serverRepository *repository.ServerRepository,
 	fcmClient *messaging.Client,
 	db *pgxpool.Pool,
 	log *zap.Logger,
@@ -36,6 +38,7 @@ func NewNotificationUsecase(
 ) *NotificationUsecase {
 	return &NotificationUsecase{
 		NotificationRepository: notificationRepository,
+		ServerRepository:       serverRepository,
 		FCMClient:              fcmClient,
 		DB:                     db,
 		Log:                    log,
@@ -384,7 +387,7 @@ func pushEnabledForType(prefs model.NotificationPrefs, notifType string) bool {
 	}
 }
 
-func (usecase *NotificationUsecase) GetFeed(ctx context.Context, userId string, cursorStr string, limit int) (model.NotificationListResponse, error) {
+func (usecase *NotificationUsecase) GetFeed(ctx context.Context, userId string, serverId string, cursorStr string, limit int) (model.NotificationListResponse, error) {
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName + "-usecase").Start(ctx, "usecase.GetNotificationFeed")
 	var err error
@@ -395,7 +398,23 @@ func (usecase *NotificationUsecase) GetFeed(ctx context.Context, userId string, 
 		span.End()
 	}()
 
-	span.SetAttributes(attribute.String("user.id", userId))
+	span.SetAttributes(attribute.String("user.id", userId), attribute.String("server.id", serverId))
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	if err = v.Validate(); err != nil {
+		return model.NotificationListResponse{}, err
+	}
+
+	var memberCount int
+	memberCount, err = usecase.ServerRepository.CheckServerMember(ctx, serverId, userId)
+	if err != nil {
+		return model.NotificationListResponse{}, err
+	}
+	if memberCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not a member of this server", Param: "serverId"}
+		return model.NotificationListResponse{}, err
+	}
 
 	if limit <= 0 {
 		limit = constant.DEFAULT_LIMIT
@@ -422,7 +441,7 @@ func (usecase *NotificationUsecase) GetFeed(ctx context.Context, userId string, 
 	// Fetch limit+1: if we get more than limit, there is a next page. Encode the cursor here
 	// (usecase), not in the repo — matches GetServerPosts.
 	var items []model.NotificationResponse
-	items, err = usecase.NotificationRepository.ListByRecipient(ctx, userId, cursor, limit+1, minioFullUrl)
+	items, err = usecase.NotificationRepository.ListByRecipient(ctx, userId, serverId, cursor, limit+1, minioFullUrl)
 	if err != nil {
 		return model.NotificationListResponse{}, err
 	}
@@ -442,7 +461,7 @@ func (usecase *NotificationUsecase) GetFeed(ctx context.Context, userId string, 
 	return response, nil
 }
 
-func (usecase *NotificationUsecase) MarkRead(ctx context.Context, userId string, notifId string) error {
+func (usecase *NotificationUsecase) MarkRead(ctx context.Context, userId string, serverId string, notifId string) error {
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName + "-usecase").Start(ctx, "usecase.MarkNotificationRead")
 	var err error
@@ -455,21 +474,33 @@ func (usecase *NotificationUsecase) MarkRead(ctx context.Context, userId string,
 
 	span.SetAttributes(
 		attribute.String("user.id", userId),
+		attribute.String("server.id", serverId),
 		attribute.String("notification.id", notifId),
 	)
 
 	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
 	v.UUID("id", notifId)
 	if err = v.Validate(); err != nil {
 		return err
 	}
 
+	var memberCount int
+	memberCount, err = usecase.ServerRepository.CheckServerMember(ctx, serverId, userId)
+	if err != nil {
+		return err
+	}
+	if memberCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not a member of this server", Param: "serverId"}
+		return err
+	}
+
 	now := time.Now()
-	err = usecase.NotificationRepository.MarkRead(ctx, userId, notifId, now)
+	err = usecase.NotificationRepository.MarkRead(ctx, userId, serverId, notifId, now)
 	return err
 }
 
-func (usecase *NotificationUsecase) GetUnreadCount(ctx context.Context, userId string) (model.UnreadCountResponse, error) {
+func (usecase *NotificationUsecase) GetUnreadCount(ctx context.Context, userId string, serverId string) (model.UnreadCountResponse, error) {
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName + "-usecase").Start(ctx, "usecase.GetUnreadNotificationCount")
 	var err error
@@ -480,10 +511,26 @@ func (usecase *NotificationUsecase) GetUnreadCount(ctx context.Context, userId s
 		span.End()
 	}()
 
-	span.SetAttributes(attribute.String("user.id", userId))
+	span.SetAttributes(attribute.String("user.id", userId), attribute.String("server.id", serverId))
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	if err = v.Validate(); err != nil {
+		return model.UnreadCountResponse{}, err
+	}
+
+	var memberCount int
+	memberCount, err = usecase.ServerRepository.CheckServerMember(ctx, serverId, userId)
+	if err != nil {
+		return model.UnreadCountResponse{}, err
+	}
+	if memberCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not a member of this server", Param: "serverId"}
+		return model.UnreadCountResponse{}, err
+	}
 
 	var count int
-	count, err = usecase.NotificationRepository.CountUnread(ctx, userId)
+	count, err = usecase.NotificationRepository.CountUnread(ctx, userId, serverId)
 	if err != nil {
 		return model.UnreadCountResponse{}, err
 	}

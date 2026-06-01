@@ -95,3 +95,65 @@ func TestPostsByUserGet_Unauthorized(t *testing.T) {
 	require.NotEqual(t, 200, resp.StatusCode, "unauthenticated request must not succeed")
 	setup.LogTestPass(t, "TestPostsByUserGet_Unauthorized")
 }
+
+// TestPostsByUserGet_UserLikedReflectsRequester verifies userLiked reflects the
+// viewer (requester), not the post author — the reason this endpoint uses a
+// dedicated query instead of reusing GetServerPostForMe.
+func TestPostsByUserGet_UserLikedReflectsRequester(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+	t.Parallel()
+
+	setup.LogTestStart(t, "TestPostsByUserGet_UserLikedReflectsRequester")
+	app, db, _, _ := setup.SetupParallelTest(t)
+	defer db.Close()
+
+	infra := setup.GetGlobalInfra()
+	ownerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "pbulike-owner@example.com", "password123")
+	serverID := setup.CreateTestServer(t, app, infra.RedisURL, ownerToken, "Posts Like Server", "pbulike", 1, false)
+	ownerID := setup.GetUserId(t, app, ownerToken)
+
+	// Owner publishes a post.
+	imageData := setup.CreateTestWebPImage(t)
+	body, contentType := setup.CreateMultipartFormData(t, "image", "test.webp", imageData, map[string]string{
+		"caption": "Likeable",
+	})
+	req := setup.CreateAuthMultipartRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/posts", serverID), body, contentType, ownerToken)
+	resp, err := setup.AppTest(t, app, req)
+	require.NoError(t, err, "create post should succeed")
+	setup.RequireStatus(t, resp, 200)
+
+	// Viewer joins and views the owner's posts to grab the post id (userLiked false).
+	viewerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "pbulike-viewer@example.com", "password123")
+	setup.JoinTestServer(t, app, viewerToken, serverID, "Viewer", "viewerx", "")
+
+	req = setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/members/%s/posts", serverID, ownerID), nil, viewerToken)
+	resp, err = setup.AppTest(t, app, req)
+	require.NoError(t, err)
+	setup.RequireStatus(t, resp, 200)
+	result := setup.ParseJSONResponse(t, resp)
+	data, ok := result["data"].([]interface{})
+	require.True(t, ok, "data should be an array")
+	require.GreaterOrEqual(t, len(data), 1, "viewer should see the owner's post")
+	first := data[0].(map[string]interface{})
+	postID := first["id"].(string)
+	require.Equal(t, false, first["userLiked"], "viewer has not liked yet")
+
+	// Viewer likes the post.
+	likeReq := setup.CreateAuthRequest(http.MethodPost, fmt.Sprintf("/api/posts/%s/likes", postID), nil, viewerToken)
+	resp, err = setup.AppTest(t, app, likeReq)
+	require.NoError(t, err, "like should succeed")
+	setup.RequireStatus(t, resp, 200)
+
+	// Re-fetch: userLiked now reflects the VIEWER (requester), not the author.
+	req = setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/members/%s/posts", serverID, ownerID), nil, viewerToken)
+	resp, err = setup.AppTest(t, app, req)
+	require.NoError(t, err)
+	setup.RequireStatus(t, resp, 200)
+	result = setup.ParseJSONResponse(t, resp)
+	data = result["data"].([]interface{})
+	first = data[0].(map[string]interface{})
+	require.Equal(t, true, first["userLiked"], "userLiked should reflect the requester who liked it")
+	setup.LogTestPass(t, "TestPostsByUserGet_UserLikedReflectsRequester")
+}

@@ -363,15 +363,9 @@ func (usecase *PostUsecase) GetServerPostsByUserId(ctx fiber.Ctx, requesterUserI
 
 	minioFullUrl := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
 
-	posts, err := usecase.PostRepository.GetServerPostForMe(ctxContext, limit+1, serverId, targetUserId, &cursor, minioFullUrl)
+	posts, err := usecase.PostRepository.GetServerPostsByAuthor(ctxContext, limit+1, serverId, targetUserId, requesterUserId, &cursor, minioFullUrl)
 	if err != nil {
 		return model.ServerPostListResponse{}, err
-	}
-
-	// Ownership is relative to the requester, not the post author.
-	isOwner := requesterUserId == targetUserId
-	for i := range posts {
-		posts[i].IsOwner = isOwner
 	}
 
 	response := model.ServerPostListResponse{Data: []model.ServerPostResponse{}}
