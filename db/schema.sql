@@ -68,3 +68,16 @@ CREATE INDEX "idx_server_post_comments_pk_02" ON "public"."server_post_comments"
 CREATE TABLE "public"."server_post_likes" ("id" uuid NOT NULL, "post_id" uuid NOT NULL, "user_id" uuid NOT NULL, "created_at" timestamptz NOT NULL, "updated_at" timestamptz NOT NULL, "created_by" uuid NOT NULL, "updated_by" uuid NOT NULL, PRIMARY KEY ("id"), CONSTRAINT "server_post_likes_post_id_fkey" FOREIGN KEY ("post_id") REFERENCES "public"."server_posts" ("id") ON UPDATE NO ACTION ON DELETE CASCADE, CONSTRAINT "server_post_likes_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users" ("id") ON UPDATE NO ACTION ON DELETE CASCADE);
 -- Create index "idx_server_post_likes_uk_01" to table: "server_post_likes"
 CREATE UNIQUE INDEX "idx_server_post_likes_uk_01" ON "public"."server_post_likes" ("post_id", "user_id");
+-- Create "device_tokens" table
+CREATE TABLE IF NOT EXISTS device_tokens (
+    id           uuid PRIMARY KEY,
+    user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token        text NOT NULL,
+    platform     varchar(10) NOT NULL,
+    created_at   timestamptz NOT NULL,
+    updated_at   timestamptz NOT NULL,
+    created_by   uuid NOT NULL,
+    updated_by   uuid NOT NULL
+);
+CREATE UNIQUE INDEX idx_device_tokens_uk_01 ON device_tokens(token);
+CREATE INDEX        idx_device_tokens_pk_01 ON device_tokens(user_id);

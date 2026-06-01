@@ -1,6 +1,7 @@
 package config
 
 import (
+	"firebase.google.com/go/v4/messaging"
 	http "github.com/ferdian3456/virdanproject/internal/delivery/http"
 	"github.com/ferdian3456/virdanproject/internal/delivery/http/middleware"
 	"github.com/ferdian3456/virdanproject/internal/delivery/http/route"
@@ -22,6 +23,7 @@ type ServerConfig struct {
 	Log     *zap.Logger
 	Config  *koanf.Koanf
 	MinIO   *minio.Client
+	FCM     *messaging.Client
 }
 
 func Server(config *ServerConfig) {
@@ -41,18 +43,23 @@ func Server(config *ServerConfig) {
 	profileUsecase := usecase.NewProfileUsecase(profileRepository, serverRepository, config.DB, config.Log, config.Config)
 	profileController := http.NewProfileController(profileUsecase, config.Log, config.Config)
 
+	notificationRepository := repository.NewNotificationRepository(config.Log, config.Config, config.DB)
+	notificationUsecase := usecase.NewNotificationUsecase(notificationRepository, config.FCM, config.DB, config.Log, config.Config)
+	notificationController := http.NewNotificationController(notificationUsecase, config.Log, config.Config)
+
 	authMiddleware := middleware.NewAuthMiddleware(config.Config, config.Log, userUsecase)
 
 	routeConfig := route.RouteConfig{
-		App:               config.Router,
-		UserController:    userController,
-		ServerController:  serverController,
-		PostController:    postController,
-		ProfileController: profileController,
-		AuthMiddleware:    authMiddleware,
-		DB:                config.DB,
-		DBCache:           config.DBCache,
-		MinIO:             config.MinIO,
+		App:                    config.Router,
+		UserController:         userController,
+		ServerController:       serverController,
+		PostController:         postController,
+		ProfileController:      profileController,
+		NotificationController: notificationController,
+		AuthMiddleware:         authMiddleware,
+		DB:                     config.DB,
+		DBCache:                config.DBCache,
+		MinIO:                  config.MinIO,
 	}
 
 	routeConfig.SetupRoute()

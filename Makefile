@@ -10,7 +10,7 @@ migrate-diff:
 
 .PHONY: migrate-apply
 migrate-apply:
-	@atlas migrate apply --env $(ATLAS_ENV)
+	@atlas migrate apply --env $(ATLAS_ENV) --url "$(POSTGRES_URL)"
 
 .PHONY: migrate-lint
 migrate-lint:

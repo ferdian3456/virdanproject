@@ -11,15 +11,16 @@ import (
 )
 
 type RouteConfig struct {
-	App               *fiber.App
-	AuthMiddleware    *middleware.AuthMiddleware
-	UserController    *http.UserController
-	ServerController  *http.ServerController
-	PostController    *http.PostController
-	ProfileController *http.ProfileController
-	DB                *pgxpool.Pool
-	DBCache           *redis.Client
-	MinIO             *minio.Client
+	App                    *fiber.App
+	AuthMiddleware         *middleware.AuthMiddleware
+	UserController         *http.UserController
+	ServerController       *http.ServerController
+	PostController         *http.PostController
+	ProfileController      *http.ProfileController
+	NotificationController *http.NotificationController
+	DB                     *pgxpool.Pool
+	DBCache                *redis.Client
+	MinIO                  *minio.Client
 }
 
 func (c *RouteConfig) SetupRoute() {
@@ -136,4 +137,11 @@ func (c *RouteConfig) SetupRoute() {
 	postGroup.Post("/:postId/comments", c.PostController.CreateComment)
 	postGroup.Get("/:postId/comments", c.PostController.GetComments)
 	postGroup.Delete("/:postId/comments/:commentId", c.PostController.DeleteComment)
+
+	deviceGroup := api.Group("/devices", c.AuthMiddleware.ProtectedRoute())
+	deviceGroup.Post("/", c.NotificationController.RegisterDevice)
+	deviceGroup.Delete("/", c.NotificationController.UnregisterDevice)
+
+	notifGroup := api.Group("/notifications", c.AuthMiddleware.ProtectedRoute())
+	notifGroup.Post("/test-send", c.NotificationController.TestSend)
 }

@@ -63,6 +63,7 @@ func main() {
 	rds := config.NewRedisClient(initCtx, koanf, zap)
 	postgresql := config.NewPostgresqlPool(initCtx, koanf, zap)
 	minio := config.NewMinIO(initCtx, koanf, zap)
+	fcm := config.NewFCMClient(initCtx, koanf, zap)
 
 	initCancel() // init done, release init context
 
@@ -84,6 +85,7 @@ func main() {
 		Log:     zap,
 		Config:  koanf,
 		MinIO:   minio,
+		FCM:     fcm,
 	})
 
 	GO_SERVER_PORT := koanf.String("GO_SERVER")
