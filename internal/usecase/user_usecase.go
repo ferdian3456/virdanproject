@@ -522,7 +522,7 @@ func (usecase *UserUsecase) VerifyPassword(ctx fiber.Ctx, payload model.UserVeri
 		Id:        userId,
 		Email:     sessionData["email"],
 		Password:  string(hashedPassword),
-		Settings:  []byte("{}"),
+		Settings:  []byte(constant.DEFAULT_USER_SETTINGS),
 		CreatedAt: now,
 		UpdatedAt: now,
 		CreatedBy: userId,
@@ -1251,4 +1251,32 @@ func (usecase *UserUsecase) ConfirmEmailChange(ctx fiber.Ctx, userId string, pay
 
 	_ = usecase.UserRepository.DeleteEmailChangeSession(ctxContext, userId)
 	return nil
+}
+
+// UpdateNotificationPreferences persists the per-type push toggles to users.settings, generating
+// updated_at here. Lives in UserUsecase (preferences are a user-domain concern, stored on the user
+// row), not NotificationUsecase.
+func (usecase *UserUsecase) UpdateNotificationPreferences(ctx fiber.Ctx, userId string, request model.UpdateNotificationPreferencesRequest) error {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.UpdateNotificationPreferences")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(attribute.String("user.id", userId))
+
+	prefs := model.NotificationPrefs{
+		NotifLike:    request.NotifLike,
+		NotifComment: request.NotifComment,
+		NotifReply:   request.NotifReply,
+	}
+
+	now := time.Now()
+	err = usecase.UserRepository.UpdateNotificationPrefs(ctxContext, userId, prefs, now)
+	return err
 }

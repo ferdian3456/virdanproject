@@ -19,20 +19,32 @@ import (
 )
 
 type PostUsecase struct {
-	PostRepository   *repository.PostRepository
-	ServerRepository *repository.ServerRepository
-	DB               *pgxpool.Pool
-	Log              *zap.Logger
-	Config           *koanf.Koanf
+	PostRepository      *repository.PostRepository
+	ServerRepository    *repository.ServerRepository
+	ProfileRepository   *repository.ProfileRepository
+	NotificationUsecase *NotificationUsecase
+	DB                  *pgxpool.Pool
+	Log                 *zap.Logger
+	Config              *koanf.Koanf
 }
 
-func NewPostUsecase(postRepository *repository.PostRepository, serverRepository *repository.ServerRepository, db *pgxpool.Pool, zap *zap.Logger, koanf *koanf.Koanf) *PostUsecase {
+func NewPostUsecase(
+	postRepository *repository.PostRepository,
+	serverRepository *repository.ServerRepository,
+	profileRepository *repository.ProfileRepository,
+	notificationUsecase *NotificationUsecase,
+	db *pgxpool.Pool,
+	zap *zap.Logger,
+	koanf *koanf.Koanf,
+) *PostUsecase {
 	return &PostUsecase{
-		PostRepository:   postRepository,
-		ServerRepository: serverRepository,
-		DB:               db,
-		Log:              zap,
-		Config:           koanf,
+		PostRepository:      postRepository,
+		ServerRepository:    serverRepository,
+		ProfileRepository:   profileRepository,
+		NotificationUsecase: notificationUsecase,
+		DB:                  db,
+		Log:                 zap,
+		Config:              koanf,
 	}
 }
 
@@ -499,9 +511,32 @@ func (usecase *PostUsecase) LikePost(ctx fiber.Ctx, postIdParam string, userId s
 		CreatedBy: userId,
 		UpdatedBy: userId,
 	}
-	err = usecase.PostRepository.CreatePostLikeIdempotent(ctxContext, postLike)
+	inserted, err := usecase.PostRepository.CreatePostLikeIdempotent(ctxContext, postLike)
 	if err != nil {
 		return model.PostLikeResponse{}, err
+	}
+
+	// Notify only on a NEW like (inserted=true) — repeated like/unlike/like must not re-notify.
+	// Notif is best-effort: any resolution error logs + is skipped, never fails the like.
+	if inserted {
+		postAuthorId, authorErr := usecase.PostRepository.GetPostAuthorId(ctxContext, postIdParam)
+		if authorErr != nil {
+			util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Warn("notif skipped: failed to resolve post author", zap.Error(authorErr))
+		} else if postAuthorId != userId { // self-notif guard
+			actorProfileId, found, profErr := usecase.ProfileRepository.TryGetServerMemberProfileIdNoTx(ctxContext, serverId, userId)
+			if profErr != nil || !found {
+				util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Warn("notif skipped: actor profile unresolved", zap.Error(profErr))
+			} else {
+				usecase.NotificationUsecase.Notify(ctxContext, []model.NotificationEvent{{
+					Type:            "like",
+					RecipientUserId: postAuthorId,
+					ActorUserId:     userId,
+					ActorProfileId:  actorProfileId,
+					ServerId:        serverId,
+					PostId:          postIdParam,
+				}})
+			}
+		}
 	}
 
 	likeCount, err := usecase.PostRepository.GetPostLikeCount(ctxContext, postIdParam)
@@ -640,6 +675,53 @@ func (usecase *PostUsecase) CreateComment(ctx fiber.Ctx, postIdParam string, use
 	err = usecase.PostRepository.CreateComment(ctxContext, comment)
 	if err != nil {
 		return model.ServerCommentResponse{}, err
+	}
+
+	// Notif is best-effort: resolution errors log + skip, never fail the comment (already saved).
+	// NoTx variant: trigger runs after the comment is persisted. found=false → empty id → FK
+	// violation, so skip the whole notif if the actor profile is unresolved.
+	actorProfileId, found, profErr := usecase.ProfileRepository.TryGetServerMemberProfileIdNoTx(ctxContext, serverId, userId)
+	if profErr != nil || !found {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Warn("notif skipped: actor profile unresolved", zap.Error(profErr))
+	} else {
+		// Slice (not single event) so Fase 2.5 can append mention events from the same comment.
+		var notifEvents []model.NotificationEvent
+		if payload.ParentId == nil {
+			// Top-level comment → notify the POST author. Self-notif guard below.
+			postAuthorId, authorErr := usecase.PostRepository.GetPostAuthorId(ctxContext, postIdParam)
+			if authorErr != nil {
+				util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Warn("notif skipped: failed to resolve post author", zap.Error(authorErr))
+			} else if postAuthorId != userId {
+				notifEvents = append(notifEvents, model.NotificationEvent{
+					Type:            "comment",
+					RecipientUserId: postAuthorId,
+					ActorUserId:     userId,
+					ActorProfileId:  actorProfileId,
+					ServerId:        serverId,
+					PostId:          postIdParam,
+				})
+			}
+		} else {
+			// Reply → notify the PARENT COMMENT author, NOT the post owner. Self-notif guard below.
+			parentAuthorId, parentErr := usecase.PostRepository.GetCommentAuthorId(ctxContext, *payload.ParentId)
+			if parentErr != nil {
+				util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Warn("notif skipped: failed to resolve parent comment author", zap.Error(parentErr))
+			} else if parentAuthorId != userId {
+				notifEvents = append(notifEvents, model.NotificationEvent{
+					Type:            "reply",
+					RecipientUserId: parentAuthorId,
+					ActorUserId:     userId,
+					ActorProfileId:  actorProfileId,
+					ServerId:        serverId,
+					PostId:          postIdParam,
+					CommentId:       &commentId,
+				})
+			}
+		}
+
+		if len(notifEvents) > 0 {
+			usecase.NotificationUsecase.Notify(ctxContext, notifEvents)
+		}
 	}
 
 	minioFullUrl := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))

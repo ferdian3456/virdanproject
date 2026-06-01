@@ -11,6 +11,7 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/model"
 	"github.com/ferdian3456/virdanproject/internal/util"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/knadh/koanf/v2"
 	"github.com/minio/minio-go/v7"
@@ -586,7 +587,10 @@ func (repository *PostRepository) GetPostLikeCount(ctx context.Context, postId s
 	return count, nil
 }
 
-func (repository *PostRepository) CreatePostLikeIdempotent(ctx context.Context, like model.ServerPostLike) error {
+// CreatePostLikeIdempotent inserts a like idempotently. Returns true when a row was actually
+// inserted, false on the ON CONFLICT no-op (a repeated like). The caller notifies only when true,
+// so like/unlike/like toggling never spams the post author.
+func (repository *PostRepository) CreatePostLikeIdempotent(ctx context.Context, like model.ServerPostLike) (bool, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CreatePostLikeIdempotent")
 	var err error
@@ -608,14 +612,81 @@ func (repository *PostRepository) CreatePostLikeIdempotent(ctx context.Context, 
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (post_id, user_id) DO NOTHING`
 
-	_, err = repository.DB.Exec(ctx, query, like.Id, like.PostId, like.UserId,
+	var tag pgconn.CommandTag
+	tag, err = repository.DB.Exec(ctx, query, like.Id, like.PostId, like.UserId,
 		like.CreatedAt, like.UpdatedAt, like.CreatedBy, like.UpdatedBy)
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to create post like", zap.Error(err))
-		return err
+		return false, err
 	}
 
-	return nil
+	return tag.RowsAffected() == 1, nil
+}
+
+// GetPostAuthorId returns a post's author — the notification recipient for a like or a top-level
+// comment.
+func (repository *PostRepository) GetPostAuthorId(ctx context.Context, postId string) (string, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetPostAuthorId")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("post.id", postId),
+	)
+
+	query := `SELECT author_id FROM server_posts WHERE id = $1 LIMIT 1`
+	var authorId string
+	err = repository.DB.QueryRow(ctx, query, postId).Scan(&authorId)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			err = &model.NotFoundError{Code: constant.ERR_NOT_FOUND_CODE, Message: "Post not found", Param: "postId"}
+			return "", err
+		}
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get post author_id", zap.Error(err))
+		return "", err
+	}
+	return authorId, nil
+}
+
+// GetCommentAuthorId returns a comment's author — the notification recipient for a reply (the
+// parent comment's author, not the post owner).
+func (repository *PostRepository) GetCommentAuthorId(ctx context.Context, commentId string) (string, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetCommentAuthorId")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("comment.id", commentId),
+	)
+
+	query := `SELECT author_id FROM server_post_comments WHERE id = $1 LIMIT 1`
+	var authorId string
+	err = repository.DB.QueryRow(ctx, query, commentId).Scan(&authorId)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			err = &model.NotFoundError{Code: constant.ERR_NOT_FOUND_CODE, Message: "Comment not found", Param: "commentId"}
+			return "", err
+		}
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get comment author_id", zap.Error(err))
+		return "", err
+	}
+	return authorId, nil
 }
 
 func (repository *PostRepository) DeletePostLike(ctx context.Context, postId string, userId string) error {

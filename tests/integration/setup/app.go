@@ -132,7 +132,12 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 	// will nil-panic when they try to write the snapshot row.
 	serverUsecase := usecase.NewServerUsecase(serverRepository, profileRepository, dbPool, zapLogger, testConfig)
 	userUsecase := usecase.NewUserUsecase(userRepository, serverRepository, dbPool, zapLogger, testConfig)
-	postUsecase := usecase.NewPostUsecase(postRepository, serverRepository, dbPool, zapLogger, testConfig)
+	// FCM client is nil in tests — push is never reached because test users register no device
+	// tokens, so Notify's `len(tokens) == 0` short-circuits before touching the client (and the
+	// goroutine recover() would catch it anyway). DB-side notif behaviour (rows inserted) is testable.
+	notificationRepository := repository.NewNotificationRepository(zapLogger, testConfig, dbPool)
+	notificationUsecase := usecase.NewNotificationUsecase(notificationRepository, nil, dbPool, zapLogger, testConfig)
+	postUsecase := usecase.NewPostUsecase(postRepository, serverRepository, profileRepository, notificationUsecase, dbPool, zapLogger, testConfig)
 	profileUsecase := usecase.NewProfileUsecase(profileRepository, serverRepository, dbPool, zapLogger, testConfig)
 
 	// 9. Setup controllers
@@ -140,6 +145,7 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 	userController := http.NewUserController(userUsecase, zapLogger, testConfig)
 	postController := http.NewPostController(postUsecase, zapLogger, testConfig)
 	profileController := http.NewProfileController(profileUsecase, zapLogger, testConfig)
+	notificationController := http.NewNotificationController(notificationUsecase, zapLogger, testConfig)
 
 	// 10. Setup middleware
 	authMiddleware := middleware.NewAuthMiddleware(testConfig, zapLogger, userUsecase)
@@ -163,15 +169,16 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 	// off RouteConfig and the profile endpoints need ProfileController, so
 	// every field RouteConfig declares must be wired here.
 	routeConfig := route.RouteConfig{
-		App:               fiberApp,
-		UserController:    userController,
-		ServerController:  serverController,
-		PostController:    postController,
-		ProfileController: profileController,
-		AuthMiddleware:    authMiddleware,
-		DB:                dbPool,
-		DBCache:           redisClient,
-		MinIO:             minioClient,
+		App:                    fiberApp,
+		UserController:         userController,
+		ServerController:       serverController,
+		PostController:         postController,
+		ProfileController:      profileController,
+		NotificationController: notificationController,
+		AuthMiddleware:         authMiddleware,
+		DB:                     dbPool,
+		DBCache:                redisClient,
+		MinIO:                  minioClient,
 	}
 
 	routeConfig.SetupRoute()

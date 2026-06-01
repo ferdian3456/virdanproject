@@ -11,15 +11,16 @@ import (
 )
 
 type RouteConfig struct {
-	App               *fiber.App
-	AuthMiddleware    *middleware.AuthMiddleware
-	UserController    *http.UserController
-	ServerController  *http.ServerController
-	PostController    *http.PostController
-	ProfileController *http.ProfileController
-	DB                *pgxpool.Pool
-	DBCache           *redis.Client
-	MinIO             *minio.Client
+	App                    *fiber.App
+	AuthMiddleware         *middleware.AuthMiddleware
+	UserController         *http.UserController
+	ServerController       *http.ServerController
+	PostController         *http.PostController
+	ProfileController      *http.ProfileController
+	NotificationController *http.NotificationController
+	DB                     *pgxpool.Pool
+	DBCache                *redis.Client
+	MinIO                  *minio.Client
 }
 
 func (c *RouteConfig) SetupRoute() {
@@ -84,6 +85,7 @@ func (c *RouteConfig) SetupRoute() {
 	userGroup.Put("/password", c.UserController.ChangePassword)
 	userGroup.Post("/email/change/request", c.UserController.RequestEmailChange)
 	userGroup.Post("/email/change/confirm", c.UserController.ConfirmEmailChange)
+	userGroup.Put("/me/notification-preferences", c.UserController.UpdateNotificationPreferences)
 
 	// Public server routes (NO AUTH) - must be defined BEFORE protected routes
 	// to ensure Fiber matches these routes first
@@ -136,4 +138,15 @@ func (c *RouteConfig) SetupRoute() {
 	postGroup.Post("/:postId/comments", c.PostController.CreateComment)
 	postGroup.Get("/:postId/comments", c.PostController.GetComments)
 	postGroup.Delete("/:postId/comments/:commentId", c.PostController.DeleteComment)
+
+	deviceGroup := api.Group("/devices", c.AuthMiddleware.ProtectedRoute())
+	deviceGroup.Post("/", c.NotificationController.RegisterDevice)
+	deviceGroup.Delete("/", c.NotificationController.UnregisterDevice)
+
+	notifGroup := api.Group("/notifications", c.AuthMiddleware.ProtectedRoute())
+	// unread-count BEFORE /:id/read so Fiber doesn't match "unread-count" as :id
+	notifGroup.Get("/unread-count", c.NotificationController.GetUnreadCount)
+	notifGroup.Get("/", c.NotificationController.GetFeed)
+	notifGroup.Post("/test-send", c.NotificationController.TestSend)
+	notifGroup.Post("/:id/read", c.NotificationController.MarkRead)
 }

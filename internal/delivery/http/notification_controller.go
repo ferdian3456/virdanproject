@@ -1,0 +1,252 @@
+package http
+
+import (
+	"strconv"
+
+	"github.com/ferdian3456/virdanproject/internal/model"
+	"github.com/ferdian3456/virdanproject/internal/usecase"
+	"github.com/ferdian3456/virdanproject/internal/util"
+	"github.com/gofiber/fiber/v3"
+	"github.com/knadh/koanf/v2"
+	"go.opentelemetry.io/otel"
+	"go.uber.org/zap"
+)
+
+type NotificationController struct {
+	NotificationUsecase *usecase.NotificationUsecase
+	Log                 *zap.Logger
+	Config              *koanf.Koanf
+}
+
+func NewNotificationController(notificationUsecase *usecase.NotificationUsecase, log *zap.Logger, config *koanf.Koanf) *NotificationController {
+	return &NotificationController{
+		NotificationUsecase: notificationUsecase,
+		Log:                 log,
+		Config:              config,
+	}
+}
+
+// RegisterDevice godoc
+// @Summary      Register device token for push notifications
+// @Description.markdown register_device
+// @Tags         notifications
+// @Accept       json
+// @Produce      json
+// @Param        Authorization  header    string                          true  "Bearer access token"
+// @Param        body           body      model.DeviceTokenRegisterRequest true  "Device token payload"
+// @Success      200            {object}  map[string]string
+// @Failure      400            {object}  model.BadRequestError
+// @Failure      401            {object}  model.UnauthorizedError
+// @Failure      500            {object}  model.BadRequestError
+// @Router       /devices [post]
+func (controller *NotificationController) RegisterDevice(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.RegisterDevice")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+
+	var request model.DeviceTokenRegisterRequest
+	if err = util.ReadRequestBody(ctx, &request); err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	if err = controller.NotificationUsecase.RegisterDevice(ctx, userId, request); err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseNoData(ctx)
+}
+
+// UnregisterDevice godoc
+// @Summary      Unregister device token (call on logout)
+// @Description.markdown unregister_device
+// @Tags         notifications
+// @Accept       json
+// @Produce      json
+// @Param        Authorization  header    string                          true  "Bearer access token"
+// @Param        body           body      model.DeviceTokenDeleteRequest  true  "Device token payload"
+// @Success      200            {object}  map[string]string
+// @Failure      400            {object}  model.BadRequestError
+// @Failure      401            {object}  model.UnauthorizedError
+// @Failure      500            {object}  model.BadRequestError
+// @Router       /devices [delete]
+func (controller *NotificationController) UnregisterDevice(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.UnregisterDevice")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+
+	var request model.DeviceTokenDeleteRequest
+	if err = util.ReadRequestBody(ctx, &request); err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	if err = controller.NotificationUsecase.UnregisterDevice(ctx, userId, request); err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseNoData(ctx)
+}
+
+// TestSend godoc
+// @Summary      Send test push notification to all registered devices
+// @Description.markdown test_send_notification
+// @Tags         notifications
+// @Produce      json
+// @Param        Authorization  header    string  true  "Bearer access token"
+// @Success      200            {object}  map[string]string
+// @Failure      401            {object}  model.UnauthorizedError
+// @Failure      404            {object}  model.NotFoundError
+// @Failure      500            {object}  model.BadRequestError
+// @Router       /notifications/test-send [post]
+func (controller *NotificationController) TestSend(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.TestSend")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+
+	if err = controller.NotificationUsecase.TestSend(ctx, userId); err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseNoData(ctx)
+}
+
+// GetFeed godoc
+// @Summary      Get notification feed
+// @Description.markdown get_notification_feed
+// @Tags         notifications
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        cursor query string false "Pagination cursor"
+// @Param        limit query int false "Items per page (default 10, max 20)"
+// @Success      200 {object} model.NotificationListResponse
+// @Failure      401 {object} model.UnauthorizedError
+// @Failure      500 {object} model.BadRequestError
+// @Router       /notifications [get]
+func (controller *NotificationController) GetFeed(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.GetNotificationFeed")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+	cursorStr := ctx.Query("cursor", "")
+	limitStr := ctx.Query("limit", "10")
+
+	limit := 10
+	if parsed, parseErr := strconv.Atoi(limitStr); parseErr == nil {
+		limit = parsed
+	}
+
+	var response model.NotificationListResponse
+	response, err = controller.NotificationUsecase.GetFeed(ctx, userId, cursorStr, limit)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseWithData(ctx, response)
+}
+
+// MarkRead godoc
+// @Summary      Mark notification as read
+// @Description.markdown mark_notification_read
+// @Tags         notifications
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        id path string true "Notification UUID"
+// @Success      200 {object} map[string]string
+// @Failure      400 {object} model.BadRequestError
+// @Failure      401 {object} model.UnauthorizedError
+// @Failure      500 {object} model.BadRequestError
+// @Router       /notifications/{id}/read [post]
+func (controller *NotificationController) MarkRead(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.MarkNotificationRead")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+	notifId := ctx.Params("id")
+
+	if err = controller.NotificationUsecase.MarkRead(ctx, userId, notifId); err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseNoData(ctx)
+}
+
+// GetUnreadCount godoc
+// @Summary      Get unread notification count
+// @Description.markdown get_unread_notification_count
+// @Tags         notifications
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Success      200 {object} model.UnreadCountResponse
+// @Failure      401 {object} model.UnauthorizedError
+// @Failure      500 {object} model.BadRequestError
+// @Router       /notifications/unread-count [get]
+func (controller *NotificationController) GetUnreadCount(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.GetUnreadNotificationCount")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+
+	var response model.UnreadCountResponse
+	response, err = controller.NotificationUsecase.GetUnreadCount(ctx, userId)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseWithData(ctx, response)
+}
