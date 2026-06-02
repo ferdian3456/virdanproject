@@ -41,6 +41,18 @@ definitions:
       param:
         type: string
     type: object
+  model.DeviceTokenDeleteRequest:
+    properties:
+      token:
+        type: string
+    type: object
+  model.DeviceTokenRegisterRequest:
+    properties:
+      platform:
+        type: string
+      token:
+        type: string
+    type: object
   model.DiscoveryServerResponse:
     properties:
       data:
@@ -100,6 +112,36 @@ definitions:
       param:
         type: string
     type: object
+  model.NotificationListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.NotificationResponse'
+        type: array
+      page:
+        $ref: '#/definitions/model.Page'
+    type: object
+  model.NotificationResponse:
+    properties:
+      actorAvatarUrl:
+        type: string
+      actorUsername:
+        type: string
+      commentId:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      postId:
+        type: string
+      readAt:
+        type: string
+      serverId:
+        type: string
+      type:
+        type: string
+    type: object
   model.Page:
     properties:
       nextCursor:
@@ -112,6 +154,13 @@ definitions:
       postId:
         type: string
       userLiked:
+        type: boolean
+    type: object
+  model.PostSaveResponse:
+    properties:
+      postId:
+        type: string
+      userSaved:
         type: boolean
     type: object
   model.RefreshTokenRefreshRequest:
@@ -331,11 +380,15 @@ definitions:
         type: boolean
       likeCount:
         type: integer
+      savedAt:
+        type: string
       serverId:
         type: string
       updatedAt:
         type: string
       userLiked:
+        type: boolean
+      userSaved:
         type: boolean
     type: object
   model.ServerPostUpdateCaptionRequest:
@@ -435,6 +488,20 @@ definitions:
         type: string
       param:
         type: string
+    type: object
+  model.UnreadCountResponse:
+    properties:
+      count:
+        type: integer
+    type: object
+  model.UpdateNotificationPreferencesRequest:
+    properties:
+      notifComment:
+        type: boolean
+      notifLike:
+        type: boolean
+      notifReply:
+        type: boolean
     type: object
   model.UserChangeEmailConfirmRequest:
     properties:
@@ -1589,6 +1656,366 @@ paths:
       summary: Start signup process
       tags:
       - auth
+  /devices:
+    delete:
+      consumes:
+      - application/json
+      description: |
+        ## Overview
+
+        API ini digunakan untuk menghapus FCM device token saat user logout. Token dihapus dari tabel `device_tokens` sehingga device tidak lagi menerima push notification setelah logout. Token yang dihapus harus milik user yang sedang login (scoped ke owner).
+
+        ---
+
+        ## Auth
+
+        API ini adalah api protected jadi perlu authorization header `Bearer <accessToken>`.
+
+        ---
+
+        ## Flow
+
+        ```mermaid
+        sequenceDiagram
+            actor Client
+            participant BE
+            participant Postgres
+
+            Client->>BE: DELETE /api/devices (json)
+            BE->>BE: Middleware extract userId
+            BE->>BE: Validasi token (required)
+            alt Token invalid
+                BE-->>Client: 400 token is required
+            end
+            BE->>Postgres: DELETE FROM device_tokens WHERE user_id = $1 AND token = $2
+            BE-->>Client: 200 {"status": "OK"}
+        ```
+
+        ---
+
+        ## Notes Postgres/DB
+
+        | Tabel           | Kolom              | Aksi   | Keterangan                                       |
+        | --------------- | ------------------ | ------ | ------------------------------------------------ |
+        | `device_tokens` | user_id, token     | DELETE | Hapus token spesifik milik user (scoped ke owner) |
+
+        ---
+
+        ## Validasi Request
+
+        Body JSON:
+
+        | Field   | Tipe   | Wajib | Aturan   |
+        | ------- | ------ | ----- | -------- |
+        | `token` | string | ya    | Required |
+
+        ---
+
+        ## Response
+
+        ### 200 OK
+
+        ```json
+        {
+          "status": "OK"
+        }
+        ```
+
+        Response 200 juga dikembalikan jika token tidak ditemukan (DELETE 0 rows) — ini intentional agar logout selalu sukses.
+
+        ### 400 Bad Request
+
+        | `error_message`     | Penyebab      |
+        | ------------------- | ------------- |
+        | `token is required` | Token kosong  |
+
+        ### 401 Unauthorized
+
+        Standard auth errors.
+
+        ---
+
+        ## Update
+
+        Dokumentasi ini diupdate tanggal 30 Mei 2026.
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Device token payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.DeviceTokenDeleteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.UnauthorizedError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+      summary: Unregister device token (call on logout)
+      tags:
+      - notifications
+    post:
+      consumes:
+      - application/json
+      description: |
+        ## Overview
+
+        API ini digunakan untuk mendaftarkan FCM device token setelah login atau signup selesai. Token disimpan di tabel `device_tokens` dan dipakai untuk mengirim push notification ke device user. Satu user hanya boleh punya 1 token aktif — token lama dihapus setiap kali register ulang.
+
+        ---
+
+        ## Auth
+
+        API ini adalah api protected jadi perlu authorization header `Bearer <accessToken>`.
+
+        ---
+
+        ## Flow
+
+        ```mermaid
+        sequenceDiagram
+            actor Client
+            participant BE
+            participant Postgres
+
+            Client->>BE: POST /api/devices (json)
+            BE->>BE: Middleware extract userId
+            BE->>BE: Validasi token (required, max 4096 chars)
+            alt Token invalid
+                BE-->>Client: 400 token is required
+            end
+            BE->>BE: Validasi platform (must be android or ios)
+            alt Platform invalid
+                BE-->>Client: 400 platform must be android or ios
+            end
+            BE->>Postgres: BEGIN
+            BE->>Postgres: DELETE FROM device_tokens WHERE user_id = $1
+            BE->>Postgres: INSERT INTO device_tokens ON CONFLICT (token) DO UPDATE
+            BE->>Postgres: COMMIT
+            BE-->>Client: 200 {"status": "OK"}
+        ```
+
+        ---
+
+        ## Notes Postgres/DB
+
+        | Tabel           | Kolom                                              | Aksi          | Keterangan                              |
+        | --------------- | -------------------------------------------------- | ------------- | --------------------------------------- |
+        | `device_tokens` | user_id                                            | DELETE        | Hapus semua token lama milik user       |
+        | `device_tokens` | id, user_id, token, platform, created_at, ...      | INSERT/UPSERT | Simpan token baru, reassign jika konflik |
+
+        ---
+
+        ## Validasi Request
+
+        Body JSON:
+
+        | Field      | Tipe   | Wajib | Aturan                          |
+        | ---------- | ------ | ----- | ------------------------------- |
+        | `token`    | string | ya    | Required, max 4096 karakter     |
+        | `platform` | string | ya    | Harus `android` atau `ios`      |
+
+        ---
+
+        ## Response
+
+        ### 200 OK
+
+        ```json
+        {
+          "status": "OK"
+        }
+        ```
+
+        ### 400 Bad Request
+
+        | `error_message`                    | Penyebab                        |
+        | ---------------------------------- | ------------------------------- |
+        | `token is required`                | Token kosong                    |
+        | `token must be at most 4096 characters` | Token terlalu panjang      |
+        | `platform must be android or ios`  | Platform tidak valid            |
+
+        ### 401 Unauthorized
+
+        Standard auth errors.
+
+        ---
+
+        ## Update
+
+        Dokumentasi ini diupdate tanggal 30 Mei 2026.
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Device token payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.DeviceTokenRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.UnauthorizedError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+      summary: Register device token for push notifications
+      tags:
+      - notifications
+  /notifications/test-send:
+    post:
+      description: |
+        ## Overview
+
+        API ini digunakan untuk mengirim test push notification ke semua device yang terdaftar milik user yang sedang login. Berguna untuk memverifikasi bahwa pipa FCM berjalan end-to-end. Token FCM yang sudah tidak valid (unregistered/invalid) dibersihkan otomatis setelah pengiriman.
+
+        ---
+
+        ## Auth
+
+        API ini adalah api protected jadi perlu authorization header `Bearer <accessToken>`.
+
+        ---
+
+        ## Flow
+
+        ```mermaid
+        sequenceDiagram
+            actor Client
+            participant BE
+            participant Postgres
+            participant FCM
+
+            Client->>BE: POST /api/notifications/test-send
+            BE->>BE: Middleware extract userId
+            BE->>Postgres: SELECT token FROM device_tokens WHERE user_id = $1
+            alt Tidak ada device terdaftar
+                BE-->>Client: 404 No device registered for this user
+            end
+            BE->>FCM: SendEachForMulticast (semua token user)
+            alt FCM error (network/server)
+                BE->>BE: Log error, lanjut (tidak return error ke client)
+            end
+            BE->>BE: Loop response, kumpulkan token Unregistered/InvalidArgument
+            alt Ada token invalid
+                BE->>Postgres: DELETE FROM device_tokens WHERE token = ANY($1)
+            end
+            BE-->>Client: 200 {"status": "OK"}
+        ```
+
+        ---
+
+        ## Notes Postgres/DB
+
+        | Tabel           | Kolom  | Aksi   | Keterangan                                         |
+        | --------------- | ------ | ------ | -------------------------------------------------- |
+        | `device_tokens` | token  | SELECT | Ambil semua token milik user                       |
+        | `device_tokens` | token  | DELETE | Hapus token invalid setelah FCM response (cleanup) |
+
+        ---
+
+        ## Notes FCM
+
+        - Menggunakan `SendEachForMulticast` — 1 HTTP call ke FCM untuk semua device user.
+        - Payload: `notification{Title:"Virdan", Body:"Test notification berhasil."}` + `data{type:"test"}`.
+        - Priority Android: `high`.
+        - Kegagalan FCM (network error, server error) tidak dikembalikan sebagai error ke client — hanya di-log.
+
+        ---
+
+        ## Response
+
+        ### 200 OK
+
+        ```json
+        {
+          "status": "OK"
+        }
+        ```
+
+        ### 404 Not Found
+
+        | `error_message`                        | Penyebab                          |
+        | -------------------------------------- | --------------------------------- |
+        | `No device registered for this user`   | User belum pernah register device |
+
+        ### 401 Unauthorized
+
+        Standard auth errors.
+
+        ---
+
+        ## Update
+
+        Dokumentasi ini diupdate tanggal 30 Mei 2026.
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.UnauthorizedError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.NotFoundError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+      summary: Send test push notification to all registered devices
+      tags:
+      - notifications
   /posts/{postId}:
     get:
       description: |
@@ -2597,6 +3024,332 @@ paths:
           schema:
             $ref: '#/definitions/model.BadRequestError'
       summary: Like a post
+      tags:
+      - post-interactions
+  /posts/{postId}/saves:
+    delete:
+      description: |
+        ## Overview
+
+        API ini digunakan untuk unsave (hapus bookmark) post dari daftar simpanan pribadi user. Kalau post belum pernah disimpan, return `404 Post belum disimpan`. Return `userSaved: false`.
+
+        ---
+
+        ## Auth
+
+        API ini adalah api protected jadi perlu authorization header `Bearer <accessToken>`.
+
+        ## Flow
+
+        ```mermaid
+        sequenceDiagram
+            actor Client
+            participant BE
+            participant Postgres
+
+            Client->>BE: DELETE /api/posts/(postId)/saves
+            BE->>BE: Middleware extract userId
+            BE->>BE: Validasi postId (UUID)
+            alt UUID invalid
+                BE-->>Client: 400 postId is not a valid UUID
+            end
+            BE->>Postgres: SELECT server_id FROM server_posts WHERE id = $1
+            alt Post tidak ada
+                BE-->>Client: 404 Post not found
+            end
+            BE->>Postgres: Cek server membership
+            alt Bukan member
+                BE-->>Client: 403 You are not a member of this server
+            end
+            BE->>Postgres: SELECT EXISTS save WHERE post_id, user_id
+            alt Belum disimpan
+                BE-->>Client: 404 Post belum disimpan
+            end
+            BE->>Postgres: DELETE FROM server_post_saves WHERE post_id, user_id
+            BE-->>Client: 200 {postId, userSaved: false}
+        ```
+
+        ---
+
+        ## Notes Redis
+
+        Tidak pakai Redis.
+
+        ---
+
+        ## Notes Postgres/DB
+
+        | Tabel                | Kolom                  | Aksi   | Keterangan                                          |
+        | -------------------- | ---------------------- | ------ | --------------------------------------------------- |
+        | `server_posts`       | server_id              | SELECT | Ambil server_id buat membership check                |
+        | `server_members`     | (count)                | SELECT | Cek membership                                      |
+        | `server_post_saves`  | (exists)               | SELECT | Cek apakah memang sudah disimpan                     |
+        | `server_post_saves`  | post_id, user_id       | DELETE | Hapus save                                          |
+
+        ---
+
+        ## Prerequisites
+
+        User adalah member server tempat post berada dan post sudah pernah disimpan.
+
+        ---
+
+        ## Validasi Request
+
+        Path parameter:
+
+        | Field    | Tipe   | Wajib | Aturan          |
+        | -------- | ------ | ----- | --------------- |
+        | `postId` | string | ya    | Required, UUID  |
+
+        Tidak ada body.
+
+        ---
+
+        ## Response
+
+        ### 200 OK
+
+        ```json
+        {
+          "postId": "post-uuid",
+          "userSaved": false
+        }
+        ```
+
+        | Field       | Tipe   | Deskripsi                                       |
+        | ----------- | ------ | ----------------------------------------------- |
+        | `postId`    | string | UUID post                                       |
+        | `userSaved` | bool   | Selalu `false` setelah endpoint ini sukses       |
+
+        ### 400 Bad Request
+
+        | `error_message`               | Penyebab     |
+        | ----------------------------- | ------------ |
+        | `postId is not a valid UUID`  | UUID invalid  |
+
+        ### 403 Forbidden
+
+        | `error_message`                          | Penyebab     |
+        | ---------------------------------------- | ------------ |
+        | `You are not a member of this server`    | Bukan member  |
+
+        ### 404 Not Found
+
+        | `error_message`        | Penyebab               |
+        | ---------------------- | ---------------------- |
+        | `Post not found`       | Post tidak ada          |
+        | `Post belum disimpan`  | Post belum pernah di-save |
+
+        ### 401 Unauthorized
+
+        Standard auth errors.
+
+        ---
+
+        ## Update
+
+        Dokumentasi ini diupdate tanggal 2 Juni 2026.
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Post UUID
+        in: path
+        name: postId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.PostSaveResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.NotFoundError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+      summary: Unsave (remove bookmark) a post
+      tags:
+      - post-interactions
+    post:
+      description: |
+        ## Overview
+
+        API ini digunakan untuk save (bookmark) post ke daftar simpanan pribadi user. Save bersifat privat, per-server, dan tidak mengirim notifikasi ke pemilik post. Kalau post sudah disimpan sebelumnya, return `409 Post sudah disimpan` (validasi eksplisit, bukan idempotent). Return `userSaved: true`.
+
+        ---
+
+        ## Auth
+
+        API ini adalah api protected jadi perlu authorization header `Bearer <accessToken>`.
+
+        ## Flow
+
+        ```mermaid
+        sequenceDiagram
+            actor Client
+            participant BE
+            participant Postgres
+
+            Client->>BE: POST /api/posts/(postId)/saves
+            BE->>BE: Middleware extract userId
+            BE->>BE: Validasi postId (UUID)
+            alt UUID invalid
+                BE-->>Client: 400 postId is not a valid UUID
+            end
+            BE->>Postgres: SELECT server_id FROM server_posts WHERE id = $1
+            alt Post tidak ada
+                BE-->>Client: 404 Post not found
+            end
+            BE->>Postgres: Cek server membership
+            alt Bukan member
+                BE-->>Client: 403 You are not a member of this server
+            end
+            BE->>Postgres: SELECT EXISTS save WHERE post_id, user_id
+            alt Sudah disimpan
+                BE-->>Client: 409 Post sudah disimpan
+            end
+            BE->>Postgres: INSERT INTO server_post_saves ...
+            BE-->>Client: 200 {postId, userSaved: true}
+        ```
+
+        ---
+
+        ## Notes Redis
+
+        Tidak pakai Redis.
+
+        ---
+
+        ## Notes Postgres/DB
+
+        | Tabel                | Kolom                                  | Aksi   | Keterangan                                          |
+        | -------------------- | -------------------------------------- | ------ | --------------------------------------------------- |
+        | `server_posts`       | server_id                              | SELECT | Ambil server_id buat membership check                |
+        | `server_members`     | (count)                                | SELECT | Cek membership                                      |
+        | `server_post_saves`  | (exists)                               | SELECT | Cek apakah sudah disimpan (tolak duplikat)           |
+        | `server_post_saves`  | id, post_id, user_id, created_at, ... | INSERT | Insert save baru. Unique index (post_id, user_id) sebagai jaring pengaman |
+
+        ---
+
+        ## Prerequisites
+
+        User adalah member server tempat post berada.
+
+        ---
+
+        ## Validasi Request
+
+        Path parameter:
+
+        | Field    | Tipe   | Wajib | Aturan          |
+        | -------- | ------ | ----- | --------------- |
+        | `postId` | string | ya    | Required, UUID  |
+
+        Tidak ada body.
+
+        ---
+
+        ## Response
+
+        ### 200 OK
+
+        ```json
+        {
+          "postId": "post-uuid",
+          "userSaved": true
+        }
+        ```
+
+        | Field       | Tipe   | Deskripsi                                       |
+        | ----------- | ------ | ----------------------------------------------- |
+        | `postId`    | string | UUID post                                       |
+        | `userSaved` | bool   | Selalu `true` setelah endpoint ini sukses        |
+
+        ### 400 Bad Request
+
+        | `error_message`               | Penyebab     |
+        | ----------------------------- | ------------ |
+        | `postId is not a valid UUID`  | UUID invalid  |
+
+        ### 403 Forbidden
+
+        | `error_message`                          | Penyebab     |
+        | ---------------------------------------- | ------------ |
+        | `You are not a member of this server`    | Bukan member  |
+
+        ### 404 Not Found
+
+        | `error_message`     | Penyebab            |
+        | ------------------- | ------------------- |
+        | `Post not found`    | Post tidak ada       |
+
+        ### 409 Conflict
+
+        | `error_message`        | Penyebab               |
+        | ---------------------- | ---------------------- |
+        | `Post sudah disimpan`  | Post sudah pernah di-save |
+
+        ### 401 Unauthorized
+
+        Standard auth errors.
+
+        ---
+
+        ## Update
+
+        Dokumentasi ini diupdate tanggal 2 Juni 2026.
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Post UUID
+        in: path
+        name: postId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.PostSaveResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/model.ConflictError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+      summary: Save (bookmark) a post
       tags:
       - post-interactions
   /profiles/history:
@@ -4526,6 +5279,335 @@ paths:
       summary: Join a public server
       tags:
       - servers
+  /servers/{serverId}/members/{userId}/posts:
+    get:
+      description: |
+        ## Overview
+
+        API ini digunakan untuk mengambil daftar post member lain di sebuah server (grid profil mereka). Sama seperti `get_server_post_for_me` tapi target user diambil dari path param, bukan dari token. Requester wajib member server. Pagination cursor-based.
+
+        ---
+
+        ## Auth
+
+        API ini adalah api protected jadi perlu authorization header `Bearer <accessToken>`.
+
+        ## Flow
+
+        ```mermaid
+        sequenceDiagram
+            actor Client
+            participant BE
+            participant Postgres
+
+            Client->>BE: GET /api/servers/(serverId)/members/(userId)/posts?limit=10&cursor=...
+            BE->>BE: Middleware extract requesterUserId
+            BE->>BE: Validasi serverId & userId (UUID), limit (0-20)
+            BE->>Postgres: Cek requester membership
+            alt Requester bukan member
+                BE-->>Client: 403 You are not a member of this server
+            end
+            BE->>BE: Decode cursor bila ada
+            alt Cursor invalid
+                BE-->>Client: 400 Invalid cursor
+            end
+            BE->>Postgres: SELECT posts WHERE server_id = $1 AND author_id = $2 (target) ORDER BY created_at DESC
+            BE->>BE: Set isOwner relatif ke requester; bila len > limit build nextCursor
+            BE-->>Client: 200 {data, page}
+        ```
+
+        ---
+
+        ## Notes Redis
+
+        Tidak pakai Redis.
+
+        ---
+
+        ## Notes Postgres/DB
+
+        | Tabel                    | Kolom                               | Aksi   | Keterangan                              |
+        | ------------------------ | ----------------------------------- | ------ | --------------------------------------- |
+        | `server_members`         | (count)                             | SELECT | Cek requester membership                |
+        | `server_posts`           | server_id, author_id                | SELECT | Filter post milik target di server tsb  |
+        | `server_post_images`     | object_key                          | SELECT | Build imageUrl                          |
+        | `server_post_likes`      | (count + EXISTS)                    | SELECT | likeCount + userLiked                   |
+        | `server_post_comments`   | (count)                             | SELECT | commentCount                            |
+        | `server_member_profiles` | nickname, username, avatar_image_id | SELECT | Author identity per server              |
+
+        ---
+
+        ## Prerequisites
+
+        Requester adalah member server.
+
+        ---
+
+        ## Validasi Request
+
+        Path parameter:
+
+        | Field      | Tipe   | Wajib | Aturan         |
+        | ---------- | ------ | ----- | -------------- |
+        | `serverId` | string | ya    | Required, UUID |
+        | `userId`   | string | ya    | Required, UUID |
+
+        Query parameters:
+
+        | Field    | Tipe   | Wajib | Aturan                                                |
+        | -------- | ------ | ----- | ----------------------------------------------------- |
+        | `limit`  | int    | tidak | 0-20, default 10                                      |
+        | `cursor` | string | tidak | Base64 JSON `{id, createdAt}` dari halaman sebelumnya |
+
+        ---
+
+        ## Response
+
+        ### 200 OK
+
+        Format sama dengan `get_server_posts`, hanya berisi post milik target user. Field `isOwner` bernilai `false` (kecuali requester melihat dirinya sendiri).
+
+        ```json
+        {
+          "data": [ /* ServerPostResponse */ ],
+          "page": {
+            "nextCursor": "base64-encoded"
+          }
+        }
+        ```
+
+        ### 400 Bad Request
+
+        | `error_message`                | Penyebab       |
+        | ------------------------------ | -------------- |
+        | `serverId is not a valid UUID` | UUID invalid   |
+        | `userId is not a valid UUID`   | UUID invalid   |
+        | `limit must be at most 20`     | Limit > 20     |
+        | `Invalid cursor`               | Cursor invalid |
+
+        ### 403 Forbidden
+
+        | `error_message`                       | Penyebab               |
+        | ------------------------------------- | ---------------------- |
+        | `You are not a member of this server` | Requester bukan member |
+
+        ### 401 Unauthorized
+
+        Standard auth errors.
+
+        ---
+
+        ## Update
+
+        Dokumentasi ini dibuat tanggal 1 Juni 2026.
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Target user UUID
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerPostListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+      summary: Get another member's posts in a server
+      tags:
+      - posts
+  /servers/{serverId}/members/{userId}/profile:
+    get:
+      description: |
+        ## Overview
+
+        API ini digunakan untuk melihat profil member lain di sebuah server (view-only). Profil bersifat per-server (multi-identity Opsi B), jadi yang dikembalikan adalah identitas target khusus di server tersebut. Requester wajib member server agar tidak bisa enumerasi roster server private.
+
+        ---
+
+        ## Auth
+
+        API ini adalah api protected jadi perlu authorization header `Bearer <accessToken>`.
+
+        ## Flow
+
+        ```mermaid
+        sequenceDiagram
+            actor Client
+            participant BE
+            participant Postgres
+
+            Client->>BE: GET /api/servers/(serverId)/members/(userId)/profile
+            BE->>BE: Middleware extract requesterUserId
+            BE->>BE: Validasi serverId & userId (UUID)
+            BE->>Postgres: Cek requester membership
+            alt Requester bukan member
+                BE-->>Client: 403 You are not a member of this server
+            end
+            BE->>Postgres: SELECT profil target di server_member_profiles (server_id, user_id)
+            alt Target tidak punya profil
+                BE-->>Client: 404 Profile not found in this server
+            end
+            BE-->>Client: 200 ServerMemberProfileResponse
+        ```
+
+        ---
+
+        ## Notes Redis
+
+        Tidak pakai Redis.
+
+        ---
+
+        ## Notes Postgres/DB
+
+        | Tabel                    | Kolom                                    | Aksi   | Keterangan                  |
+        | ------------------------ | ---------------------------------------- | ------ | --------------------------- |
+        | `server_members`         | (count)                                  | SELECT | Cek requester membership    |
+        | `server_member_profiles` | nickname, username, bio, avatar_image_id | SELECT | Profil target per server    |
+        | `profile_avatar_images`  | object_key                               | SELECT | Build avatarUrl             |
+
+        ---
+
+        ## Prerequisites
+
+        Requester adalah member server. Target user pernah/masih punya profil di server (snapshot copy-on-join tetap ada walau target sudah leave).
+
+        ---
+
+        ## Validasi Request
+
+        Path parameter:
+
+        | Field      | Tipe   | Wajib | Aturan         |
+        | ---------- | ------ | ----- | -------------- |
+        | `serverId` | string | ya    | Required, UUID |
+        | `userId`   | string | ya    | Required, UUID |
+
+        ---
+
+        ## Response
+
+        ### 200 OK
+
+        ```json
+        {
+          "profileId": "uuid",
+          "serverId": "uuid",
+          "nickname": "BudiPro",
+          "username": "budipro",
+          "bio": "Always grinding",
+          "avatarImageId": "uuid-or-null",
+          "avatarUrl": "https://...-or-null",
+          "createdAt": "2026-06-01T10:30:00Z",
+          "updatedAt": "2026-06-01T10:30:00Z"
+        }
+        ```
+
+        ### 400 Bad Request
+
+        | `error_message`                | Penyebab     |
+        | ------------------------------ | ------------ |
+        | `serverId is not a valid UUID` | UUID invalid |
+        | `userId is not a valid UUID`   | UUID invalid |
+
+        ### 403 Forbidden
+
+        | `error_message`                       | Penyebab              |
+        | ------------------------------------- | --------------------- |
+        | `You are not a member of this server` | Requester bukan member |
+
+        ### 404 Not Found
+
+        | `error_message`                      | Penyebab                              |
+        | ------------------------------------ | ------------------------------------- |
+        | `Profile not found in this server`   | Target tidak punya profil di server   |
+
+        ### 401 Unauthorized
+
+        Standard auth errors.
+
+        ---
+
+        ## Update
+
+        Dokumentasi ini dibuat tanggal 1 Juni 2026.
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Target user UUID
+        in: path
+        name: userId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerMemberProfileResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.UnauthorizedError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.NotFoundError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+      summary: Get another member's profile in a server
+      tags:
+      - profiles
   /servers/{serverId}/membership:
     delete:
       description: |
@@ -4675,6 +5757,396 @@ paths:
       summary: Leave a server
       tags:
       - servers
+  /servers/{serverId}/notifications:
+    get:
+      description: |
+        ## Overview
+
+        Mengambil feed notifikasi user untuk sebuah server (per-server, tidak global). Notifikasi adalah arsip interaksi (like/comment/reply) ke konten user. Cursor-based pagination. Requester wajib member server tersebut.
+
+        ---
+
+        ## Auth
+
+        API protected — perlu header `Bearer <accessToken>`.
+
+        ## Flow
+
+        ```mermaid
+        sequenceDiagram
+            actor Client
+            participant BE
+            participant Postgres
+
+            Client->>BE: GET /api/servers/(serverId)/notifications?limit=10&cursor=...
+            BE->>BE: Middleware extract userId
+            BE->>BE: Validasi serverId (UUID)
+            BE->>Postgres: Cek requester membership
+            alt Bukan member
+                BE-->>Client: 403 You are not a member of this server
+            end
+            BE->>BE: Decode cursor bila ada
+            BE->>Postgres: SELECT notifications WHERE recipient_user_id = $1 AND server_id = $2 ORDER BY created_at DESC, id DESC
+            BE->>BE: Bila len > limit, build nextCursor
+            BE-->>Client: 200 {data, page}
+        ```
+
+        ---
+
+        ## Notes Redis
+
+        Tidak pakai Redis.
+
+        ---
+
+        ## Notes Postgres/DB
+
+        | Tabel                    | Kolom                          | Aksi   | Keterangan                            |
+        | ------------------------ | ------------------------------ | ------ | ------------------------------------- |
+        | `server_members`         | (count)                        | SELECT | Cek requester membership              |
+        | `notifications`          | recipient_user_id, server_id   | SELECT | Filter notif user di server tsb       |
+        | `server_member_profiles` | username, avatar_image_id      | SELECT | Identitas actor per server            |
+        | `profile_avatar_images`  | object_key                     | SELECT | Build actorAvatarUrl                  |
+
+        ---
+
+        ## Prerequisites
+
+        Requester adalah member server.
+
+        ---
+
+        ## Validasi Request
+
+        | Field      | Tipe   | Wajib | Aturan          |
+        | ---------- | ------ | ----- | --------------- |
+        | `serverId` | string | ya    | Required, UUID  |
+        | `limit`    | int    | tidak | 0-20, default 10 |
+        | `cursor`   | string | tidak | Base64 `{createdAt, id}` |
+
+        ---
+
+        ## Response
+
+        ### 200 OK
+
+        ```json
+        {
+          "data": [ /* NotificationResponse */ ],
+          "page": { "nextCursor": "base64-or-empty" }
+        }
+        ```
+
+        ### 403 Forbidden
+
+        | `error_message`                       | Penyebab               |
+        | ------------------------------------- | ---------------------- |
+        | `You are not a member of this server` | Requester bukan member |
+
+        ### 401 Unauthorized
+
+        Standard auth errors.
+
+        ---
+
+        ## Update
+
+        Dokumentasi ini dibuat tanggal 1 Juni 2026 (notifikasi per-server).
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      - description: Items per page (default 10, max 20)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.NotificationListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.UnauthorizedError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+      summary: Get notification feed
+      tags:
+      - notifications
+  /servers/{serverId}/notifications/{id}/read:
+    post:
+      description: |
+        ## Overview
+
+        Menandai satu notifikasi sebagai sudah dibaca (read). Nested di bawah server (per-server). Requester wajib member, dan notifikasi harus milik requester di server tsb.
+
+        ---
+
+        ## Auth
+
+        API protected — perlu header `Bearer <accessToken>`.
+
+        ## Flow
+
+        ```mermaid
+        sequenceDiagram
+            actor Client
+            participant BE
+            participant Postgres
+
+            Client->>BE: POST /api/servers/(serverId)/notifications/(id)/read
+            BE->>BE: Middleware extract userId
+            BE->>BE: Validasi serverId & id (UUID)
+            BE->>Postgres: Cek requester membership
+            alt Bukan member
+                BE-->>Client: 403 You are not a member of this server
+            end
+            BE->>Postgres: UPDATE notifications SET read_at WHERE id = $1 AND recipient_user_id = $2 AND server_id = $6 AND read_at IS NULL
+            BE-->>Client: 200 {status: OK}
+        ```
+
+        ---
+
+        ## Notes Redis
+
+        Tidak pakai Redis.
+
+        ---
+
+        ## Notes Postgres/DB
+
+        | Tabel            | Kolom                                 | Aksi   | Keterangan                                         |
+        | ---------------- | ------------------------------------- | ------ | -------------------------------------------------- |
+        | `server_members` | (count)                               | SELECT | Cek requester membership                           |
+        | `notifications`  | id, recipient_user_id, server_id      | UPDATE | Set read_at; scoped recipient + server, guard NULL |
+
+        ---
+
+        ## Prerequisites
+
+        Requester adalah member server, notifikasi milik requester.
+
+        ---
+
+        ## Validasi Request
+
+        | Field      | Tipe   | Wajib | Aturan         |
+        | ---------- | ------ | ----- | -------------- |
+        | `serverId` | string | ya    | Required, UUID |
+        | `id`       | string | ya    | Required, UUID |
+
+        ---
+
+        ## Response
+
+        ### 200 OK
+
+        ```json
+        { "status": "OK" }
+        ```
+
+        ### 400 Bad Request
+
+        UUID invalid (serverId / id).
+
+        ### 403 Forbidden
+
+        | `error_message`                       | Penyebab               |
+        | ------------------------------------- | ---------------------- |
+        | `You are not a member of this server` | Requester bukan member |
+
+        ### 401 Unauthorized
+
+        Standard auth errors.
+
+        ---
+
+        ## Update
+
+        Dokumentasi ini dibuat tanggal 1 Juni 2026 (notifikasi per-server).
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Notification UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.UnauthorizedError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+      summary: Mark notification as read
+      tags:
+      - notifications
+  /servers/{serverId}/notifications/unread-count:
+    get:
+      description: |
+        ## Overview
+
+        Mengambil jumlah notifikasi belum dibaca (unread) untuk badge, per-server. Requester wajib member server.
+
+        ---
+
+        ## Auth
+
+        API protected — perlu header `Bearer <accessToken>`.
+
+        ## Flow
+
+        ```mermaid
+        sequenceDiagram
+            actor Client
+            participant BE
+            participant Postgres
+
+            Client->>BE: GET /api/servers/(serverId)/notifications/unread-count
+            BE->>BE: Middleware extract userId
+            BE->>BE: Validasi serverId (UUID)
+            BE->>Postgres: Cek requester membership
+            alt Bukan member
+                BE-->>Client: 403 You are not a member of this server
+            end
+            BE->>Postgres: SELECT COUNT(*) FROM notifications WHERE recipient_user_id = $1 AND server_id = $2 AND read_at IS NULL
+            BE-->>Client: 200 {count}
+        ```
+
+        ---
+
+        ## Notes Redis
+
+        Tidak pakai Redis.
+
+        ---
+
+        ## Notes Postgres/DB
+
+        | Tabel            | Kolom                        | Aksi   | Keterangan                         |
+        | ---------------- | ---------------------------- | ------ | ---------------------------------- |
+        | `server_members` | (count)                      | SELECT | Cek requester membership           |
+        | `notifications`  | recipient_user_id, server_id | SELECT | COUNT unread (read_at IS NULL)     |
+
+        ---
+
+        ## Prerequisites
+
+        Requester adalah member server.
+
+        ---
+
+        ## Validasi Request
+
+        | Field      | Tipe   | Wajib | Aturan         |
+        | ---------- | ------ | ----- | -------------- |
+        | `serverId` | string | ya    | Required, UUID |
+
+        ---
+
+        ## Response
+
+        ### 200 OK
+
+        ```json
+        { "count": 3 }
+        ```
+
+        ### 403 Forbidden
+
+        | `error_message`                       | Penyebab               |
+        | ------------------------------------- | ---------------------- |
+        | `You are not a member of this server` | Requester bukan member |
+
+        ### 401 Unauthorized
+
+        Standard auth errors.
+
+        ---
+
+        ## Update
+
+        Dokumentasi ini dibuat tanggal 1 Juni 2026 (notifikasi per-server).
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.UnreadCountResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.UnauthorizedError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+      summary: Get unread notification count
+      tags:
+      - notifications
   /servers/{serverId}/posts:
     get:
       description: |
@@ -5527,6 +6999,263 @@ paths:
           schema:
             $ref: '#/definitions/model.BadRequestError'
       summary: Get my posts in a server
+      tags:
+      - posts
+  /servers/{serverId}/posts/saved:
+    get:
+      description: |
+        ## Overview
+
+        API ini digunakan untuk mengambil daftar post yang sudah di-save user di dalam sebuah server (per-server, bukan cross-server). Hasil diurutkan dari yang paling baru disimpan (`server_post_saves.created_at DESC`). Cursor-based pagination. Post yang author-nya sudah leave/delete tetap tampil dengan `author.status` (`user_left`/`user_deleted`).
+
+        ---
+
+        ## Auth
+
+        API ini adalah api protected jadi perlu authorization header `Bearer <accessToken>`.
+
+        ## Flow
+
+        ```mermaid
+        sequenceDiagram
+            actor Client
+            participant BE
+            participant Postgres
+
+            Client->>BE: GET /api/servers/(serverId)/posts/saved?limit&cursor
+            BE->>BE: Middleware extract userId
+            BE->>BE: Validasi serverId (UUID) + limit
+            alt UUID/limit invalid
+                BE-->>Client: 400 Bad Request
+            end
+            BE->>Postgres: Cek server membership
+            alt Bukan member
+                BE-->>Client: 403 You are not a member of this server
+            end
+            BE->>BE: Decode cursor (kalau ada)
+            alt Cursor invalid
+                BE-->>Client: 400 Invalid cursor
+            end
+            BE->>Postgres: SELECT saved posts WHERE user_id, server_id ORDER BY saved_at DESC LIMIT n+1
+            BE-->>Client: 200 {data: [...], page: {nextCursor, limit}}
+        ```
+
+        ---
+
+        ## Notes Redis
+
+        Tidak pakai Redis.
+
+        ---
+
+        ## Notes Postgres/DB
+
+        | Tabel                     | Kolom                 | Aksi   | Keterangan                                          |
+        | ------------------------- | --------------------- | ------ | --------------------------------------------------- |
+        | `server_members`          | (count)               | SELECT | Cek membership requester                            |
+        | `server_post_saves`       | user_id, created_at   | SELECT | Sumber saved feed, urut waktu save desc, filter cursor |
+        | `server_posts`            | (join)                | SELECT | Data post + filter `server_id`                      |
+        | `users`                   | deleted_at            | SELECT | Status author (user_deleted)                        |
+        | `server_members`          | (left join author)    | SELECT | Status author (user_left)                           |
+        | `server_member_profiles`  | nickname, username    | SELECT | Identitas author per-server                         |
+        | `server_post_likes`       | (count + exists)      | SELECT | likeCount + userLiked                               |
+        | `server_post_comments`    | (count)               | SELECT | commentCount                                        |
+
+        ---
+
+        ## Prerequisites
+
+        User adalah member server yang diminta.
+
+        ---
+
+        ## Validasi Request
+
+        Path parameter:
+
+        | Field      | Tipe   | Wajib | Aturan          |
+        | ---------- | ------ | ----- | --------------- |
+        | `serverId` | string | ya    | Required, UUID  |
+
+        Query parameter:
+
+        | Field    | Tipe   | Wajib | Aturan                       |
+        | -------- | ------ | ----- | ---------------------------- |
+        | `limit`  | int    | tidak | 0..MAX_LIMIT (default)       |
+        | `cursor` | string | tidak | Cursor dari response sebelumnya |
+
+        ---
+
+        ## Response
+
+        ### 200 OK
+
+        ```json
+        {
+          "data": [
+            {
+              "id": "post-uuid",
+              "serverId": "server-uuid",
+              "caption": "Hello",
+              "imageUrl": "http://.../post/image/uuid.webp",
+              "author": {
+                "userId": "user-uuid",
+                "nickname": "GamerX",
+                "username": "gamerx",
+                "avatarUrl": null,
+                "status": "active"
+              },
+              "likeCount": 3,
+              "commentCount": 1,
+              "userLiked": false,
+              "userSaved": true,
+              "savedAt": "2026-06-02T07:00:00Z",
+              "isOwner": false,
+              "createdAt": "2026-05-20T10:00:00Z",
+              "updatedAt": "2026-05-20T10:00:00Z"
+            }
+          ],
+          "page": {
+            "nextCursor": "base64-cursor-or-null",
+            "limit": 10
+          }
+        }
+        ```
+
+        | Field        | Tipe        | Deskripsi                                          |
+        | ------------ | ----------- | -------------------------------------------------- |
+        | `userSaved`  | bool        | Selalu `true` di saved feed                        |
+        | `savedAt`    | string/null | Waktu post disimpan (`server_post_saves.created_at`), dasar urutan + cursor |
+        | `author.status` | string   | `active`, `user_left`, atau `user_deleted`         |
+
+        ### 400 Bad Request
+
+        | `error_message`                 | Penyebab          |
+        | ------------------------------- | ----------------- |
+        | `serverId is not a valid UUID`  | UUID invalid       |
+        | `Invalid cursor`                | Cursor rusak       |
+
+        ### 403 Forbidden
+
+        | `error_message`                          | Penyebab     |
+        | ---------------------------------------- | ------------ |
+        | `You are not a member of this server`    | Bukan member  |
+
+        ### 401 Unauthorized
+
+        Standard auth errors.
+
+        ---
+
+        ## Update
+
+        Dokumentasi ini diupdate tanggal 2 Juni 2026.
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerPostListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+      summary: Get saved posts in a server
+      tags:
+      - post-interactions
+  /servers/{serverId}/posts/search:
+    get:
+      description: |
+        # Search Server Posts
+
+        Mencari post di dalam satu server berdasarkan caption.
+
+        ## Alur
+
+        1. Validasi `serverId` (UUID) dan `limit` (0..20).
+        2. Validasi `q`: di-trim, panjang 2..100 karakter. Kurang dari 2 -> 400.
+        3. Cek membership: requester wajib member server (kalau bukan -> 403).
+        4. Decode cursor (kalau ada). Cursor invalid -> 400.
+        5. Query post di server tersebut dengan `caption ILIKE '%q%'`, urut `created_at DESC, id DESC`, cursor-paginated.
+        6. Kembalikan `data` + `page.nextCursor`.
+
+        ## Catatan
+
+        - Scope per active server saja (tidak lintas server).
+        - Hanya field caption yang dicari.
+        - Index `pg_trgm` (GIN) dipakai supaya ILIKE tidak seq-scan.
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Search query (matches caption, min 2 chars)
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerPostListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ForbiddenError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+      summary: Search posts in a server by caption
       tags:
       - posts
   /servers/{serverId}/profile:
@@ -6958,6 +8687,138 @@ paths:
           schema:
             $ref: '#/definitions/model.BadRequestError'
       summary: Get current user info
+      tags:
+      - users
+  /users/me/notification-preferences:
+    put:
+      consumes:
+      - application/json
+      description: |
+        ## Overview
+
+        API ini mengupdate preferensi notifikasi push milik user (per-type: like, comment, reply). Mengikuti model IG: row notifikasi tetap selalu dibuat (feed = arsip lengkap), preferensi ini HANYA menggerbang apakah push dikirim ke device, bukan keberadaan row di feed.
+
+        ---
+
+        ## Auth
+
+        API ini adalah api protected jadi perlu authorization header `Bearer <accessToken>`.
+
+        ## Flow
+
+        ```mermaid
+        sequenceDiagram
+            actor Client
+            participant BE
+            participant Postgres
+
+            Client->>BE: PUT /api/users/me/notification-preferences
+            BE->>BE: Middleware extract userId
+            BE->>BE: Parse body (notifLike, notifComment, notifReply)
+            alt Body invalid
+                BE-->>Client: 400 Bad Request
+            end
+            BE->>Postgres: UPDATE users.settings (notification prefs) WHERE id = userId
+            BE-->>Client: 200 {status: OK}
+        ```
+
+        ---
+
+        ## Notes Redis
+
+        Tidak pakai Redis.
+
+        ---
+
+        ## Notes Postgres/DB
+
+        | Tabel   | Kolom                          | Aksi   | Keterangan                                  |
+        | ------- | ------------------------------ | ------ | ------------------------------------------- |
+        | `users` | settings (notification prefs)  | UPDATE | Simpan toggle push per-type milik user      |
+
+        ---
+
+        ## Prerequisites
+
+        User sudah login (punya access token valid).
+
+        ---
+
+        ## Validasi Request
+
+        Body (JSON):
+
+        | Field          | Tipe | Wajib | Aturan          |
+        | -------------- | ---- | ----- | --------------- |
+        | `notifLike`    | bool | ya    | true/false       |
+        | `notifComment` | bool | ya    | true/false       |
+        | `notifReply`   | bool | ya    | true/false       |
+
+        ---
+
+        ## Response
+
+        ### 200 OK
+
+        ```json
+        {
+          "status": "OK"
+        }
+        ```
+
+        | Field    | Tipe   | Deskripsi              |
+        | -------- | ------ | ---------------------- |
+        | `status` | string | Selalu `OK` saat sukses |
+
+        ### 400 Bad Request
+
+        | `error_message`     | Penyebab        |
+        | ------------------- | --------------- |
+        | Body tidak valid    | Payload salah    |
+
+        ### 401 Unauthorized
+
+        Standard auth errors.
+
+        ---
+
+        ## Update
+
+        Dokumentasi ini diupdate tanggal 3 Juni 2026.
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateNotificationPreferencesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.UnauthorizedError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.BadRequestError'
+      summary: Update notification preferences
       tags:
       - users
   /users/password:
