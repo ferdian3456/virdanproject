@@ -248,7 +248,8 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId string, us
 			END AS author_status,
 			(SELECT COUNT(*) FROM server_post_likes WHERE post_id = sp.id) AS like_count,
 			(SELECT COUNT(*) FROM server_post_comments WHERE post_id = sp.id) AS comment_count,
-			EXISTS (SELECT 1 FROM server_post_likes l WHERE l.post_id = sp.id AND l.user_id = $2) AS user_liked
+			EXISTS (SELECT 1 FROM server_post_likes l WHERE l.post_id = sp.id AND l.user_id = $2) AS user_liked,
+			EXISTS (SELECT 1 FROM server_post_saves s WHERE s.post_id = sp.id AND s.user_id = $2) AS user_saved
 		FROM server_posts sp
 		INNER JOIN users u ON sp.author_id = u.id
 		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = sp.author_id
@@ -275,6 +276,7 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId string, us
 		&resp.LikeCount,
 		&resp.CommentCount,
 		&resp.UserLiked,
+		&resp.UserSaved,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -330,7 +332,8 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 			END AS author_status,
 			(SELECT COUNT(*) FROM server_post_likes WHERE post_id = sp.id) AS like_count,
 			(SELECT COUNT(*) FROM server_post_comments WHERE post_id = sp.id) AS comment_count,
-			EXISTS (SELECT 1 FROM server_post_likes l WHERE l.post_id = sp.id AND l.user_id = $2) AS user_liked
+			EXISTS (SELECT 1 FROM server_post_likes l WHERE l.post_id = sp.id AND l.user_id = $2) AS user_liked,
+			EXISTS (SELECT 1 FROM server_post_saves s WHERE s.post_id = sp.id AND s.user_id = $2) AS user_saved
 		FROM server_posts sp
 		INNER JOIN users u ON sp.author_id = u.id
 		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = sp.author_id
@@ -379,6 +382,7 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 			&resp.LikeCount,
 			&resp.CommentCount,
 			&resp.UserLiked,
+			&resp.UserSaved,
 		)
 		if err != nil {
 			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan server post row", zap.Error(err))
@@ -428,7 +432,8 @@ func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit 
 			pai.object_key,
 			(SELECT COUNT(*) FROM server_post_likes WHERE post_id = sp.id) AS like_count,
 			(SELECT COUNT(*) FROM server_post_comments WHERE post_id = sp.id) AS comment_count,
-			EXISTS (SELECT 1 FROM server_post_likes l WHERE l.post_id = sp.id AND l.user_id = $2) AS user_liked
+			EXISTS (SELECT 1 FROM server_post_likes l WHERE l.post_id = sp.id AND l.user_id = $2) AS user_liked,
+			EXISTS (SELECT 1 FROM server_post_saves s WHERE s.post_id = sp.id AND s.user_id = $2) AS user_saved
 		FROM server_posts sp
 		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = sp.author_id
 		LEFT JOIN server_post_images spi ON sp.post_image_id = spi.id
@@ -473,6 +478,7 @@ func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit 
 			&resp.LikeCount,
 			&resp.CommentCount,
 			&resp.UserLiked,
+			&resp.UserSaved,
 		)
 		if err != nil {
 			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan server post for me row", zap.Error(err))
@@ -527,7 +533,8 @@ func (repository *PostRepository) GetServerPostsByAuthor(ctx context.Context, li
 			pai.object_key,
 			(SELECT COUNT(*) FROM server_post_likes WHERE post_id = sp.id) AS like_count,
 			(SELECT COUNT(*) FROM server_post_comments WHERE post_id = sp.id) AS comment_count,
-			EXISTS (SELECT 1 FROM server_post_likes l WHERE l.post_id = sp.id AND l.user_id = $3) AS user_liked
+			EXISTS (SELECT 1 FROM server_post_likes l WHERE l.post_id = sp.id AND l.user_id = $3) AS user_liked,
+			EXISTS (SELECT 1 FROM server_post_saves s WHERE s.post_id = sp.id AND s.user_id = $3) AS user_saved
 		FROM server_posts sp
 		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = sp.author_id
 		LEFT JOIN server_post_images spi ON sp.post_image_id = spi.id
@@ -572,6 +579,7 @@ func (repository *PostRepository) GetServerPostsByAuthor(ctx context.Context, li
 			&resp.LikeCount,
 			&resp.CommentCount,
 			&resp.UserLiked,
+			&resp.UserSaved,
 		)
 		if err != nil {
 			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan server post by author row", zap.Error(err))
@@ -1093,4 +1101,207 @@ func (repository *PostRepository) DeleteCommentHard(ctx context.Context, comment
 	}
 
 	return nil
+}
+
+func (repository *PostRepository) CreatePostSave(ctx context.Context, save model.ServerPostSave) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CreatePostSave")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "INSERT"),
+		attribute.String("post.id", save.PostId),
+		attribute.String("user.id", save.UserId),
+	)
+
+	query := `INSERT INTO server_post_saves (id, post_id, user_id, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`
+
+	_, err = repository.DB.Exec(ctx, query, save.Id, save.PostId, save.UserId,
+		save.CreatedAt, save.UpdatedAt, save.CreatedBy, save.UpdatedBy)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to create post save", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (repository *PostRepository) CheckPostSave(ctx context.Context, postId string, userId string) (bool, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CheckPostSave")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("post.id", postId),
+		attribute.String("user.id", userId),
+	)
+
+	query := `SELECT EXISTS (SELECT 1 FROM server_post_saves WHERE post_id = $1 AND user_id = $2)`
+
+	var exists bool
+	err = repository.DB.QueryRow(ctx, query, postId, userId).Scan(&exists)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to check post save", zap.Error(err))
+		return false, err
+	}
+
+	return exists, nil
+}
+
+func (repository *PostRepository) DeletePostSave(ctx context.Context, postId string, userId string) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeletePostSave")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "DELETE"),
+		attribute.String("post.id", postId),
+		attribute.String("user.id", userId),
+	)
+
+	query := `DELETE FROM server_post_saves WHERE post_id = $1 AND user_id = $2`
+
+	_, err = repository.DB.Exec(ctx, query, postId, userId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete post save", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+// GetSavedPosts returns the viewer's saved posts within one server, newest-save-first.
+// Member-guard is enforced in the usecase before this runs. UserSaved is always true here;
+// SavedAt carries server_post_saves.created_at for cursor building.
+func (repository *PostRepository) GetSavedPosts(ctx context.Context, limit int, serverId, userId string, cursor *model.SavedPostCursor, minioFullUrl string) ([]model.ServerPostResponse, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetSavedPosts")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("server.id", serverId),
+		attribute.String("user.id", userId),
+	)
+
+	baseSelect := `
+		SELECT sp.id, sp.server_id, sp.caption, sp.author_id,
+			sp.created_at, sp.updated_at,
+			spi.object_key,
+			smp.nickname,
+			smp.username,
+			pai.object_key,
+			CASE
+				WHEN u.deleted_at IS NOT NULL THEN 'user_deleted'
+				WHEN sm_author.user_id IS NULL THEN 'user_left'
+				ELSE 'active'
+			END AS author_status,
+			(SELECT COUNT(*) FROM server_post_likes WHERE post_id = sp.id) AS like_count,
+			(SELECT COUNT(*) FROM server_post_comments WHERE post_id = sp.id) AS comment_count,
+			EXISTS (SELECT 1 FROM server_post_likes l WHERE l.post_id = sp.id AND l.user_id = $1) AS user_liked,
+			sps.created_at AS saved_at
+		FROM server_post_saves sps
+		INNER JOIN server_posts sp ON sp.id = sps.post_id
+		INNER JOIN users u ON sp.author_id = u.id
+		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = sp.author_id
+		LEFT JOIN server_members sm_author ON sm_author.server_id = sp.server_id AND sm_author.user_id = sp.author_id
+		LEFT JOIN server_post_images spi ON sp.post_image_id = spi.id
+		LEFT JOIN profile_avatar_images pai ON smp.avatar_image_id = pai.id`
+
+	var rows pgx.Rows
+	if cursor.PostId != "" && !cursor.SavedAt.IsZero() {
+		query := baseSelect + `
+		WHERE sps.user_id = $1 AND sp.server_id = $2
+		AND (sps.created_at < $3 OR (sps.created_at = $3 AND sps.post_id < $4))
+		ORDER BY sps.created_at DESC, sps.post_id DESC
+		LIMIT $5`
+		rows, err = repository.DB.Query(ctx, query, userId, serverId, cursor.SavedAt, cursor.PostId, limit)
+	} else {
+		query := baseSelect + `
+		WHERE sps.user_id = $1 AND sp.server_id = $2
+		ORDER BY sps.created_at DESC, sps.post_id DESC
+		LIMIT $3`
+		rows, err = repository.DB.Query(ctx, query, userId, serverId, limit)
+	}
+
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to query saved posts", zap.Error(err))
+		return nil, err
+	}
+	defer rows.Close()
+
+	posts := []model.ServerPostResponse{}
+	for rows.Next() {
+		var resp model.ServerPostResponse
+		var authorStatus string
+		var savedAt time.Time
+		err = rows.Scan(
+			&resp.Id,
+			&resp.ServerId,
+			&resp.Caption,
+			&resp.Author.UserId,
+			&resp.CreatedAt,
+			&resp.UpdatedAt,
+			&resp.ImageUrl,
+			&resp.Author.Nickname,
+			&resp.Author.Username,
+			&resp.Author.AvatarUrl,
+			&authorStatus,
+			&resp.LikeCount,
+			&resp.CommentCount,
+			&resp.UserLiked,
+			&savedAt,
+		)
+		if err != nil {
+			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan saved post row", zap.Error(err))
+			return nil, err
+		}
+
+		resp.Author.Status = model.AuthorStatus(authorStatus)
+		resp.IsOwner = resp.Author.UserId == userId
+		resp.UserSaved = true
+		savedAtCopy := savedAt
+		resp.SavedAt = &savedAtCopy
+
+		if resp.ImageUrl != nil {
+			*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
+		}
+		if resp.Author.AvatarUrl != nil {
+			*resp.Author.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarUrl)
+		}
+
+		posts = append(posts, resp)
+	}
+
+	return posts, nil
 }

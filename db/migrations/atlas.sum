@@ -1,4 +1,4 @@
-h1:0DqLWbAQjlNTA4W4vY2yjC3wK1jqj9FCibtow5tQ/G4=
+h1:o1LDDwf1AhGguPLxhvB08us1xKSEwtdSG8RaVNiN/UM=
 20260528000001_create_users_table.sql h1:YhiRViYy5+GYHIZrYtakNl+lpcXNM69L3rBafn9IhbY=
 20260528000002_create_refresh_tokens_table.sql h1:xhp5c8rfwokb3UGtN1gE/DeBr3OU2WYqt0/YV91bEuU=
 20260528000003_create_server_categories_table.sql h1:f8/r+J/bSHNUDKH023MXC0HLS8NTm6E0w3tkKkIjH3w=
@@ -19,3 +19,4 @@ h1:0DqLWbAQjlNTA4W4vY2yjC3wK1jqj9FCibtow5tQ/G4=
 20260530050300_create_device_tokens_table.sql h1:gKcmJKC9lETYYSadP9+Ttise4U9tayILUIMT4267A70=
 20260601023653_create_notifications_table.sql h1:0L6YzmYtQeW2n8o5VKSu5xPq8JV8jj9lFJnfjG5RKiE=
 20260601143331_notifications_server_scope_index.sql h1:qgmwx+l+NNgb+kB6VCJ8UO+ikxVEfP5hxV9JENd+V40=
+20260602143331_create_server_post_saves.sql h1:v0TSE29exyXnQwXaczbCHSXpUMPBlElMGX1KqkQtpbU=

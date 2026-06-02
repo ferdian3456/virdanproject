@@ -39,6 +39,8 @@ type ServerPostResponse struct {
 	LikeCount    int                   `json:"likeCount"`
 	CommentCount int                   `json:"commentCount"`
 	UserLiked    bool                  `json:"userLiked"`
+	UserSaved    bool                  `json:"userSaved"`
+	SavedAt      *time.Time            `json:"savedAt,omitempty"`
 	IsOwner      bool                  `json:"isOwner"`
 	CreatedAt    time.Time             `json:"createdAt"`
 	UpdatedAt    time.Time             `json:"updatedAt"`

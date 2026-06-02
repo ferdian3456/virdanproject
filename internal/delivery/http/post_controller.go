@@ -503,3 +503,118 @@ func (controller *PostController) DeleteComment(ctx fiber.Ctx) error {
 
 	return util.SendSuccessResponseNoData(ctx)
 }
+
+// SavePost godoc
+// @Summary      Save (bookmark) a post
+// @Description.markdown save_post
+// @Tags         post-interactions
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        postId path string true "Post UUID"
+// @Success      200   {object}  model.PostSaveResponse
+// @Failure      400   {object}  model.BadRequestError
+// @Failure      403   {object}  model.ForbiddenError
+// @Failure      409   {object}  model.ConflictError
+// @Failure      500   {object}  model.BadRequestError
+// @Router       /posts/{postId}/saves [post]
+func (controller *PostController) SavePost(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.SavePost")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+	postId := ctx.Params("postId")
+
+	var response model.PostSaveResponse
+	response, err = controller.PostUsecase.SavePost(ctx, postId, userId)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseWithData(ctx, response)
+}
+
+// UnsavePost godoc
+// @Summary      Unsave (remove bookmark) a post
+// @Description.markdown unsave_post
+// @Tags         post-interactions
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        postId path string true "Post UUID"
+// @Success      200   {object}  model.PostSaveResponse
+// @Failure      400   {object}  model.BadRequestError
+// @Failure      403   {object}  model.ForbiddenError
+// @Failure      404   {object}  model.NotFoundError
+// @Failure      500   {object}  model.BadRequestError
+// @Router       /posts/{postId}/saves [delete]
+func (controller *PostController) UnsavePost(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.UnsavePost")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+	postId := ctx.Params("postId")
+
+	var response model.PostSaveResponse
+	response, err = controller.PostUsecase.UnsavePost(ctx, postId, userId)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseWithData(ctx, response)
+}
+
+// GetSavedPosts godoc
+// @Summary      Get saved posts in a server
+// @Description.markdown get_saved_posts
+// @Tags         post-interactions
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
+// @Param        limit query int false "Items per page"
+// @Param        cursor query string false "Pagination cursor"
+// @Success      200   {object}  model.ServerPostListResponse
+// @Failure      400   {object}  model.BadRequestError
+// @Failure      403   {object}  model.ForbiddenError
+// @Failure      500   {object}  model.BadRequestError
+// @Router       /servers/{serverId}/posts/saved [get]
+func (controller *PostController) GetSavedPosts(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.GetSavedPosts")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
+
+	var response model.ServerPostListResponse
+	response, err = controller.PostUsecase.GetSavedPosts(ctx, serverId, userId)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseWithData(ctx, response)
+}
