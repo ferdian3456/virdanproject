@@ -16,26 +16,49 @@ migrate-apply:
 migrate-lint:
 	@atlas migrate lint --env $(ATLAS_ENV) --latest 1
 
-# VPS apply: run pending migrations through the Atlas Docker image (no atlas CLI
-# needed on the host). Connects to the DB over the compose network using the
-# in-network service host:port, with credentials sourced from .env. The one-time
-# --baseline was already done, so this is a plain forward apply.
-# Usage on VPS:  git pull && make migrate-deploy
+# --- VPS deploy targets (run on the server) ---
+# All three pull latest main first, so code/migrations are never stale. Atlas
+# runs via its Docker image (no atlas CLI on the host), connecting over the
+# compose network with creds from .env. The one-time --baseline is already done,
+# so migration apply is a plain forward apply.
+# Usage on VPS:  make migrate-deploy | make deploy-app | make deploy-full
 # Override the DB URL if needed: make migrate-deploy DEPLOY_URL=postgres://...
 DOCKER_NETWORK ?= virdanproject_observability
 ATLAS_IMAGE    ?= arigaio/atlas:latest
 PG_DOCKER_HOST ?= postgres
 PG_DOCKER_PORT ?= 5432
+COMPOSE_FILE   ?= docker-compose.full.yml
 DEPLOY_URL     ?= postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(PG_DOCKER_HOST):$(PG_DOCKER_PORT)/$(POSTGRES_DB)?sslmode=disable
 
-.PHONY: migrate-deploy
-migrate-deploy:
+.PHONY: deploy-pull
+deploy-pull:
+	git pull origin main
+
+# Internal workers (no pull) — composed by the public targets below.
+.PHONY: _migrate-apply
+_migrate-apply:
 	docker run --rm \
 		--network $(DOCKER_NETWORK) \
 		-v $(PWD)/db/migrations:/migrations \
 		$(ATLAS_IMAGE) migrate apply \
 		--url "$(DEPLOY_URL)" \
 		--dir "file:///migrations"
+
+.PHONY: _rebuild-app
+_rebuild-app:
+	docker compose -f $(COMPOSE_FILE) up -d --build app
+
+# Pull + apply pending migrations only.
+.PHONY: migrate-deploy
+migrate-deploy: deploy-pull _migrate-apply
+
+# Pull + rebuild the app container only (no migration).
+.PHONY: deploy-app
+deploy-app: deploy-pull _rebuild-app
+
+# Pull + migrate + rebuild (schema ready before the new binary).
+.PHONY: deploy-full
+deploy-full: deploy-pull _migrate-apply _rebuild-app
 
 # Testing
 .PHONY: test
