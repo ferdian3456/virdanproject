@@ -405,6 +405,113 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 	return posts, nil
 }
 
+func (repository *PostRepository) SearchServerPosts(ctx context.Context, limit int, serverId string, userId string, query string, cursor *model.ServerPostCursor, minioFullUrl string) ([]model.ServerPostResponse, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.SearchServerPosts")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("server.id", serverId),
+		attribute.String("user.id", userId),
+	)
+
+	baseSelect := `
+		SELECT sp.id, sp.server_id, sp.caption, sp.author_id,
+			sp.created_at, sp.updated_at,
+			spi.object_key,
+			smp.nickname,
+			smp.username,
+			pai.object_key,
+			CASE
+				WHEN u.deleted_at IS NOT NULL THEN 'user_deleted'
+				WHEN sm_author.user_id IS NULL THEN 'user_left'
+				ELSE 'active'
+			END AS author_status,
+			(SELECT COUNT(*) FROM server_post_likes WHERE post_id = sp.id) AS like_count,
+			(SELECT COUNT(*) FROM server_post_comments WHERE post_id = sp.id) AS comment_count,
+			EXISTS (SELECT 1 FROM server_post_likes l WHERE l.post_id = sp.id AND l.user_id = $2) AS user_liked,
+			EXISTS (SELECT 1 FROM server_post_saves s WHERE s.post_id = sp.id AND s.user_id = $2) AS user_saved
+		FROM server_posts sp
+		INNER JOIN users u ON sp.author_id = u.id
+		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = sp.author_id
+		LEFT JOIN server_members sm_author ON sm_author.server_id = sp.server_id AND sm_author.user_id = sp.author_id
+		LEFT JOIN server_post_images spi ON sp.post_image_id = spi.id
+		LEFT JOIN profile_avatar_images pai ON smp.avatar_image_id = pai.id`
+
+	var rows pgx.Rows
+	if cursor.Id != "" && !cursor.CreatedAt.IsZero() {
+		querySQL := baseSelect + `
+		WHERE sp.server_id = $1
+		AND sp.caption ILIKE '%' || $3 || '%'
+		AND (sp.created_at < $4 OR (sp.created_at = $4 AND sp.id < $5))
+		ORDER BY sp.created_at DESC, sp.id DESC
+		LIMIT $6`
+		rows, err = repository.DB.Query(ctx, querySQL, serverId, userId, query, cursor.CreatedAt, cursor.Id, limit)
+	} else {
+		querySQL := baseSelect + `
+		WHERE sp.server_id = $1
+		AND sp.caption ILIKE '%' || $3 || '%'
+		ORDER BY sp.created_at DESC, sp.id DESC
+		LIMIT $4`
+		rows, err = repository.DB.Query(ctx, querySQL, serverId, userId, query, limit)
+	}
+
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to query search server posts", zap.Error(err))
+		return nil, err
+	}
+	defer rows.Close()
+
+	posts := []model.ServerPostResponse{}
+	for rows.Next() {
+		var resp model.ServerPostResponse
+		var authorStatus string
+		err = rows.Scan(
+			&resp.Id,
+			&resp.ServerId,
+			&resp.Caption,
+			&resp.Author.UserId,
+			&resp.CreatedAt,
+			&resp.UpdatedAt,
+			&resp.ImageUrl,
+			&resp.Author.Nickname,
+			&resp.Author.Username,
+			&resp.Author.AvatarUrl,
+			&authorStatus,
+			&resp.LikeCount,
+			&resp.CommentCount,
+			&resp.UserLiked,
+			&resp.UserSaved,
+		)
+		if err != nil {
+			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan search server post row", zap.Error(err))
+			return nil, err
+		}
+
+		resp.Author.Status = model.AuthorStatus(authorStatus)
+		resp.IsOwner = resp.Author.UserId == userId
+
+		if resp.ImageUrl != nil {
+			*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
+		}
+		if resp.Author.AvatarUrl != nil {
+			*resp.Author.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarUrl)
+		}
+
+		posts = append(posts, resp)
+	}
+
+	return posts, nil
+}
+
 func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit int, serverId string, userId string, cursor *model.ServerPostCursor, minioFullUrl string) ([]model.ServerPostResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerPostForMe")
