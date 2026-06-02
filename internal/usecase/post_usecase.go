@@ -955,3 +955,192 @@ func (usecase *PostUsecase) DeleteComment(ctx fiber.Ctx, postIdParam string, com
 	return nil
 }
 
+
+func (usecase *PostUsecase) SavePost(ctx fiber.Ctx, postIdParam string, userId string) (model.PostSaveResponse, error) {
+	v := util.NewValidator()
+	v.UUID("postId", postIdParam)
+	if valErr := v.Validate(); valErr != nil {
+		return model.PostSaveResponse{}, valErr
+	}
+
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.SavePost")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId),
+		attribute.String("post.id", postIdParam),
+	)
+
+	serverId, err := usecase.PostRepository.GetPostServerId(ctxContext, postIdParam)
+	if err != nil {
+		return model.PostSaveResponse{}, err
+	}
+
+	memberCount, err := usecase.ServerRepository.CheckServerMember(ctxContext, serverId, userId)
+	if err != nil {
+		return model.PostSaveResponse{}, err
+	}
+	if memberCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not a member of this server", Param: "postId"}
+		return model.PostSaveResponse{}, err
+	}
+
+	saveExists, err := usecase.PostRepository.CheckPostSave(ctxContext, postIdParam, userId)
+	if err != nil {
+		return model.PostSaveResponse{}, err
+	}
+	if saveExists {
+		err = &model.ConflictError{Code: constant.ERR_CONFLICT_CODE, Message: "Post sudah disimpan", Param: "postId"}
+		return model.PostSaveResponse{}, err
+	}
+
+	now := time.Now().UTC()
+	postSave := model.ServerPostSave{
+		Id:        uuid.New().String(),
+		PostId:    postIdParam,
+		UserId:    userId,
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: userId,
+		UpdatedBy: userId,
+	}
+	err = usecase.PostRepository.CreatePostSave(ctxContext, postSave)
+	if err != nil {
+		return model.PostSaveResponse{}, err
+	}
+
+	return model.PostSaveResponse{PostId: postIdParam, UserSaved: true}, nil
+}
+
+func (usecase *PostUsecase) UnsavePost(ctx fiber.Ctx, postIdParam string, userId string) (model.PostSaveResponse, error) {
+	v := util.NewValidator()
+	v.UUID("postId", postIdParam)
+	if valErr := v.Validate(); valErr != nil {
+		return model.PostSaveResponse{}, valErr
+	}
+
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.UnsavePost")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId),
+		attribute.String("post.id", postIdParam),
+	)
+
+	serverId, err := usecase.PostRepository.GetPostServerId(ctxContext, postIdParam)
+	if err != nil {
+		return model.PostSaveResponse{}, err
+	}
+
+	memberCount, err := usecase.ServerRepository.CheckServerMember(ctxContext, serverId, userId)
+	if err != nil {
+		return model.PostSaveResponse{}, err
+	}
+	if memberCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not a member of this server", Param: "postId"}
+		return model.PostSaveResponse{}, err
+	}
+
+	saveExists, err := usecase.PostRepository.CheckPostSave(ctxContext, postIdParam, userId)
+	if err != nil {
+		return model.PostSaveResponse{}, err
+	}
+	if !saveExists {
+		err = &model.NotFoundError{Code: constant.ERR_NOT_FOUND_CODE, Message: "Post belum disimpan", Param: "postId"}
+		return model.PostSaveResponse{}, err
+	}
+
+	err = usecase.PostRepository.DeletePostSave(ctxContext, postIdParam, userId)
+	if err != nil {
+		return model.PostSaveResponse{}, err
+	}
+
+	return model.PostSaveResponse{PostId: postIdParam, UserSaved: false}, nil
+}
+
+func (usecase *PostUsecase) GetSavedPosts(ctx fiber.Ctx, serverId string, userId string) (model.ServerPostListResponse, error) {
+	limit := fiber.Query[int](ctx, "limit", constant.DEFAULT_LIMIT)
+	cursorStr := ctx.Query("cursor", "")
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId)
+	v.Int("limit", limit).Min(0).Max(constant.MAX_LIMIT)
+	if valErr := v.Validate(); valErr != nil {
+		return model.ServerPostListResponse{}, valErr
+	}
+
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.GetSavedPosts")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId),
+		attribute.String("server.id", serverId),
+		attribute.Int("limit", limit),
+		attribute.String("cursor", cursorStr),
+	)
+
+	memberCount, err := usecase.ServerRepository.CheckServerMember(ctxContext, serverId, userId)
+	if err != nil {
+		return model.ServerPostListResponse{}, err
+	}
+	if memberCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not a member of this server", Param: "serverId"}
+		return model.ServerPostListResponse{}, err
+	}
+
+	var cursor model.SavedPostCursor
+	if cursorStr != "" {
+		decoded, decErr := util.DecodeCursor[model.SavedPostCursor](cursorStr)
+		if decErr != nil {
+			err = &model.BadRequestError{Code: constant.ERR_BAD_REQUEST_CODE, Message: "Invalid cursor", Param: "cursor"}
+			return model.ServerPostListResponse{}, err
+		}
+		cursor = *decoded
+	}
+
+	minioFullUrl := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
+
+	posts, err := usecase.PostRepository.GetSavedPosts(ctxContext, limit+1, serverId, userId, &cursor, minioFullUrl)
+	if err != nil {
+		return model.ServerPostListResponse{}, err
+	}
+
+	response := model.ServerPostListResponse{Data: []model.ServerPostResponse{}}
+
+	if len(posts) > limit {
+		response.Data = posts[:limit]
+		last := posts[limit-1]
+		response.Page.NextCursor = util.EncodeCursor(model.SavedPostCursor{
+			SavedAt: *last.SavedAt,
+			PostId:  last.Id,
+		})
+	} else if len(posts) > 0 {
+		response.Data = posts
+	}
+
+	return response, nil
+}

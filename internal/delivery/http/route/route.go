@@ -124,6 +124,7 @@ func (c *RouteConfig) SetupRoute() {
 	serverGroup.Delete("/:id", c.ServerController.DeleteServer)
 	serverGroup.Delete("/:serverId/membership", c.ServerController.LeaveServer)
 	serverGroup.Get("/:serverId/posts/me", c.PostController.GetServerPostForMe)
+	serverGroup.Get("/:serverId/posts/saved", c.PostController.GetSavedPosts)
 	serverGroup.Get("/:serverId/members/:userId/posts", c.PostController.GetServerPostsByUserId)
 
 	profileGroup := api.Group("", c.AuthMiddleware.ProtectedRoute())
@@ -137,6 +138,8 @@ func (c *RouteConfig) SetupRoute() {
 	// postGroup.Delete("/:postId", c.PostController.DeletePost)
 	postGroup.Post("/:postId/likes", c.PostController.LikePost)
 	postGroup.Delete("/:postId/likes", c.PostController.UnlikePost)
+	postGroup.Post("/:postId/saves", c.PostController.SavePost)
+	postGroup.Delete("/:postId/saves", c.PostController.UnsavePost)
 	postGroup.Post("/:postId/comments", c.PostController.CreateComment)
 	postGroup.Get("/:postId/comments", c.PostController.GetComments)
 	postGroup.Delete("/:postId/comments/:commentId", c.PostController.DeleteComment)
