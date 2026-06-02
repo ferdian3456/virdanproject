@@ -1270,11 +1270,7 @@ func (usecase *UserUsecase) UpdateNotificationPreferences(ctx fiber.Ctx, userId 
 
 	span.SetAttributes(attribute.String("user.id", userId))
 
-	prefs := model.NotificationPrefs{
-		NotifLike:    request.NotifLike,
-		NotifComment: request.NotifComment,
-		NotifReply:   request.NotifReply,
-	}
+	prefs := model.NotificationPrefs(request)
 
 	now := time.Now()
 	err = usecase.UserRepository.UpdateNotificationPrefs(ctxContext, userId, prefs, now)

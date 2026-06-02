@@ -16,6 +16,27 @@ migrate-apply:
 migrate-lint:
 	@atlas migrate lint --env $(ATLAS_ENV) --latest 1
 
+# VPS apply: run pending migrations through the Atlas Docker image (no atlas CLI
+# needed on the host). Connects to the DB over the compose network using the
+# in-network service host:port, with credentials sourced from .env. The one-time
+# --baseline was already done, so this is a plain forward apply.
+# Usage on VPS:  git pull && make migrate-deploy
+# Override the DB URL if needed: make migrate-deploy DEPLOY_URL=postgres://...
+DOCKER_NETWORK ?= virdanproject_observability
+ATLAS_IMAGE    ?= arigaio/atlas:latest
+PG_DOCKER_HOST ?= postgres
+PG_DOCKER_PORT ?= 5432
+DEPLOY_URL     ?= postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(PG_DOCKER_HOST):$(PG_DOCKER_PORT)/$(POSTGRES_DB)?sslmode=disable
+
+.PHONY: migrate-deploy
+migrate-deploy:
+	docker run --rm \
+		--network $(DOCKER_NETWORK) \
+		-v $(PWD)/db/migrations:/migrations \
+		$(ATLAS_IMAGE) migrate apply \
+		--url "$(DEPLOY_URL)" \
+		--dir "file:///migrations"
+
 # Testing
 .PHONY: test
 test: test-integration
