@@ -3,6 +3,7 @@ package usecase
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ferdian3456/virdanproject/internal/constant"
@@ -217,6 +218,94 @@ func (usecase *PostUsecase) GetServerPosts(ctx fiber.Ctx, serverId string, userI
 	minioFullUrl := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
 
 	posts, err := usecase.PostRepository.GetServerPosts(ctxContext, limit+1, serverId, userId, &cursor, minioFullUrl)
+	if err != nil {
+		return model.ServerPostListResponse{}, err
+	}
+
+	response := model.ServerPostListResponse{Data: []model.ServerPostResponse{}}
+
+	if len(posts) > limit {
+		response.Data = posts[:limit]
+		last := posts[limit-1]
+		response.Page.NextCursor = util.EncodeCursor(model.ServerPostCursor{
+			Id:        last.Id,
+			CreatedAt: last.CreatedAt,
+		})
+	} else if len(posts) > 0 {
+		response.Data = posts
+	}
+
+	return response, nil
+}
+
+func (usecase *PostUsecase) SearchServerPosts(ctx fiber.Ctx, serverId string, userId string) (model.ServerPostListResponse, error) {
+	limit := fiber.Query[int](ctx, "limit", constant.DEFAULT_LIMIT)
+	cursorStr := ctx.Query("cursor", "")
+	query := strings.TrimSpace(ctx.Query("q", ""))
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId)
+	v.Int("limit", limit).Min(0).Max(constant.MAX_LIMIT)
+	if valErr := v.Validate(); valErr != nil {
+		return model.ServerPostListResponse{}, valErr
+	}
+
+	queryLen := len([]rune(query))
+	if queryLen < constant.MIN_SEARCH_QUERY_LENGTH {
+		return model.ServerPostListResponse{}, &model.BadRequestError{
+			Code:    constant.ERR_BAD_REQUEST_CODE,
+			Message: fmt.Sprintf("Search query must be at least %d characters", constant.MIN_SEARCH_QUERY_LENGTH),
+			Param:   "q",
+		}
+	}
+	if queryLen > constant.MAX_SEARCH_QUERY_LENGTH {
+		return model.ServerPostListResponse{}, &model.BadRequestError{
+			Code:    constant.ERR_BAD_REQUEST_CODE,
+			Message: fmt.Sprintf("Search query must be at most %d characters", constant.MAX_SEARCH_QUERY_LENGTH),
+			Param:   "q",
+		}
+	}
+
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.SearchServerPosts")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId),
+		attribute.String("server.id", serverId),
+		attribute.Int("limit", limit),
+		attribute.String("cursor", cursorStr),
+	)
+
+	memberCount, err := usecase.ServerRepository.CheckServerMember(ctxContext, serverId, userId)
+	if err != nil {
+		return model.ServerPostListResponse{}, err
+	}
+	if memberCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not a member of this server", Param: "serverId"}
+		return model.ServerPostListResponse{}, err
+	}
+
+	var cursor model.ServerPostCursor
+	if cursorStr != "" {
+		decoded, decErr := util.DecodeCursor[model.ServerPostCursor](cursorStr)
+		if decErr != nil {
+			err = &model.BadRequestError{Code: constant.ERR_BAD_REQUEST_CODE, Message: "Invalid cursor", Param: "cursor"}
+			return model.ServerPostListResponse{}, err
+		}
+		cursor = *decoded
+	}
+
+	minioFullUrl := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
+
+	posts, err := usecase.PostRepository.SearchServerPosts(ctxContext, limit+1, serverId, userId, query, &cursor, minioFullUrl)
 	if err != nil {
 		return model.ServerPostListResponse{}, err
 	}

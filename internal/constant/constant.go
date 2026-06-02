@@ -3,6 +3,8 @@ package constant
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const DEFAULT_LIMIT = 10
 const MAX_LIMIT = 20
+const MIN_SEARCH_QUERY_LENGTH = 2
+const MAX_SEARCH_QUERY_LENGTH = 100
 const DEFAULT_MAX_MEMORY int64 = 32 << 20 // 32MB
 const PLATFORM_ANDROID = "android"
 const PLATFORM_IOS = "ios"
