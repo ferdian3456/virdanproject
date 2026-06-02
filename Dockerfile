@@ -83,9 +83,8 @@ RUN mkdir -p /app/tmp /app/data && \
 
 WORKDIR /app
 
-# Copy binary and .env with verification
+# Copy binary
 COPY --from=builder --chown=appuser:appgroup /build/main /app/main
-COPY --from=builder --chown=appuser:appgroup /build/.env /app/.env
 RUN chmod 500 /app/main
 
 # Switch to non-root
