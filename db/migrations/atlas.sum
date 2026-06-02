@@ -1,4 +1,4 @@
-h1:o1LDDwf1AhGguPLxhvB08us1xKSEwtdSG8RaVNiN/UM=
+h1:c7dreqx3FHxfa2THOz6iwR2sGeclRX8TfRVUbxxYdlw=
 20260528000001_create_users_table.sql h1:YhiRViYy5+GYHIZrYtakNl+lpcXNM69L3rBafn9IhbY=
 20260528000002_create_refresh_tokens_table.sql h1:xhp5c8rfwokb3UGtN1gE/DeBr3OU2WYqt0/YV91bEuU=
 20260528000003_create_server_categories_table.sql h1:f8/r+J/bSHNUDKH023MXC0HLS8NTm6E0w3tkKkIjH3w=
@@ -20,3 +20,4 @@ h1:o1LDDwf1AhGguPLxhvB08us1xKSEwtdSG8RaVNiN/UM=
 20260601023653_create_notifications_table.sql h1:0L6YzmYtQeW2n8o5VKSu5xPq8JV8jj9lFJnfjG5RKiE=
 20260601143331_notifications_server_scope_index.sql h1:qgmwx+l+NNgb+kB6VCJ8UO+ikxVEfP5hxV9JENd+V40=
 20260602143331_create_server_post_saves.sql h1:v0TSE29exyXnQwXaczbCHSXpUMPBlElMGX1KqkQtpbU=
+20260602232736_add_post_caption_trgm.sql h1:alhrK6tgRU0MewU0FsTP8EFtKPCJ2fDLLlA4Q5L9PZk=
