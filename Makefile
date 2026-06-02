@@ -60,6 +60,24 @@ deploy-app: deploy-pull _rebuild-app
 .PHONY: deploy-full
 deploy-full: deploy-pull _migrate-apply _rebuild-app
 
+# --- Remote deploy (run from a laptop) ---
+# SSH into the VPS and run the matching deploy target there. Requires Tailscale
+# up locally (SSH goes over the tailnet). Override host/dir if they change.
+VPS_SSH ?= dev@100.85.244.115
+VPS_DIR ?= ~/development/virdan/virdanproject
+
+.PHONY: migrate-remote
+migrate-remote:
+	ssh $(VPS_SSH) 'cd $(VPS_DIR) && make migrate-deploy'
+
+.PHONY: deploy-app-remote
+deploy-app-remote:
+	ssh $(VPS_SSH) 'cd $(VPS_DIR) && make deploy-app'
+
+.PHONY: deploy-remote
+deploy-remote:
+	ssh $(VPS_SSH) 'cd $(VPS_DIR) && make deploy-full'
+
 # Testing
 .PHONY: test
 test: test-integration
