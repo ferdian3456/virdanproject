@@ -1,3 +1,4 @@
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 -- Add new schema named "public"
 CREATE SCHEMA IF NOT EXISTS "public";
 -- Set comment to schema: "public"
@@ -58,6 +59,9 @@ CREATE TABLE "public"."server_posts" ("id" uuid NOT NULL, "server_id" uuid NOT N
 CREATE INDEX "idx_server_posts_pk_01" ON "public"."server_posts" ("server_id", "created_at" DESC);
 -- Create index "idx_server_posts_pk_02" to table: "server_posts"
 CREATE INDEX "idx_server_posts_pk_02" ON "public"."server_posts" ("author_id");
+-- Trigram index for caption search (GET /servers/:serverId/posts/search).
+-- gin_trgm_ops lets `caption ILIKE '%q%'` use the index instead of a seq scan.
+CREATE INDEX idx_server_posts_caption_trgm ON server_posts USING gin (caption gin_trgm_ops);
 -- Create "server_post_comments" table
 CREATE TABLE "public"."server_post_comments" ("id" uuid NOT NULL, "post_id" uuid NOT NULL, "author_id" uuid NOT NULL, "parent_id" uuid NULL, "content" text NOT NULL, "created_at" timestamptz NOT NULL, "updated_at" timestamptz NOT NULL, "created_by" uuid NOT NULL, "updated_by" uuid NOT NULL, PRIMARY KEY ("id"), CONSTRAINT "server_post_comments_author_id_fkey" FOREIGN KEY ("author_id") REFERENCES "public"."users" ("id") ON UPDATE NO ACTION ON DELETE RESTRICT, CONSTRAINT "server_post_comments_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "public"."server_post_comments" ("id") ON UPDATE NO ACTION ON DELETE CASCADE, CONSTRAINT "server_post_comments_post_id_fkey" FOREIGN KEY ("post_id") REFERENCES "public"."server_posts" ("id") ON UPDATE NO ACTION ON DELETE CASCADE);
 -- Create index "idx_server_post_comments_pk_01" to table: "server_post_comments"

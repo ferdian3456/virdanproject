@@ -26,7 +26,7 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 
 	ctx := context.Background()
 
-	// 1. Create test config dengan test infrastructure values
+	// 1. Create test config with test infrastructure values
 	testConfig := koanf.New(".")
 	_ = testConfig.Set("postgres_url", pgURL)
 	_ = testConfig.Set("redis_addr", redisURL)
@@ -91,7 +91,7 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 		t.Fatalf("failed to connect to minio: %v", err)
 	}
 
-	// Create bucket kalau belum ada. Multiple parallel tests can race here:
+	// Create bucket if it does not exist yet. Multiple parallel tests can race here:
 	// BucketExists returns false for two callers, both invoke MakeBucket, and
 	// the second one fails with "BucketAlreadyOwnedByYou". Treat that response
 	// as success so the race becomes idempotent.

@@ -150,6 +150,46 @@ func (controller *PostController) GetServerPosts(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, response)
 }
 
+// SearchServerPosts godoc
+// @Summary      Search posts in a server by caption
+// @Description.markdown search_server_posts
+// @Tags         posts
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
+// @Param        q query string true "Search query (matches caption, min 2 chars)"
+// @Param        limit query int false "Items per page"
+// @Param        cursor query string false "Pagination cursor"
+// @Success      200   {object}  model.ServerPostListResponse
+// @Failure      400   {object}  model.BadRequestError
+// @Failure      403   {object}  model.ForbiddenError
+// @Failure      500   {object}  model.BadRequestError
+// @Router       /servers/{serverId}/posts/search [get]
+func (controller *PostController) SearchServerPosts(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.SearchServerPosts")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
+
+	var response model.ServerPostListResponse
+	response, err = controller.PostUsecase.SearchServerPosts(ctx, serverId, userId)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseWithData(ctx, response)
+}
+
 // GetServerPostForMe godoc
 // @Summary      Get my posts in a server
 // @Description.markdown get_server_post_for_me

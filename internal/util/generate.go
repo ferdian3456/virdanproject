@@ -32,7 +32,7 @@ func GenerateShortName(name string) string {
 		return ""
 	}
 
-	// ambil max 12 char untuk UI comfort
+	// take max 12 chars for UI comfort
 	runes := []rune(name)
 	if len(runes) > 12 {
 		return string(runes[:12])

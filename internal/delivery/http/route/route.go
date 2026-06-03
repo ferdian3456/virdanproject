@@ -100,6 +100,7 @@ func (c *RouteConfig) SetupRoute() {
 	serverGroup.Put("/:serverId/posts/:postId", c.PostController.UpdatePost)
 	serverGroup.Delete("/:serverId/posts/:postId", c.PostController.DeletePost)
 	serverGroup.Get("/:serverId/posts", c.PostController.GetServerPosts)
+	serverGroup.Get("/:serverId/posts/search", c.PostController.SearchServerPosts)
 
 	// Server Categories
 	serverGroup.Get("/categories", c.ServerController.GetCategoryServer)

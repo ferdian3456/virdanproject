@@ -41,7 +41,7 @@ func NewPostRepository(zap *zap.Logger, koanf *koanf.Koanf, db *pgxpool.Pool, db
 
 func (repository *PostRepository) UploadPostObject(ctx context.Context, bucketName string, objectKey string, file *bytes.Reader, size int64) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UploadPostObject")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.UploadPostObject")
 	var err error
 	defer func() {
 		if err != nil {
@@ -72,7 +72,7 @@ func (repository *PostRepository) UploadPostObject(ctx context.Context, bucketNa
 
 func (repository *PostRepository) CreateServerPostImage(ctx context.Context, tx pgx.Tx, image model.ServerPostImage) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CreateServerPostImage")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CreateServerPostImage")
 	var err error
 	defer func() {
 		if err != nil {
@@ -101,7 +101,7 @@ func (repository *PostRepository) CreateServerPostImage(ctx context.Context, tx 
 
 func (repository *PostRepository) CreateServerPost(ctx context.Context, tx pgx.Tx, post model.ServerPost) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CreateServerPost")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CreateServerPost")
 	var err error
 	defer func() {
 		if err != nil {
@@ -132,7 +132,7 @@ func (repository *PostRepository) CreateServerPost(ctx context.Context, tx pgx.T
 
 func (repository *PostRepository) CheckPostOwnership(ctx context.Context, postId string, userId string) (int, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CheckPostOwnership")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CheckPostOwnership")
 	var err error
 	defer func() {
 		if err != nil {
@@ -162,7 +162,7 @@ func (repository *PostRepository) CheckPostOwnership(ctx context.Context, postId
 
 func (repository *PostRepository) UpdatePostCaption(ctx context.Context, postId string, caption string, updatedBy string, updatedAt time.Time) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UpdatePostCaption")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.UpdatePostCaption")
 	var err error
 	defer func() {
 		if err != nil {
@@ -190,7 +190,7 @@ func (repository *PostRepository) UpdatePostCaption(ctx context.Context, postId 
 
 func (repository *PostRepository) DeletePostHard(ctx context.Context, postId string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeletePostHard")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.DeletePostHard")
 	var err error
 	defer func() {
 		if err != nil {
@@ -218,7 +218,7 @@ func (repository *PostRepository) DeletePostHard(ctx context.Context, postId str
 
 func (repository *PostRepository) GetPost(ctx context.Context, postId string, userId string, minioFullUrl string) (model.ServerPostResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetPost")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetPost")
 	var err error
 	defer func() {
 		if err != nil {
@@ -302,7 +302,7 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId string, us
 
 func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int, serverId string, userId string, cursor *model.ServerPostCursor, minioFullUrl string) ([]model.ServerPostResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerPosts")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetServerPosts")
 	var err error
 	defer func() {
 		if err != nil {
@@ -405,9 +405,116 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 	return posts, nil
 }
 
+func (repository *PostRepository) SearchServerPosts(ctx context.Context, limit int, serverId string, userId string, query string, cursor *model.ServerPostCursor, minioFullUrl string) ([]model.ServerPostResponse, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.SearchServerPosts")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("server.id", serverId),
+		attribute.String("user.id", userId),
+	)
+
+	baseSelect := `
+		SELECT sp.id, sp.server_id, sp.caption, sp.author_id,
+			sp.created_at, sp.updated_at,
+			spi.object_key,
+			smp.nickname,
+			smp.username,
+			pai.object_key,
+			CASE
+				WHEN u.deleted_at IS NOT NULL THEN 'user_deleted'
+				WHEN sm_author.user_id IS NULL THEN 'user_left'
+				ELSE 'active'
+			END AS author_status,
+			(SELECT COUNT(*) FROM server_post_likes WHERE post_id = sp.id) AS like_count,
+			(SELECT COUNT(*) FROM server_post_comments WHERE post_id = sp.id) AS comment_count,
+			EXISTS (SELECT 1 FROM server_post_likes l WHERE l.post_id = sp.id AND l.user_id = $2) AS user_liked,
+			EXISTS (SELECT 1 FROM server_post_saves s WHERE s.post_id = sp.id AND s.user_id = $2) AS user_saved
+		FROM server_posts sp
+		INNER JOIN users u ON sp.author_id = u.id
+		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = sp.author_id
+		LEFT JOIN server_members sm_author ON sm_author.server_id = sp.server_id AND sm_author.user_id = sp.author_id
+		LEFT JOIN server_post_images spi ON sp.post_image_id = spi.id
+		LEFT JOIN profile_avatar_images pai ON smp.avatar_image_id = pai.id`
+
+	var rows pgx.Rows
+	if cursor.Id != "" && !cursor.CreatedAt.IsZero() {
+		querySQL := baseSelect + `
+		WHERE sp.server_id = $1
+		AND sp.caption ILIKE '%' || $3 || '%' ESCAPE '\'
+		AND (sp.created_at < $4 OR (sp.created_at = $4 AND sp.id < $5))
+		ORDER BY sp.created_at DESC, sp.id DESC
+		LIMIT $6`
+		rows, err = repository.DB.Query(ctx, querySQL, serverId, userId, query, cursor.CreatedAt, cursor.Id, limit)
+	} else {
+		querySQL := baseSelect + `
+		WHERE sp.server_id = $1
+		AND sp.caption ILIKE '%' || $3 || '%' ESCAPE '\'
+		ORDER BY sp.created_at DESC, sp.id DESC
+		LIMIT $4`
+		rows, err = repository.DB.Query(ctx, querySQL, serverId, userId, query, limit)
+	}
+
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to query search server posts", zap.Error(err))
+		return nil, err
+	}
+	defer rows.Close()
+
+	posts := []model.ServerPostResponse{}
+	for rows.Next() {
+		var resp model.ServerPostResponse
+		var authorStatus string
+		err = rows.Scan(
+			&resp.Id,
+			&resp.ServerId,
+			&resp.Caption,
+			&resp.Author.UserId,
+			&resp.CreatedAt,
+			&resp.UpdatedAt,
+			&resp.ImageUrl,
+			&resp.Author.Nickname,
+			&resp.Author.Username,
+			&resp.Author.AvatarUrl,
+			&authorStatus,
+			&resp.LikeCount,
+			&resp.CommentCount,
+			&resp.UserLiked,
+			&resp.UserSaved,
+		)
+		if err != nil {
+			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan search server post row", zap.Error(err))
+			return nil, err
+		}
+
+		resp.Author.Status = model.AuthorStatus(authorStatus)
+		resp.IsOwner = resp.Author.UserId == userId
+
+		if resp.ImageUrl != nil {
+			*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
+		}
+		if resp.Author.AvatarUrl != nil {
+			*resp.Author.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarUrl)
+		}
+
+		posts = append(posts, resp)
+	}
+
+	return posts, nil
+}
+
 func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit int, serverId string, userId string, cursor *model.ServerPostCursor, minioFullUrl string) ([]model.ServerPostResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerPostForMe")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetServerPostForMe")
 	var err error
 	defer func() {
 		if err != nil {
@@ -507,7 +614,7 @@ func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit 
 // the viewer, not the author. IsOwner is true only when the viewer is the author.
 func (repository *PostRepository) GetServerPostsByAuthor(ctx context.Context, limit int, serverId, authorId, requesterId string, cursor *model.ServerPostCursor, minioFullUrl string) ([]model.ServerPostResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerPostsByAuthor")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetServerPostsByAuthor")
 	var err error
 	defer func() {
 		if err != nil {
@@ -604,7 +711,7 @@ func (repository *PostRepository) GetServerPostsByAuthor(ctx context.Context, li
 
 func (repository *PostRepository) GetPostServerId(ctx context.Context, postId string) (string, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetPostServerId")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetPostServerId")
 	var err error
 	defer func() {
 		if err != nil {
@@ -637,7 +744,7 @@ func (repository *PostRepository) GetPostServerId(ctx context.Context, postId st
 
 func (repository *PostRepository) CheckPostLike(ctx context.Context, postId string, userId string) (bool, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CheckPostLike")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CheckPostLike")
 	var err error
 	defer func() {
 		if err != nil {
@@ -667,7 +774,7 @@ func (repository *PostRepository) CheckPostLike(ctx context.Context, postId stri
 
 func (repository *PostRepository) GetPostLikeCount(ctx context.Context, postId string) (int, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetPostLikeCount")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetPostLikeCount")
 	var err error
 	defer func() {
 		if err != nil {
@@ -699,7 +806,7 @@ func (repository *PostRepository) GetPostLikeCount(ctx context.Context, postId s
 // so like/unlike/like toggling never spams the post author.
 func (repository *PostRepository) CreatePostLikeIdempotent(ctx context.Context, like model.ServerPostLike) (bool, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CreatePostLikeIdempotent")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CreatePostLikeIdempotent")
 	var err error
 	defer func() {
 		if err != nil {
@@ -734,7 +841,7 @@ func (repository *PostRepository) CreatePostLikeIdempotent(ctx context.Context, 
 // comment.
 func (repository *PostRepository) GetPostAuthorId(ctx context.Context, postId string) (string, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetPostAuthorId")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetPostAuthorId")
 	var err error
 	defer func() {
 		if err != nil {
@@ -767,7 +874,7 @@ func (repository *PostRepository) GetPostAuthorId(ctx context.Context, postId st
 // parent comment's author, not the post owner).
 func (repository *PostRepository) GetCommentAuthorId(ctx context.Context, commentId string) (string, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetCommentAuthorId")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetCommentAuthorId")
 	var err error
 	defer func() {
 		if err != nil {
@@ -798,7 +905,7 @@ func (repository *PostRepository) GetCommentAuthorId(ctx context.Context, commen
 
 func (repository *PostRepository) DeletePostLike(ctx context.Context, postId string, userId string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeletePostLike")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.DeletePostLike")
 	var err error
 	defer func() {
 		if err != nil {
@@ -827,7 +934,7 @@ func (repository *PostRepository) DeletePostLike(ctx context.Context, postId str
 
 func (repository *PostRepository) CheckCommentExists(ctx context.Context, commentId string, postId string) (int, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CheckCommentExists")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CheckCommentExists")
 	var err error
 	defer func() {
 		if err != nil {
@@ -857,7 +964,7 @@ func (repository *PostRepository) CheckCommentExists(ctx context.Context, commen
 
 func (repository *PostRepository) CreateComment(ctx context.Context, comment model.ServerPostComment) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CreateComment")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CreateComment")
 	var err error
 	defer func() {
 		if err != nil {
@@ -888,7 +995,7 @@ func (repository *PostRepository) CreateComment(ctx context.Context, comment mod
 
 func (repository *PostRepository) GetCommentById(ctx context.Context, commentId string, userId string, minioFullUrl string) (model.ServerCommentResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetCommentById")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetCommentById")
 	var err error
 	defer func() {
 		if err != nil {
@@ -957,7 +1064,7 @@ func (repository *PostRepository) GetCommentById(ctx context.Context, commentId 
 
 func (repository *PostRepository) GetComments(ctx context.Context, limit int, postId string, userId string, cursor *model.ServerCommentCursor, minioFullUrl string) ([]model.ServerCommentResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetComments")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetComments")
 	var err error
 	defer func() {
 		if err != nil {
@@ -1046,7 +1153,7 @@ func (repository *PostRepository) GetComments(ctx context.Context, limit int, po
 
 func (repository *PostRepository) CheckCommentOwnership(ctx context.Context, commentId string, userId string) (int, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CheckCommentOwnership")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CheckCommentOwnership")
 	var err error
 	defer func() {
 		if err != nil {
@@ -1076,7 +1183,7 @@ func (repository *PostRepository) CheckCommentOwnership(ctx context.Context, com
 
 func (repository *PostRepository) DeleteCommentHard(ctx context.Context, commentId string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeleteCommentHard")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.DeleteCommentHard")
 	var err error
 	defer func() {
 		if err != nil {
@@ -1105,7 +1212,7 @@ func (repository *PostRepository) DeleteCommentHard(ctx context.Context, comment
 
 func (repository *PostRepository) CreatePostSave(ctx context.Context, save model.ServerPostSave) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CreatePostSave")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CreatePostSave")
 	var err error
 	defer func() {
 		if err != nil {
@@ -1136,7 +1243,7 @@ func (repository *PostRepository) CreatePostSave(ctx context.Context, save model
 
 func (repository *PostRepository) CheckPostSave(ctx context.Context, postId string, userId string) (bool, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CheckPostSave")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CheckPostSave")
 	var err error
 	defer func() {
 		if err != nil {
@@ -1166,7 +1273,7 @@ func (repository *PostRepository) CheckPostSave(ctx context.Context, postId stri
 
 func (repository *PostRepository) DeletePostSave(ctx context.Context, postId string, userId string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeletePostSave")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.DeletePostSave")
 	var err error
 	defer func() {
 		if err != nil {
@@ -1198,7 +1305,7 @@ func (repository *PostRepository) DeletePostSave(ctx context.Context, postId str
 // SavedAt carries server_post_saves.created_at for cursor building.
 func (repository *PostRepository) GetSavedPosts(ctx context.Context, limit int, serverId, userId string, cursor *model.SavedPostCursor, minioFullUrl string) ([]model.ServerPostResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetSavedPosts")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetSavedPosts")
 	var err error
 	defer func() {
 		if err != nil {
