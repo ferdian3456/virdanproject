@@ -58,7 +58,7 @@ func (usecase *PostUsecase) CreatePost(ctx fiber.Ctx, serverId string, userId st
 
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.CreatePost")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.CreatePost")
 	var err error
 	defer func() {
 		if err != nil {
@@ -180,7 +180,7 @@ func (usecase *PostUsecase) GetServerPosts(ctx fiber.Ctx, serverId string, userI
 
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.GetServerPosts")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.GetServerPosts")
 	var err error
 	defer func() {
 		if err != nil {
@@ -266,9 +266,15 @@ func (usecase *PostUsecase) SearchServerPosts(ctx fiber.Ctx, serverId string, us
 		}
 	}
 
+	// Escape ILIKE metacharacters so the user's input matches literally (the SQL
+	// uses ESCAPE '\'). Backslash must be escaped first to avoid double-escaping.
+	query = strings.ReplaceAll(query, `\`, `\\`)
+	query = strings.ReplaceAll(query, `%`, `\%`)
+	query = strings.ReplaceAll(query, `_`, `\_`)
+
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.SearchServerPosts")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.SearchServerPosts")
 	var err error
 	defer func() {
 		if err != nil {
@@ -339,7 +345,7 @@ func (usecase *PostUsecase) GetServerPostForMe(ctx fiber.Ctx, serverId string, u
 
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.GetServerPostForMe")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.GetServerPostForMe")
 	var err error
 	defer func() {
 		if err != nil {
@@ -414,7 +420,7 @@ func (usecase *PostUsecase) GetServerPostsByUserId(ctx fiber.Ctx, requesterUserI
 
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.GetServerPostsByUserId")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.GetServerPostsByUserId")
 	var err error
 	defer func() {
 		if err != nil {
@@ -481,7 +487,7 @@ func (usecase *PostUsecase) GetPost(ctx fiber.Ctx, postId string, userId string)
 
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.GetPost")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.GetPost")
 	var err error
 	defer func() {
 		if err != nil {
@@ -529,7 +535,7 @@ func (usecase *PostUsecase) UpdatePostCaption(ctx fiber.Ctx, serverId string, po
 
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.UpdatePostCaption")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.UpdatePostCaption")
 	var err error
 	defer func() {
 		if err != nil {
@@ -587,7 +593,7 @@ func (usecase *PostUsecase) DeletePost(ctx fiber.Ctx, serverId string, postId st
 
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.DeletePost")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.DeletePost")
 	var err error
 	defer func() {
 		if err != nil {
@@ -637,7 +643,7 @@ func (usecase *PostUsecase) LikePost(ctx fiber.Ctx, postIdParam string, userId s
 
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.LikePost")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.LikePost")
 	var err error
 	defer func() {
 		if err != nil {
@@ -720,7 +726,7 @@ func (usecase *PostUsecase) UnlikePost(ctx fiber.Ctx, postIdParam string, userId
 
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.UnlikePost")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.UnlikePost")
 	var err error
 	defer func() {
 		if err != nil {
@@ -781,7 +787,7 @@ func (usecase *PostUsecase) CreateComment(ctx fiber.Ctx, postIdParam string, use
 
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.CreateComment")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.CreateComment")
 	var err error
 	defer func() {
 		if err != nil {
@@ -916,7 +922,7 @@ func (usecase *PostUsecase) GetComments(ctx fiber.Ctx, postIdParam string, userI
 
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.GetComments")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.GetComments")
 	var err error
 	defer func() {
 		if err != nil {
@@ -989,7 +995,7 @@ func (usecase *PostUsecase) DeleteComment(ctx fiber.Ctx, postIdParam string, com
 
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.DeleteComment")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.DeleteComment")
 	var err error
 	defer func() {
 		if err != nil {
@@ -1044,7 +1050,6 @@ func (usecase *PostUsecase) DeleteComment(ctx fiber.Ctx, postIdParam string, com
 	return nil
 }
 
-
 func (usecase *PostUsecase) SavePost(ctx fiber.Ctx, postIdParam string, userId string) (model.PostSaveResponse, error) {
 	v := util.NewValidator()
 	v.UUID("postId", postIdParam)
@@ -1054,7 +1059,7 @@ func (usecase *PostUsecase) SavePost(ctx fiber.Ctx, postIdParam string, userId s
 
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.SavePost")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.SavePost")
 	var err error
 	defer func() {
 		if err != nil {
@@ -1118,7 +1123,7 @@ func (usecase *PostUsecase) UnsavePost(ctx fiber.Ctx, postIdParam string, userId
 
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.UnsavePost")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.UnsavePost")
 	var err error
 	defer func() {
 		if err != nil {
@@ -1176,7 +1181,7 @@ func (usecase *PostUsecase) GetSavedPosts(ctx fiber.Ctx, serverId string, userId
 
 	ctxContext := ctx.Context()
 	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
-	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.GetSavedPosts")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.GetSavedPosts")
 	var err error
 	defer func() {
 		if err != nil {
