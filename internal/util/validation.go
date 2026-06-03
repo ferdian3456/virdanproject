@@ -295,7 +295,7 @@ func (c *StringChain) Custom(fn func(string) bool, message string) *StringChain 
 }
 
 // Nickname validates string matches nickname pattern: letters, digits, underscore, dash.
-// Skip kalau already failed atau value kosong (Required handles empty).
+// Skip if already failed or value is empty (Required handles empty).
 func (c *StringChain) Nickname() *StringChain {
 	if c.v.err != nil || c.value == "" {
 		return c
@@ -306,8 +306,8 @@ func (c *StringChain) Nickname() *StringChain {
 	return c
 }
 
-// Regex validates string against a pre-compiled regex. Escape hatch untuk one-off pattern.
-// Caller WAJIB pass pre-compiled *regexp.Regexp (compile-per-call diharamkan di hot path).
+// Regex validates string against a pre-compiled regex. Escape hatch for one-off patterns.
+// Caller MUST pass a pre-compiled *regexp.Regexp (compile-per-call is forbidden on the hot path).
 func (c *StringChain) Regex(re *regexp.Regexp, message string) *StringChain {
 	if c.v.err != nil || c.value == "" {
 		return c

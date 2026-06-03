@@ -225,8 +225,8 @@ func RequireJSONResponse(t *testing.T, resp *http.Response, expectedStatus int) 
 }
 
 // GetOTPFromMailhog fetches OTP from MailHog API
-// Polls MailHog API untuk email yang dikirim ke alamat tertentu
-// Parse email body dan extract OTP menggunakan regex
+// Polls the MailHog API for the email sent to a specific address
+// Parses the email body and extracts the OTP using regex
 func GetOTPFromMailhog(t *testing.T, mailhogURL, email string) string {
 	t.Logf("Fetching OTP from MailHog for email: %s", email)
 
@@ -329,7 +329,7 @@ func GetOTPFromMailhog(t *testing.T, mailhogURL, email string) string {
 			}
 		}
 
-		// Jika belum ketemu, tunggu 500ms sebelum retry
+		// If not found yet, wait 500ms before retry
 		if i < maxAttempts-1 {
 			t.Logf("OTP not found yet, waiting 500ms before retry...")
 			time.Sleep(500 * time.Millisecond)
@@ -357,22 +357,22 @@ func GenerateRandomString(length int) string {
 // 1. Simple: {"status": "ok"}
 // 2. With data: {"data": [...], "page": {"nextCursor": "..."}}
 type APIResponse struct {
-	Status string         `json:"status,omitempty"` // "ok" untuk simple success response
-	Data   interface{}    `json:"data,omitempty"`   // bisa berupa array, object, atau nil
-	Page   *PageInfo      `json:"page,omitempty"`   // pagination info (untuk list endpoints)
-	Error  *ErrorResponse `json:"error,omitempty"`  // error info (untuk error response)
+	Status string         `json:"status,omitempty"` // "ok" for simple success response
+	Data   interface{}    `json:"data,omitempty"`   // can be an array, object, or nil
+	Page   *PageInfo      `json:"page,omitempty"`   // pagination info (for list endpoints)
+	Error  *ErrorResponse `json:"error,omitempty"`  // error info (for error response)
 }
 
 // PageInfo represents pagination information for list endpoints
 type PageInfo struct {
-	NextCursor string `json:"nextCursor"` // Cursor untuk page berikutnya
+	NextCursor string `json:"nextCursor"` // Cursor for the next page
 }
 
 // ErrorResponse represents the standard error response structure
 type ErrorResponse struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
-	Param   string `json:"param,omitempty"` // Param hanya ada untuk validation error
+	Param   string `json:"param,omitempty"` // Param only present for validation error
 }
 
 // ParseErrorMessage extracts error message from error response
@@ -406,7 +406,7 @@ func ParseErrorResponse(t *testing.T, result map[string]interface{}) ErrorRespon
 		errResp.Message = message
 	}
 
-	// Parse Param (opsional, hanya untuk validation error)
+	// Parse Param (optional, only for validation error)
 	if param, ok := errObj["param"].(string); ok {
 		errResp.Param = param
 	}
