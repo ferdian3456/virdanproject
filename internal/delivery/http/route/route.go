@@ -165,4 +165,6 @@ func (c *RouteConfig) SetupRoute() {
 
 	convGroup := api.Group("/conversations", c.AuthMiddleware.ProtectedRoute())
 	convGroup.Post("/:conversationId/messages", c.ChatController.SendMessage)
+	convGroup.Get("/:conversationId/messages", c.ChatController.ListMessages)
+	convGroup.Post("/:conversationId/read", c.ChatController.MarkRead)
 }

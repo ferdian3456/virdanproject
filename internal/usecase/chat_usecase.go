@@ -317,6 +317,96 @@ func (usecase *ChatUsecase) SendMessage(ctx fiber.Ctx, conversationId, callerId 
 	return resp, nil
 }
 
+func (usecase *ChatUsecase) ListMessages(ctx fiber.Ctx, conversationId, callerId, cursorStr, limitStr string) (model.DmMessageListResponse, error) {
+	v := util.NewValidator()
+	v.UUID("conversationId", conversationId)
+	if valErr := v.Validate(); valErr != nil {
+		return model.DmMessageListResponse{}, valErr
+	}
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.ListMessages")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	conv, _, err := usecase.requireParticipantAndMember(ctxContext, conversationId, callerId)
+	if err != nil {
+		return model.DmMessageListResponse{}, err
+	}
+
+	limit, _ := strconv.Atoi(limitStr)
+	if limit <= 0 {
+		limit = dmDefaultLimit
+	} else if limit > dmMaxLimit {
+		limit = dmMaxLimit
+	}
+	var cursor *model.DmMessageCursor
+	if cursorStr != "" {
+		if cur, decErr := util.DecodeCursor[model.DmMessageCursor](cursorStr); decErr == nil {
+			cursor = cur
+		}
+	}
+	minioFullUrl := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
+	rows, err := usecase.ChatRepository.ListMessages(ctxContext, conversationId, conv.ServerId, limit+1, cursor, minioFullUrl)
+	if err != nil {
+		return model.DmMessageListResponse{}, err
+	}
+	var resp model.DmMessageListResponse
+	if len(rows) > limit {
+		last := rows[limit-1]
+		resp.Page.NextCursor = util.EncodeCursor(model.DmMessageCursor{CreatedAt: last.CreatedAt, Id: last.Id})
+		rows = rows[:limit]
+	}
+	resp.Data = rows
+	return resp, nil
+}
+
+func (usecase *ChatUsecase) MarkRead(ctx fiber.Ctx, conversationId, callerId string, payload model.MarkReadRequest) error {
+	v := util.NewValidator()
+	v.UUID("conversationId", conversationId)
+	if payload.LastReadMessageId != nil {
+		v.UUID("lastReadMessageId", *payload.LastReadMessageId)
+	}
+	if valErr := v.Validate(); valErr != nil {
+		return valErr
+	}
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.MarkRead")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	_, peerId, err := usecase.requireParticipantAndMember(ctxContext, conversationId, callerId)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	readAt := now
+	if payload.LastReadMessageId != nil {
+		if ts, e := usecase.ChatRepository.GetMessageCreatedAt(ctxContext, conversationId, *payload.LastReadMessageId); e == nil {
+			readAt = ts
+		}
+	}
+	if err = usecase.ChatRepository.MarkRead(ctxContext, conversationId, callerId, payload.LastReadMessageId, readAt, now); err != nil {
+		return err
+	}
+	ev := ws.Event{Type: "message.read", Payload: model.WsReadPayload{ConversationId: conversationId, UserId: callerId, LastReadAt: readAt}}
+	if pubErr := usecase.Broker.Publish(ctxContext, []string{peerId}, ev); pubErr != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Warn("dm read receipt fanout failed", zap.Error(pubErr))
+	}
+	return nil
+}
+
 func (usecase *ChatUsecase) resolveIdentity(ctx context.Context, serverId, userId string) (model.DmIdentity, error) {
 	minioFullUrl := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
 	return usecase.ChatRepository.GetMemberIdentity(ctx, serverId, userId, minioFullUrl)

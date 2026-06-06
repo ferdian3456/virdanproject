@@ -103,6 +103,57 @@ func (controller *ChatController) SendMessage(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, resp)
 }
 
+func (controller *ChatController) ListMessages(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-controller").Start(ctxContext, "controller.ListMessages")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+	conversationId := ctx.Params("conversationId")
+	cursor := ctx.Query("cursor")
+	limitStr := ctx.Query("limit")
+
+	var resp model.DmMessageListResponse
+	resp, err = controller.ChatUsecase.ListMessages(ctx, conversationId, userId, cursor, limitStr)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+	return util.SendSuccessResponseWithData(ctx, resp)
+}
+
+func (controller *ChatController) MarkRead(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-controller").Start(ctxContext, "controller.MarkRead")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+	conversationId := ctx.Params("conversationId")
+	var payload model.MarkReadRequest
+	if err = util.ReadRequestBody(ctx, &payload); err != nil {
+		return util.SendError(ctx, err)
+	}
+	if err = controller.ChatUsecase.MarkRead(ctx, conversationId, userId, payload); err != nil {
+		return util.SendError(ctx, err)
+	}
+	return util.SendSuccessResponseNoData(ctx)
+}
+
 func (controller *ChatController) ListConversations(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
