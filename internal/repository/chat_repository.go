@@ -272,7 +272,7 @@ func (repository *ChatRepository) ListMessages(ctx context.Context, conversation
 	}
 	defer rows.Close()
 
-	var out []model.DmMessageResponse
+	out := make([]model.DmMessageResponse, 0)
 	for rows.Next() {
 		var messageRow model.DmMessageResponse
 		var objectKey *string
@@ -326,7 +326,7 @@ func (repository *ChatRepository) ListConversations(ctx context.Context, userId,
 	}
 	defer rows.Close()
 
-	var out []model.DmConversationResponse
+	out := make([]model.DmConversationResponse, 0)
 	for rows.Next() {
 		var conv model.DmConversationResponse
 		var objectKey *string
@@ -389,7 +389,7 @@ func (repository *ChatRepository) ListMembers(ctx context.Context, callerId, ser
 	}
 	defer rows.Close()
 
-	var out []model.DmMemberResponse
+	out := make([]model.DmMemberResponse, 0)
 	for rows.Next() {
 		var member model.DmMemberResponse
 		var objectKey *string
