@@ -18,6 +18,7 @@ type RouteConfig struct {
 	PostController         *http.PostController
 	ProfileController      *http.ProfileController
 	NotificationController *http.NotificationController
+	ChatController         *http.ChatController
 	DB                     *pgxpool.Pool
 	DBCache                *redis.Client
 	MinIO                  *minio.Client
@@ -157,4 +158,8 @@ func (c *RouteConfig) SetupRoute() {
 	serverGroup.Get("/:serverId/notifications/unread-count", c.NotificationController.GetUnreadCount)
 	serverGroup.Get("/:serverId/notifications", c.NotificationController.GetFeed)
 	serverGroup.Post("/:serverId/notifications/:id/read", c.NotificationController.MarkRead)
+
+	serverGroup.Get("/:serverId/members", c.ChatController.ListMembers)
+	serverGroup.Get("/:serverId/conversations", c.ChatController.ListConversations)
+	serverGroup.Post("/:serverId/conversations", c.ChatController.GetOrCreateConversation)
 }

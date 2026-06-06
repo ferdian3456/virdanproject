@@ -7,6 +7,7 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/delivery/http/route"
 	"github.com/ferdian3456/virdanproject/internal/repository"
 	"github.com/ferdian3456/virdanproject/internal/usecase"
+	"github.com/ferdian3456/virdanproject/internal/ws"
 	"github.com/minio/minio-go/v7"
 
 	"github.com/gofiber/fiber/v3"
@@ -48,6 +49,12 @@ func Server(config *ServerConfig) {
 	profileUsecase := usecase.NewProfileUsecase(profileRepository, serverRepository, config.DB, config.Log, config.Config)
 	profileController := http.NewProfileController(profileUsecase, config.Log, config.Config)
 
+	chatRepository := repository.NewChatRepository(config.Log, config.Config, config.DB)
+	hub := ws.NewHub()
+	broker := ws.NewInProcessBroker(hub)
+	chatUsecase := usecase.NewChatUsecase(config.Log, config.Config, config.DB, chatRepository, serverRepository, notificationUsecase, broker, hub)
+	chatController := http.NewChatController(config.Log, config.Config, chatUsecase, hub)
+
 	authMiddleware := middleware.NewAuthMiddleware(config.Config, config.Log, userUsecase)
 
 	routeConfig := route.RouteConfig{
@@ -57,6 +64,7 @@ func Server(config *ServerConfig) {
 		PostController:         postController,
 		ProfileController:      profileController,
 		NotificationController: notificationController,
+		ChatController:         chatController,
 		AuthMiddleware:         authMiddleware,
 		DB:                     config.DB,
 		DBCache:                config.DBCache,
