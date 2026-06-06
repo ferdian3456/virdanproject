@@ -130,11 +130,16 @@ func (c *RouteConfig) SetupRoute() {
 	serverGroup.Get("/:serverId/posts/saved", c.PostController.GetSavedPosts)
 	serverGroup.Get("/:serverId/members/:userId/posts", c.PostController.GetServerPostsByUserId)
 
-	profileGroup := api.Group("", c.AuthMiddleware.ProtectedRoute())
-	profileGroup.Get("/profiles/history", c.ProfileController.GetProfileHistory)
-	profileGroup.Get("/servers/:serverId/profile/me", c.ProfileController.GetServerProfileMe)
-	profileGroup.Get("/servers/:serverId/members/:userId/profile", c.ProfileController.GetServerProfileByUserId)
-	profileGroup.Put("/servers/:serverId/profile", c.ProfileController.UpdateServerProfile)
+	// Profile routes — previously used api.Group("", ...) which caused the
+	// middleware to intercept ALL /api/* requests in Fiber v3 (empty prefix = catch-all).
+	// Now split into proper-prefix groups.
+	profilesGroup := api.Group("/profiles", c.AuthMiddleware.ProtectedRoute())
+	profilesGroup.Get("/history", c.ProfileController.GetProfileHistory)
+
+	// Server-scoped profile routes go into serverGroup (already has ProtectedRoute).
+	serverGroup.Get("/:serverId/profile/me", c.ProfileController.GetServerProfileMe)
+	serverGroup.Get("/:serverId/members/:userId/profile", c.ProfileController.GetServerProfileByUserId)
+	serverGroup.Put("/:serverId/profile", c.ProfileController.UpdateServerProfile)
 
 	postGroup := api.Group("/posts", c.AuthMiddleware.ProtectedRoute())
 	postGroup.Get("/:postId", c.PostController.GetPost)
