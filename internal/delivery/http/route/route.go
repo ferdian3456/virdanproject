@@ -4,6 +4,7 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/delivery/http"
 	"github.com/ferdian3456/virdanproject/internal/delivery/http/middleware"
 
+	"github.com/gofiber/contrib/v3/websocket"
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minio/minio-go/v7"
@@ -167,4 +168,8 @@ func (c *RouteConfig) SetupRoute() {
 	convGroup.Post("/:conversationId/messages", c.ChatController.SendMessage)
 	convGroup.Get("/:conversationId/messages", c.ChatController.ListMessages)
 	convGroup.Post("/:conversationId/read", c.ChatController.MarkRead)
+
+	wsGroup := api.Group("/ws", c.AuthMiddleware.ProtectedRoute())
+	wsGroup.Use(middleware.WebSocketUpgradeOnly)
+	wsGroup.Get("/", websocket.New(c.ChatController.HandleWS))
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/usecase"
 	"github.com/ferdian3456/virdanproject/internal/util"
 	"github.com/ferdian3456/virdanproject/internal/ws"
+	"github.com/gofiber/contrib/v3/websocket"
 	"github.com/gofiber/fiber/v3"
 	"github.com/knadh/koanf/v2"
 	"go.opentelemetry.io/otel"
@@ -20,6 +21,17 @@ type ChatController struct {
 
 func NewChatController(log *zap.Logger, config *koanf.Koanf, chatUsecase *usecase.ChatUsecase, hub *ws.Hub) *ChatController {
 	return &ChatController{Log: log, Config: config, ChatUsecase: chatUsecase, Hub: hub}
+}
+
+// HandleWS is the websocket.New handler. Auth already done by ProtectedRoute on
+// the HTTP upgrade; userId is in conn.Locals.
+func (controller *ChatController) HandleWS(conn *websocket.Conn) {
+	userId, ok := conn.Locals("userId").(string)
+	if !ok || userId == "" {
+		_ = conn.Close()
+		return
+	}
+	controller.Hub.Serve(conn, userId, controller.ChatUsecase.HandleInboundFrame)
 }
 
 func (controller *ChatController) GetOrCreateConversation(ctx fiber.Ctx) error {

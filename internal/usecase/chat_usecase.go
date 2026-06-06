@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/ferdian3456/virdanproject/internal/constant"
 	"github.com/ferdian3456/virdanproject/internal/model"
 	"github.com/ferdian3456/virdanproject/internal/repository"
@@ -26,6 +28,9 @@ const (
 	dmMaxContentLen   = 4000
 	dmPreviewMaxRunes = 120
 )
+
+// dmTypingLast throttles typing relays per (sender, conversation): max 1/sec.
+var dmTypingLast sync.Map
 
 type ChatUsecase struct {
 	Log                 *zap.Logger
@@ -433,4 +438,45 @@ func (usecase *ChatUsecase) requireParticipantAndMember(ctx context.Context, con
 		peerId = conv.UserLow
 	}
 	return conv, peerId, nil
+}
+
+// HandleInboundFrame relays typing indicators from WS clients.
+// It is called by the Hub for every frame a connected client sends.
+func (usecase *ChatUsecase) HandleInboundFrame(userId string, raw []byte) {
+	var in model.WsInboundTyping
+	if err := sonic.Unmarshal(raw, &in); err != nil || in.Type != "typing" {
+		return
+	}
+	if in.Payload.ConversationId == "" {
+		return
+	}
+	// | is a safe composite key separator — cannot appear in UUIDs (hex + dash only).
+	key := userId + "|" + in.Payload.ConversationId
+	now := time.Now()
+	if last, ok := dmTypingLast.Load(key); ok {
+		if now.Sub(last.(time.Time)) < time.Second {
+			return
+		}
+	}
+	dmTypingLast.Store(key, now)
+
+	bg, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conv, err := usecase.ChatRepository.GetConversationById(bg, in.Payload.ConversationId)
+	if err != nil {
+		return
+	}
+	if conv.UserLow != userId && conv.UserHigh != userId {
+		return
+	}
+	peerId := conv.UserHigh
+	if userId == conv.UserHigh {
+		peerId = conv.UserLow
+	}
+	ev := ws.Event{Type: "typing", Payload: model.WsTypingPayload{
+		ConversationId: in.Payload.ConversationId, UserId: userId, IsTyping: in.Payload.IsTyping,
+	}}
+	if pubErr := usecase.Broker.Publish(bg, []string{peerId}, ev); pubErr != nil {
+		util.GetLoggerWithTraceContext(bg, usecase.Log).Warn("typing fanout failed", zap.Error(pubErr))
+	}
 }
