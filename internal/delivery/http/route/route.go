@@ -169,7 +169,7 @@ func (c *RouteConfig) SetupRoute() {
 	convGroup.Get("/:conversationId/messages", c.ChatController.ListMessages)
 	convGroup.Post("/:conversationId/read", c.ChatController.MarkRead)
 
-	wsGroup := api.Group("/ws", c.AuthMiddleware.ProtectedRoute())
+	wsGroup := api.Group("/ws", c.AuthMiddleware.WsProtectedRoute())
 	wsGroup.Use(middleware.WebSocketUpgradeOnly)
 	wsGroup.Get("/", websocket.New(c.ChatController.HandleWS))
 }
