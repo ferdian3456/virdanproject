@@ -117,6 +117,10 @@ test-system:
 	@echo "Running system integration tests..."
 	@go test -v ./tests/integration/system/...
 
+.PHONY: test-chat
+test-chat:
+	@go build ./...
+
 .PHONY: test-one
 test-one:
 	@read -p "Enter test name: " testname; \

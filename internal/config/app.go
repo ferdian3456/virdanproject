@@ -7,6 +7,7 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/delivery/http/route"
 	"github.com/ferdian3456/virdanproject/internal/repository"
 	"github.com/ferdian3456/virdanproject/internal/usecase"
+	"github.com/ferdian3456/virdanproject/internal/ws"
 	"github.com/minio/minio-go/v7"
 
 	"github.com/gofiber/fiber/v3"
@@ -27,13 +28,16 @@ type ServerConfig struct {
 }
 
 func Server(config *ServerConfig) {
+	// Hub has no dependencies — created first so Login/Logout can close WS sessions.
+	hub := ws.NewHub()
+
 	serverRepository := repository.NewServerRepository(config.Log, config.Config, config.DB, config.DBCache, config.MinIO)
 	profileRepository := repository.NewProfileRepository(config.Log, config.Config, config.DB, config.MinIO)
 	serverUsecase := usecase.NewServerUsecase(serverRepository, profileRepository, config.DB, config.Log, config.Config)
 	serverController := http.NewServerController(serverUsecase, config.Log, config.Config)
 
 	userRepository := repository.NewUserRepository(config.Log, config.Config, config.DB, config.DBCache, config.MinIO)
-	userUsecase := usecase.NewUserUsecase(userRepository, serverRepository, config.DB, config.Log, config.Config)
+	userUsecase := usecase.NewUserUsecase(userRepository, serverRepository, config.DB, config.Log, config.Config, hub)
 	userController := http.NewUserController(userUsecase, config.Log, config.Config)
 
 	// NotificationUsecase is built before PostUsecase because PostUsecase injects it (notif triggers).
@@ -48,6 +52,11 @@ func Server(config *ServerConfig) {
 	profileUsecase := usecase.NewProfileUsecase(profileRepository, serverRepository, config.DB, config.Log, config.Config)
 	profileController := http.NewProfileController(profileUsecase, config.Log, config.Config)
 
+	chatRepository := repository.NewChatRepository(config.Log, config.Config, config.DB)
+	broker := ws.NewInProcessBroker(hub)
+	chatUsecase := usecase.NewChatUsecase(config.Log, config.Config, config.DB, chatRepository, serverRepository, notificationUsecase, broker, hub)
+	chatController := http.NewChatController(config.Log, config.Config, chatUsecase, hub)
+
 	authMiddleware := middleware.NewAuthMiddleware(config.Config, config.Log, userUsecase)
 
 	routeConfig := route.RouteConfig{
@@ -57,6 +66,7 @@ func Server(config *ServerConfig) {
 		PostController:         postController,
 		ProfileController:      profileController,
 		NotificationController: notificationController,
+		ChatController:         chatController,
 		AuthMiddleware:         authMiddleware,
 		DB:                     config.DB,
 		DBCache:                config.DBCache,

@@ -11,6 +11,7 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/delivery/http/route"
 	"github.com/ferdian3456/virdanproject/internal/repository"
 	"github.com/ferdian3456/virdanproject/internal/usecase"
+	"github.com/ferdian3456/virdanproject/internal/ws"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/redis/go-redis/v9"
@@ -131,7 +132,8 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 	// copy-on-join multi-identity flow, otherwise CreateServer / JoinServer
 	// will nil-panic when they try to write the snapshot row.
 	serverUsecase := usecase.NewServerUsecase(serverRepository, profileRepository, dbPool, zapLogger, testConfig)
-	userUsecase := usecase.NewUserUsecase(userRepository, serverRepository, dbPool, zapLogger, testConfig)
+	testHub := ws.NewHub()
+	userUsecase := usecase.NewUserUsecase(userRepository, serverRepository, dbPool, zapLogger, testConfig, testHub)
 	// FCM client is nil in tests — push is never reached because test users register no device
 	// tokens, so Notify's `len(tokens) == 0` short-circuits before touching the client (and the
 	// goroutine recover() would catch it anyway). DB-side notif behaviour (rows inserted) is testable.
