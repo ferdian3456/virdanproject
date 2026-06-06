@@ -5,7 +5,7 @@ go 1.25.6
 require (
 	github.com/bytedance/sonic v1.14.2
 	github.com/exaring/otelpgx v0.10.0
-	github.com/gofiber/fiber/v3 v3.1.0
+	github.com/gofiber/fiber/v3 v3.3.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
 	github.com/h2non/bimg v1.1.9
@@ -56,7 +56,7 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.56.0 // indirect
 	github.com/MicahParks/keyfunc v1.9.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/andybalholm/brotli v1.2.0 // indirect
+	github.com/andybalholm/brotli v1.2.1 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic/loader v0.4.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
@@ -79,6 +79,7 @@ require (
 	github.com/ebitengine/purego v0.8.4 // indirect
 	github.com/envoyproxy/go-control-plane/envoy v1.37.0 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.3.3 // indirect
+	github.com/fasthttp/websocket v1.5.12 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
@@ -87,8 +88,9 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
-	github.com/gofiber/schema v1.7.0 // indirect
-	github.com/gofiber/utils/v2 v2.0.2 // indirect
+	github.com/gofiber/contrib/v3/websocket v1.2.0 // indirect
+	github.com/gofiber/schema v1.7.1 // indirect
+	github.com/gofiber/utils/v2 v2.0.6 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
@@ -99,14 +101,14 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
-	github.com/klauspost/compress v1.18.4 // indirect
+	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.11 // indirect
 	github.com/klauspost/crc32 v1.3.0 // indirect
 	github.com/knadh/koanf/maps v0.1.2 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mdelapenya/tlscert v0.2.0 // indirect
 	github.com/minio/crc64nvme v1.1.0 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
@@ -129,15 +131,16 @@ require (
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/redis/go-redis/extra/rediscmd/v9 v9.17.3 // indirect
 	github.com/rs/xid v1.6.0 // indirect
+	github.com/savsgio/gotils v0.0.0-20250924091648-bce9a52d7761 // indirect
 	github.com/shirou/gopsutil/v4 v4.25.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.6.0 // indirect
-	github.com/tinylib/msgp v1.6.3 // indirect
+	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.69.0 // indirect
+	github.com/valyala/fasthttp v1.71.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.43.0 // indirect
