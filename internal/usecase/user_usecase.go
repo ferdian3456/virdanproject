@@ -13,6 +13,7 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/model"
 	"github.com/ferdian3456/virdanproject/internal/repository"
 	"github.com/ferdian3456/virdanproject/internal/util"
+	"github.com/ferdian3456/virdanproject/internal/ws"
 	"github.com/google/uuid"
 
 	"github.com/gofiber/fiber/v3"
@@ -32,15 +33,17 @@ type UserUsecase struct {
 	DB               *pgxpool.Pool
 	Log              *zap.Logger
 	Config           *koanf.Koanf
+	Hub              *ws.Hub
 }
 
-func NewUserUsecase(userRepository *repository.UserRepository, serverRepository *repository.ServerRepository, db *pgxpool.Pool, zap *zap.Logger, koanf *koanf.Koanf) *UserUsecase {
+func NewUserUsecase(userRepository *repository.UserRepository, serverRepository *repository.ServerRepository, db *pgxpool.Pool, zap *zap.Logger, koanf *koanf.Koanf, hub *ws.Hub) *UserUsecase {
 	return &UserUsecase{
 		UserRepository:   userRepository,
 		ServerRepository: serverRepository,
 		DB:               db,
 		Log:              zap,
 		Config:           koanf,
+		Hub:              hub,
 	}
 }
 
@@ -117,6 +120,9 @@ func (usecase *UserUsecase) Login(ctx fiber.Ctx, payload model.UserLoginRequest)
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to cache access token", zap.Error(err))
 		return response, err
 	}
+
+	// Kick any existing WS connections (single-session enforcement).
+	usecase.Hub.CloseUser(userId)
 
 	return response, nil
 }
@@ -729,6 +735,9 @@ func (usecase *UserUsecase) Logout(ctx fiber.Ctx, userId string) error {
 	if err != nil {
 		return err
 	}
+
+	// Close any open WS connections on logout.
+	usecase.Hub.CloseUser(userId)
 
 	return nil
 }

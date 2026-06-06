@@ -72,3 +72,12 @@ func HashSHA256(value string) string {
 	sum := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(sum[:])
 }
+
+// SortUUIDPair returns the two uuids in canonical (low, high) order so a 1:1
+// pair maps to a single conversation row regardless of who initiates.
+func SortUUIDPair(a, b string) (low, high string) {
+	if a < b {
+		return a, b
+	}
+	return b, a
+}

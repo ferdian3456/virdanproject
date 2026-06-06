@@ -109,3 +109,50 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 CREATE INDEX idx_notifications_pk_01 ON notifications(recipient_user_id, server_id, created_at DESC);
 CREATE INDEX idx_notifications_pk_02 ON notifications(recipient_user_id, server_id) WHERE read_at IS NULL;
+
+-- ── DM Chat (server-scoped 1:1) ──
+CREATE TABLE IF NOT EXISTS dm_conversations (
+    id              uuid PRIMARY KEY,
+    server_id       uuid NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+    user_low        uuid NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+    user_high       uuid NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+    last_message_at timestamptz,
+    created_at      timestamptz NOT NULL,
+    updated_at      timestamptz NOT NULL,
+    created_by      uuid NOT NULL,
+    updated_by      uuid NOT NULL,
+    CONSTRAINT chk_dm_conversations_user_order CHECK (user_low < user_high)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dm_conversations_uk_01
+    ON dm_conversations(server_id, user_low, user_high);
+
+CREATE TABLE IF NOT EXISTS dm_conversation_states (
+    conversation_id      uuid NOT NULL REFERENCES dm_conversations(id) ON DELETE CASCADE,
+    user_id              uuid NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+    server_id            uuid NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+    peer_user_id         uuid NOT NULL,
+    last_read_message_id uuid,
+    last_read_at         timestamptz,
+    last_message_at      timestamptz,
+    last_message_preview text,
+    unread_count         integer NOT NULL DEFAULT 0,
+    created_at           timestamptz NOT NULL,
+    updated_at           timestamptz NOT NULL,
+    PRIMARY KEY (conversation_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_dm_conversation_states_pk_01
+    ON dm_conversation_states(user_id, server_id, last_message_at DESC, conversation_id DESC);
+
+CREATE TABLE IF NOT EXISTS dm_messages (
+    id                uuid PRIMARY KEY,
+    conversation_id   uuid NOT NULL REFERENCES dm_conversations(id) ON DELETE CASCADE,
+    sender_id         uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type              text NOT NULL DEFAULT 'text',
+    content           text NOT NULL,
+    client_message_id uuid NOT NULL,
+    created_at        timestamptz NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dm_messages_uk_01
+    ON dm_messages(conversation_id, sender_id, client_message_id);
+CREATE INDEX IF NOT EXISTS idx_dm_messages_pk_01
+    ON dm_messages(conversation_id, created_at DESC, id DESC);
