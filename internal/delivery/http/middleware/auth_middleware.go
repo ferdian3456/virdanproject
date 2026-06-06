@@ -92,6 +92,7 @@ func (middleware *AuthMiddleware) ProtectedRoute() fiber.Handler {
 			span.End()
 		}()
 
+		middleware.Log.Debug("[WS-DEBUG] ProtectedRoute running", zap.String("path", ctx.Path()), zap.String("auth_header_len", fmt.Sprintf("%d", len(ctx.Get("Authorization")))))
 		authHeader := ctx.Get("Authorization")
 		if authHeader == "" {
 			err = &model.UnauthorizedError{
