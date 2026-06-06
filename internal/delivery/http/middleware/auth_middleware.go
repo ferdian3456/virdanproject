@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/ferdian3456/virdanproject/internal/constant"
@@ -46,6 +47,7 @@ func (middleware *AuthMiddleware) WsProtectedRoute() fiber.Handler {
 		}()
 
 		tokenString := ctx.Query("token")
+		middleware.Log.Debug("[WS-DEBUG] WsProtectedRoute running", zap.String("token_len", fmt.Sprintf("%d", len(tokenString))), zap.String("path", ctx.Path()))
 		if tokenString == "" {
 			err = &model.UnauthorizedError{
 				Code:    constant.ERR_UNAUTHORIZED_ERROR,
