@@ -536,3 +536,67 @@ func (usecase *NotificationUsecase) GetUnreadCount(ctx context.Context, userId s
 	}
 	return model.UnreadCountResponse{Count: count}, nil
 }
+
+// NotifyDM sends a data-only FCM push for a new DM. Always sent regardless of which
+// server is active in the app — the client suppresses display when that conversation is
+// in focus. Data message (no Notification block) so the client controls presentation.
+func (usecase *NotificationUsecase) NotifyDM(ctx context.Context, recipientUserId, conversationId, senderUsername, preview string) {
+	parentSpanCtx := trace.SpanContextFromContext(ctx)
+	go func() {
+		bg := trace.ContextWithSpanContext(context.Background(), parentSpanCtx)
+		bg, cancel := context.WithTimeout(bg, 30*time.Second)
+		defer cancel()
+		bg, span := otel.Tracer(usecase.Config.String("OTEL_SERVICE_NAME")+"-usecase").Start(bg, "usecase.NotifyDM")
+		defer span.End()
+		logger := util.GetLoggerWithTraceContext(bg, usecase.Log)
+		defer func() {
+			if rec := recover(); rec != nil {
+				logger.Error("panic in NotifyDM goroutine", zap.Any("recover", rec))
+			}
+		}()
+
+		tokens, err := usecase.NotificationRepository.ListTokensByUserId(bg, recipientUserId)
+		if err != nil {
+			logger.Error("notifyDM: list tokens failed", zap.Error(err))
+			return
+		}
+		if len(tokens) == 0 {
+			return
+		}
+		prefs, err := usecase.NotificationRepository.GetUserNotificationPrefs(bg, recipientUserId)
+		if err != nil {
+			logger.Error("notifyDM: read prefs failed", zap.Error(err))
+			return
+		}
+		if !pushEnabledForType(prefs, "message") {
+			return
+		}
+
+		msg := &messaging.MulticastMessage{
+			Tokens: tokens,
+			Data: map[string]string{
+				"type":           "message",
+				"conversationId": conversationId,
+				"senderUsername": senderUsername,
+				"preview":        preview,
+			},
+			Android: &messaging.AndroidConfig{Priority: "high"},
+		}
+		resp, ferr := usecase.FCMClient.SendEachForMulticast(bg, msg)
+		if ferr != nil {
+			logger.Error("notifyDM: FCM send failed", zap.Error(ferr))
+			return
+		}
+		var invalid []string
+		for i, r := range resp.Responses {
+			if !r.Success && (messaging.IsUnregistered(r.Error) || messaging.IsInvalidArgument(r.Error)) {
+				invalid = append(invalid, tokens[i])
+			}
+		}
+		if len(invalid) > 0 {
+			if e := usecase.NotificationRepository.DeleteInvalidTokens(bg, invalid); e != nil {
+				logger.Warn("notifyDM: delete invalid tokens failed", zap.Error(e))
+			}
+		}
+	}()
+}

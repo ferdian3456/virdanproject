@@ -76,6 +76,33 @@ func (controller *ChatController) ListMembers(ctx fiber.Ctx) error {
 	return util.SendSuccessResponseWithData(ctx, resp)
 }
 
+func (controller *ChatController) SendMessage(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-controller").Start(ctxContext, "controller.SendMessage")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+	conversationId := ctx.Params("conversationId")
+	var payload model.SendMessageRequest
+	if err = util.ReadRequestBody(ctx, &payload); err != nil {
+		return util.SendError(ctx, err)
+	}
+	var resp model.DmMessageResponse
+	resp, err = controller.ChatUsecase.SendMessage(ctx, conversationId, userId, payload)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+	return util.SendSuccessResponseWithData(ctx, resp)
+}
+
 func (controller *ChatController) ListConversations(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")

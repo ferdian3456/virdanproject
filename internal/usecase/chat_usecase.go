@@ -224,6 +224,104 @@ func (usecase *ChatUsecase) ListConversations(ctx fiber.Ctx, serverId, callerId,
 	return resp, nil
 }
 
+func (usecase *ChatUsecase) SendMessage(ctx fiber.Ctx, conversationId, callerId string, payload model.SendMessageRequest) (model.DmMessageResponse, error) {
+	v := util.NewValidator()
+	v.UUID("conversationId", conversationId)
+	v.UUID("clientMessageId", payload.ClientMessageId)
+	v.String("content", payload.Content).Required().MaxLen(dmMaxContentLen)
+	if valErr := v.Validate(); valErr != nil {
+		return model.DmMessageResponse{}, valErr
+	}
+
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-usecase").Start(ctxContext, "usecase.SendMessage")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	conv, peerId, err := usecase.requireParticipantAndMember(ctxContext, conversationId, callerId)
+	if err != nil {
+		return model.DmMessageResponse{}, err
+	}
+
+	now := time.Now().UTC()
+	preview := util.TruncateRunes(payload.Content, dmPreviewMaxRunes)
+	msg := model.DmMessage{
+		Id: uuid.New().String(), ConversationId: conversationId, SenderId: callerId,
+		Type: "text", Content: payload.Content, ClientMessageId: payload.ClientMessageId, CreatedAt: now,
+	}
+
+	var tx pgx.Tx
+	tx, err = usecase.DB.Begin(ctxContext)
+	if err != nil {
+		return model.DmMessageResponse{}, err
+	}
+	defer func() { _ = tx.Rollback(ctxContext) }()
+
+	var inserted bool
+	inserted, err = usecase.ChatRepository.InsertMessageIdempotent(ctxContext, tx, msg)
+	if err != nil {
+		return model.DmMessageResponse{}, err
+	}
+
+	stored := msg
+	if !inserted {
+		stored, err = usecase.ChatRepository.GetMessageByClientId(ctxContext, tx, conversationId, callerId, payload.ClientMessageId)
+		if err != nil {
+			return model.DmMessageResponse{}, err
+		}
+		if err = tx.Commit(ctxContext); err != nil {
+			return model.DmMessageResponse{}, err
+		}
+		senderIdentity, identityErr := usecase.resolveIdentity(ctxContext, conv.ServerId, callerId)
+		if identityErr != nil {
+			util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Warn("resolve sender identity failed", zap.Error(identityErr))
+		}
+		return model.DmMessageResponse{
+			Id: stored.Id, ConversationId: stored.ConversationId, SenderId: stored.SenderId,
+			Type: stored.Type, Content: stored.Content, ClientMessageId: stored.ClientMessageId, CreatedAt: stored.CreatedAt,
+			Sender: senderIdentity,
+		}, nil
+	}
+
+	if err = usecase.ChatRepository.UpdateConversationLastMessage(ctxContext, tx, conversationId, callerId, now); err != nil {
+		return model.DmMessageResponse{}, err
+	}
+	if err = usecase.ChatRepository.BumpConversationStates(ctxContext, tx, conversationId, callerId, preview, now); err != nil {
+		return model.DmMessageResponse{}, err
+	}
+	if err = tx.Commit(ctxContext); err != nil {
+		return model.DmMessageResponse{}, err
+	}
+
+	senderIdentity, identityErr := usecase.resolveIdentity(ctxContext, conv.ServerId, callerId)
+	if identityErr != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Warn("resolve sender identity failed", zap.Error(identityErr))
+	}
+	resp := model.DmMessageResponse{
+		Id: stored.Id, ConversationId: stored.ConversationId, SenderId: stored.SenderId,
+		Type: stored.Type, Content: stored.Content, ClientMessageId: stored.ClientMessageId, CreatedAt: stored.CreatedAt,
+		Sender: senderIdentity,
+	}
+
+	ev := ws.Event{Type: "message.new", Payload: resp}
+	if pubErr := usecase.Broker.Publish(ctxContext, []string{peerId, callerId}, ev); pubErr != nil {
+		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Warn("dm fanout failed", zap.Error(pubErr))
+	}
+	usecase.NotificationUsecase.NotifyDM(ctxContext, peerId, conversationId, resp.Sender.Username, preview)
+	return resp, nil
+}
+
+func (usecase *ChatUsecase) resolveIdentity(ctx context.Context, serverId, userId string) (model.DmIdentity, error) {
+	minioFullUrl := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
+	return usecase.ChatRepository.GetMemberIdentity(ctx, serverId, userId, minioFullUrl)
+}
+
 // requireParticipantAndMember loads the conversation, asserts caller is a
 // participant and still a server member. Returns the conversation + peerId.
 func (usecase *ChatUsecase) requireParticipantAndMember(ctx context.Context, conversationId, callerId string) (model.DmConversation, string, error) {

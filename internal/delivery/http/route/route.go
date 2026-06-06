@@ -162,4 +162,7 @@ func (c *RouteConfig) SetupRoute() {
 	serverGroup.Get("/:serverId/members", c.ChatController.ListMembers)
 	serverGroup.Get("/:serverId/conversations", c.ChatController.ListConversations)
 	serverGroup.Post("/:serverId/conversations", c.ChatController.GetOrCreateConversation)
+
+	convGroup := api.Group("/conversations", c.AuthMiddleware.ProtectedRoute())
+	convGroup.Post("/:conversationId/messages", c.ChatController.SendMessage)
 }
