@@ -580,7 +580,21 @@ func (usecase *NotificationUsecase) NotifyDM(ctx context.Context, recipientUserI
 				"senderUsername": senderUsername,
 				"preview":        preview,
 			},
-			Android: &messaging.AndroidConfig{Priority: "high"},
+			Notification: &messaging.Notification{
+				Title: senderUsername,
+				Body:  preview,
+			},
+			Android: &messaging.AndroidConfig{
+				Priority: "high",
+				Notification: &messaging.AndroidNotification{
+					ChannelID: "virdan_high_importance",
+				},
+			},
+			APNS: &messaging.APNSConfig{
+				Payload: &messaging.APNSPayload{
+					Aps: &messaging.Aps{Sound: "default"},
+				},
+			},
 		}
 		resp, ferr := usecase.FCMClient.SendEachForMulticast(bg, msg)
 		if ferr != nil {
