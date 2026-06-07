@@ -73,6 +73,7 @@ type DmConversationResponse struct {
 	PeerUserId         string     `json:"peerUserId"`
 	Peer               DmIdentity `json:"peer"`
 	UnreadCount        int        `json:"unreadCount"`
+	IsOnline           bool       `json:"isOnline"`
 	LastMessagePreview *string    `json:"lastMessagePreview"`
 	LastMessageAt      *time.Time `json:"lastMessageAt"`
 }
@@ -135,4 +136,9 @@ type WsReadPayload struct {
 	ConversationId string    `json:"conversationId"`
 	UserId         string    `json:"userId"`
 	LastReadAt     time.Time `json:"lastReadAt"`
+}
+
+type WsPresencePayload struct {
+	UserId string `json:"userId"`
+	Online bool   `json:"online"`
 }

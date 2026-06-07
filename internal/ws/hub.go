@@ -100,7 +100,8 @@ func (hub *Hub) deliver(userId string, payload []byte) {
 
 // Serve wires a freshly-upgraded conn into the hub and blocks until disconnect.
 // Enforces the per-user connection cap. onInbound handles client->server frames.
-func (hub *Hub) Serve(conn *websocket.Conn, userId string, onInbound func(userId string, raw []byte)) {
+// onPresence, if non-nil, is called async on connect (true) and on final disconnect (false).
+func (hub *Hub) Serve(conn *websocket.Conn, userId string, onInbound func(userId string, raw []byte), onPresence func(userId string, online bool)) {
 	if hub.CountConnections(userId) >= maxConnPerUser {
 		_ = conn.WriteJSON(Event{Type: "error", Payload: map[string]string{
 			"code": "WS_CONN_LIMIT", "message": "too many connections",
@@ -118,6 +119,12 @@ func (hub *Hub) Serve(conn *websocket.Conn, userId string, onInbound func(userId
 		onInbound: onInbound,
 	}
 	hub.Register(client)
+	if onPresence != nil {
+		go onPresence(userId, true)
+	}
 	go client.writePump()
-	client.readPump() // blocks
+	client.readPump() // blocks; defer inside unregisters client
+	if onPresence != nil && hub.CountConnections(userId) == 0 {
+		go onPresence(userId, false)
+	}
 }

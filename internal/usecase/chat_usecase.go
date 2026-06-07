@@ -225,6 +225,9 @@ func (usecase *ChatUsecase) ListConversations(ctx fiber.Ctx, serverId, callerId,
 		}
 		rows = rows[:limit]
 	}
+	for i := range rows {
+		rows[i].IsOnline = usecase.Hub.IsOnline(rows[i].PeerUserId)
+	}
 	resp.Data = rows
 	return resp, nil
 }
@@ -438,6 +441,21 @@ func (usecase *ChatUsecase) requireParticipantAndMember(ctx context.Context, con
 		peerId = conv.UserLow
 	}
 	return conv, peerId, nil
+}
+
+// BroadcastPresence fans out a presence event to all conversation peers of userId.
+// Called by Hub.Serve on connect (online=true) and final disconnect (online=false).
+func (usecase *ChatUsecase) BroadcastPresence(userId string, online bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	peerIds, err := usecase.ChatRepository.GetConversationPeerIds(ctx, userId)
+	if err != nil || len(peerIds) == 0 {
+		return
+	}
+	ev := ws.Event{Type: "presence", Payload: model.WsPresencePayload{UserId: userId, Online: online}}
+	if pubErr := usecase.Broker.Publish(ctx, peerIds, ev); pubErr != nil {
+		util.GetLoggerWithTraceContext(ctx, usecase.Log).Warn("presence fanout failed", zap.Error(pubErr))
+	}
 }
 
 // HandleInboundFrame relays typing indicators from WS clients.

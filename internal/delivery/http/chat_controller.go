@@ -31,7 +31,7 @@ func (controller *ChatController) HandleWS(conn *websocket.Conn) {
 		_ = conn.Close()
 		return
 	}
-	controller.Hub.Serve(conn, userId, controller.ChatUsecase.HandleInboundFrame)
+	controller.Hub.Serve(conn, userId, controller.ChatUsecase.HandleInboundFrame, controller.ChatUsecase.BroadcastPresence)
 }
 
 func (controller *ChatController) GetOrCreateConversation(ctx fiber.Ctx) error {

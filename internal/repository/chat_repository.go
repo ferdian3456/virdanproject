@@ -480,6 +480,27 @@ func (repository *ChatRepository) GetMemberIdentity(ctx context.Context, serverI
 	return identity, nil
 }
 
+// GetConversationPeerIds returns all unique peer user IDs from conversations
+// involving userId. Used to fanout presence events.
+func (repository *ChatRepository) GetConversationPeerIds(ctx context.Context, userId string) ([]string, error) {
+	query := `SELECT DISTINCT CASE WHEN user_low=$1 THEN user_high ELSE user_low END AS peer_id
+		FROM dm_conversations WHERE user_low=$1 OR user_high=$1`
+	rows, err := repository.DB.Query(ctx, query, userId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]string, 0)
+	for rows.Next() {
+		var peerId string
+		if err = rows.Scan(&peerId); err != nil {
+			return nil, err
+		}
+		out = append(out, peerId)
+	}
+	return out, rows.Err()
+}
+
 // ── file-local helper ──
 
 func chatAvatarUrl(minioFullUrl string, objectKey *string) *string {
