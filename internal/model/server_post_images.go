@@ -10,6 +10,8 @@ type ServerPostImage struct {
 	ObjectKey string
 	MimeType  string
 	Size      int64
+	Width     int
+	Height    int
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	CreatedBy string

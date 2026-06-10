@@ -39,7 +39,7 @@ func NewPostRepository(zap *zap.Logger, koanf *koanf.Koanf, db *pgxpool.Pool, db
 	}
 }
 
-func (repository *PostRepository) UploadPostObject(ctx context.Context, bucketName string, objectKey string, file *bytes.Reader, size int64) error {
+func (repository *PostRepository) UploadPostObject(ctx context.Context, bucketName string, objectKey string, file *bytes.Reader, size int64, contentType string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.UploadPostObject")
 	var err error
@@ -59,7 +59,7 @@ func (repository *PostRepository) UploadPostObject(ctx context.Context, bucketNa
 
 	_, err = repository.DBObject.PutObject(ctx, bucketName, objectKey, file, size,
 		minio.PutObjectOptions{
-			ContentType:  "image/webp",
+			ContentType:  contentType,
 			CacheControl: "public, max-age=31536000, immutable",
 		})
 	if err != nil {
@@ -86,11 +86,11 @@ func (repository *PostRepository) CreateServerPostImage(ctx context.Context, tx 
 		attribute.String("db.operation", "INSERT"),
 	)
 
-	query := `INSERT INTO server_post_images (id, bucket, object_key, mime_type, size, created_at, updated_at, created_by, updated_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	query := `INSERT INTO server_post_images (id, bucket, object_key, mime_type, size, width, height, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 
 	_, err = tx.Exec(ctx, query, image.Id, image.Bucket, image.ObjectKey, image.MimeType, image.Size,
-		image.CreatedAt, image.UpdatedAt, image.CreatedBy, image.UpdatedBy)
+		image.Width, image.Height, image.CreatedAt, image.UpdatedAt, image.CreatedBy, image.UpdatedBy)
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to create server post image", zap.Error(err))
 		return err
@@ -117,13 +117,43 @@ func (repository *PostRepository) CreateServerPost(ctx context.Context, tx pgx.T
 		attribute.String("author.id", post.AuthorId),
 	)
 
-	query := `INSERT INTO server_posts (id, server_id, author_id, post_image_id, caption, created_at, updated_at, created_by, updated_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	query := `INSERT INTO server_posts (id, server_id, author_id, post_image_id, post_video_id, caption, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 
-	_, err = tx.Exec(ctx, query, post.Id, post.ServerId, post.AuthorId, post.PostImageId, post.Caption,
+	_, err = tx.Exec(ctx, query, post.Id, post.ServerId, post.AuthorId, post.PostImageId, post.PostVideoId, post.Caption,
 		post.CreatedAt, post.UpdatedAt, post.CreatedBy, post.UpdatedBy)
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to create server post", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (repository *PostRepository) CreateServerPostVideo(ctx context.Context, tx pgx.Tx, video model.ServerPostVideo) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CreateServerPostVideo")
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "INSERT"),
+	)
+
+	query := `INSERT INTO server_post_videos (id, bucket, object_key, mime_type, size, duration, width, height, thumbnail_object_key, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
+
+	_, err = tx.Exec(ctx, query, video.Id, video.Bucket, video.ObjectKey, video.MimeType, video.Size,
+		video.Duration, video.Width, video.Height, video.ThumbnailObjectKey,
+		video.CreatedAt, video.UpdatedAt, video.CreatedBy, video.UpdatedBy)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to create server post video", zap.Error(err))
 		return err
 	}
 
@@ -238,6 +268,12 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId string, us
 		SELECT sp.id, sp.server_id, sp.caption, sp.author_id,
 			sp.created_at, sp.updated_at,
 			spi.object_key,
+			spi.width,
+			spi.height,
+			spv.object_key,
+			spv.thumbnail_object_key,
+			spv.width,
+			spv.height,
 			smp.nickname,
 			smp.username,
 			pai.object_key,
@@ -255,12 +291,16 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId string, us
 		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = sp.author_id
 		LEFT JOIN server_members sm_author ON sm_author.server_id = sp.server_id AND sm_author.user_id = sp.author_id
 		LEFT JOIN server_post_images spi ON sp.post_image_id = spi.id
+		LEFT JOIN server_post_videos spv ON sp.post_video_id = spv.id
 		LEFT JOIN profile_avatar_images pai ON smp.avatar_image_id = pai.id
 		WHERE sp.id = $1
 		LIMIT 1`
 
 	var resp model.ServerPostResponse
 	var authorStatus string
+	var imageWidth, imageHeight *int
+	var videoObjectKey, thumbObjectKey *string
+	var videoWidth, videoHeight *int
 	err = repository.DB.QueryRow(ctx, query, postId, userId).Scan(
 		&resp.Id,
 		&resp.ServerId,
@@ -269,6 +309,12 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId string, us
 		&resp.CreatedAt,
 		&resp.UpdatedAt,
 		&resp.ImageUrl,
+		&imageWidth,
+		&imageHeight,
+		&videoObjectKey,
+		&thumbObjectKey,
+		&videoWidth,
+		&videoHeight,
 		&resp.Author.Nickname,
 		&resp.Author.Username,
 		&resp.Author.AvatarUrl,
@@ -292,7 +338,21 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId string, us
 
 	if resp.ImageUrl != nil {
 		*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
+		resp.MediaType = "image"
+		resp.MediaWidth = imageWidth
+		resp.MediaHeight = imageHeight
+	} else if videoObjectKey != nil {
+		videoUrl := fmt.Sprintf("%s/%s", minioFullUrl, *videoObjectKey)
+		resp.VideoUrl = &videoUrl
+		if thumbObjectKey != nil {
+			thumbUrl := fmt.Sprintf("%s/%s", minioFullUrl, *thumbObjectKey)
+			resp.ThumbnailUrl = &thumbUrl
+		}
+		resp.MediaType = "video"
+		resp.MediaWidth = videoWidth
+		resp.MediaHeight = videoHeight
 	}
+
 	if resp.Author.AvatarUrl != nil {
 		*resp.Author.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarUrl)
 	}
@@ -322,6 +382,12 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 		SELECT sp.id, sp.server_id, sp.caption, sp.author_id,
 			sp.created_at, sp.updated_at,
 			spi.object_key,
+			spi.width,
+			spi.height,
+			spv.object_key,
+			spv.thumbnail_object_key,
+			spv.width,
+			spv.height,
 			smp.nickname,
 			smp.username,
 			pai.object_key,
@@ -339,6 +405,7 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = sp.author_id
 		LEFT JOIN server_members sm_author ON sm_author.server_id = sp.server_id AND sm_author.user_id = sp.author_id
 		LEFT JOIN server_post_images spi ON sp.post_image_id = spi.id
+		LEFT JOIN server_post_videos spv ON sp.post_video_id = spv.id
 		LEFT JOIN profile_avatar_images pai ON smp.avatar_image_id = pai.id`
 
 	var rows pgx.Rows
@@ -367,6 +434,9 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 	for rows.Next() {
 		var resp model.ServerPostResponse
 		var authorStatus string
+		var imgW, imgH *int
+		var vidObjKey, thumbObjKey *string
+		var vidW, vidH *int
 		err = rows.Scan(
 			&resp.Id,
 			&resp.ServerId,
@@ -375,6 +445,12 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 			&resp.CreatedAt,
 			&resp.UpdatedAt,
 			&resp.ImageUrl,
+			&imgW,
+			&imgH,
+			&vidObjKey,
+			&thumbObjKey,
+			&vidW,
+			&vidH,
 			&resp.Author.Nickname,
 			&resp.Author.Username,
 			&resp.Author.AvatarUrl,
@@ -394,7 +470,21 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 
 		if resp.ImageUrl != nil {
 			*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
+			resp.MediaType = "image"
+			resp.MediaWidth = imgW
+			resp.MediaHeight = imgH
+		} else if vidObjKey != nil {
+			videoUrl := fmt.Sprintf("%s/%s", minioFullUrl, *vidObjKey)
+			resp.VideoUrl = &videoUrl
+			if thumbObjKey != nil {
+				thumbUrl := fmt.Sprintf("%s/%s", minioFullUrl, *thumbObjKey)
+				resp.ThumbnailUrl = &thumbUrl
+			}
+			resp.MediaType = "video"
+			resp.MediaWidth = vidW
+			resp.MediaHeight = vidH
 		}
+
 		if resp.Author.AvatarUrl != nil {
 			*resp.Author.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarUrl)
 		}
@@ -426,10 +516,9 @@ func (repository *PostRepository) SearchServerPosts(ctx context.Context, limit i
 	baseSelect := `
 		SELECT sp.id, sp.server_id, sp.caption, sp.author_id,
 			sp.created_at, sp.updated_at,
-			spi.object_key,
-			smp.nickname,
-			smp.username,
-			pai.object_key,
+			spi.object_key, spi.width, spi.height,
+			spv.object_key, spv.thumbnail_object_key, spv.width, spv.height,
+			smp.nickname, smp.username, pai.object_key,
 			CASE
 				WHEN u.deleted_at IS NOT NULL THEN 'user_deleted'
 				WHEN sm_author.user_id IS NULL THEN 'user_left'
@@ -444,6 +533,7 @@ func (repository *PostRepository) SearchServerPosts(ctx context.Context, limit i
 		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = sp.author_id
 		LEFT JOIN server_members sm_author ON sm_author.server_id = sp.server_id AND sm_author.user_id = sp.author_id
 		LEFT JOIN server_post_images spi ON sp.post_image_id = spi.id
+		LEFT JOIN server_post_videos spv ON sp.post_video_id = spv.id
 		LEFT JOIN profile_avatar_images pai ON smp.avatar_image_id = pai.id`
 
 	var rows pgx.Rows
@@ -474,22 +564,16 @@ func (repository *PostRepository) SearchServerPosts(ctx context.Context, limit i
 	for rows.Next() {
 		var resp model.ServerPostResponse
 		var authorStatus string
+		var imgW, imgH *int
+		var vidObjKey, thumbObjKey *string
+		var vidW, vidH *int
 		err = rows.Scan(
-			&resp.Id,
-			&resp.ServerId,
-			&resp.Caption,
-			&resp.Author.UserId,
-			&resp.CreatedAt,
-			&resp.UpdatedAt,
-			&resp.ImageUrl,
-			&resp.Author.Nickname,
-			&resp.Author.Username,
-			&resp.Author.AvatarUrl,
-			&authorStatus,
-			&resp.LikeCount,
-			&resp.CommentCount,
-			&resp.UserLiked,
-			&resp.UserSaved,
+			&resp.Id, &resp.ServerId, &resp.Caption, &resp.Author.UserId,
+			&resp.CreatedAt, &resp.UpdatedAt,
+			&resp.ImageUrl, &imgW, &imgH,
+			&vidObjKey, &thumbObjKey, &vidW, &vidH,
+			&resp.Author.Nickname, &resp.Author.Username, &resp.Author.AvatarUrl,
+			&authorStatus, &resp.LikeCount, &resp.CommentCount, &resp.UserLiked, &resp.UserSaved,
 		)
 		if err != nil {
 			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan search server post row", zap.Error(err))
@@ -501,6 +585,19 @@ func (repository *PostRepository) SearchServerPosts(ctx context.Context, limit i
 
 		if resp.ImageUrl != nil {
 			*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
+			resp.MediaType = "image"
+			resp.MediaWidth = imgW
+			resp.MediaHeight = imgH
+		} else if vidObjKey != nil {
+			videoUrl := fmt.Sprintf("%s/%s", minioFullUrl, *vidObjKey)
+			resp.VideoUrl = &videoUrl
+			if thumbObjKey != nil {
+				thumbUrl := fmt.Sprintf("%s/%s", minioFullUrl, *thumbObjKey)
+				resp.ThumbnailUrl = &thumbUrl
+			}
+			resp.MediaType = "video"
+			resp.MediaWidth = vidW
+			resp.MediaHeight = vidH
 		}
 		if resp.Author.AvatarUrl != nil {
 			*resp.Author.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarUrl)
@@ -533,10 +630,9 @@ func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit 
 	baseSelect := `
 		SELECT sp.id, sp.server_id, sp.caption, sp.author_id,
 			sp.created_at, sp.updated_at,
-			spi.object_key,
-			smp.nickname,
-			smp.username,
-			pai.object_key,
+			spi.object_key, spi.width, spi.height,
+			spv.object_key, spv.thumbnail_object_key, spv.width, spv.height,
+			smp.nickname, smp.username, pai.object_key,
 			(SELECT COUNT(*) FROM server_post_likes WHERE post_id = sp.id) AS like_count,
 			(SELECT COUNT(*) FROM server_post_comments WHERE post_id = sp.id) AS comment_count,
 			EXISTS (SELECT 1 FROM server_post_likes l WHERE l.post_id = sp.id AND l.user_id = $2) AS user_liked,
@@ -544,6 +640,7 @@ func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit 
 		FROM server_posts sp
 		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = sp.author_id
 		LEFT JOIN server_post_images spi ON sp.post_image_id = spi.id
+		LEFT JOIN server_post_videos spv ON sp.post_video_id = spv.id
 		LEFT JOIN profile_avatar_images pai ON smp.avatar_image_id = pai.id`
 
 	var rows pgx.Rows
@@ -571,21 +668,16 @@ func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit 
 	posts := []model.ServerPostResponse{}
 	for rows.Next() {
 		var resp model.ServerPostResponse
+		var imgW, imgH *int
+		var vidObjKey, thumbObjKey *string
+		var vidW, vidH *int
 		err = rows.Scan(
-			&resp.Id,
-			&resp.ServerId,
-			&resp.Caption,
-			&resp.Author.UserId,
-			&resp.CreatedAt,
-			&resp.UpdatedAt,
-			&resp.ImageUrl,
-			&resp.Author.Nickname,
-			&resp.Author.Username,
-			&resp.Author.AvatarUrl,
-			&resp.LikeCount,
-			&resp.CommentCount,
-			&resp.UserLiked,
-			&resp.UserSaved,
+			&resp.Id, &resp.ServerId, &resp.Caption, &resp.Author.UserId,
+			&resp.CreatedAt, &resp.UpdatedAt,
+			&resp.ImageUrl, &imgW, &imgH,
+			&vidObjKey, &thumbObjKey, &vidW, &vidH,
+			&resp.Author.Nickname, &resp.Author.Username, &resp.Author.AvatarUrl,
+			&resp.LikeCount, &resp.CommentCount, &resp.UserLiked, &resp.UserSaved,
 		)
 		if err != nil {
 			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan server post for me row", zap.Error(err))
@@ -597,6 +689,19 @@ func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit 
 
 		if resp.ImageUrl != nil {
 			*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
+			resp.MediaType = "image"
+			resp.MediaWidth = imgW
+			resp.MediaHeight = imgH
+		} else if vidObjKey != nil {
+			videoUrl := fmt.Sprintf("%s/%s", minioFullUrl, *vidObjKey)
+			resp.VideoUrl = &videoUrl
+			if thumbObjKey != nil {
+				thumbUrl := fmt.Sprintf("%s/%s", minioFullUrl, *thumbObjKey)
+				resp.ThumbnailUrl = &thumbUrl
+			}
+			resp.MediaType = "video"
+			resp.MediaWidth = vidW
+			resp.MediaHeight = vidH
 		}
 		if resp.Author.AvatarUrl != nil {
 			*resp.Author.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarUrl)
@@ -634,10 +739,9 @@ func (repository *PostRepository) GetServerPostsByAuthor(ctx context.Context, li
 	baseSelect := `
 		SELECT sp.id, sp.server_id, sp.caption, sp.author_id,
 			sp.created_at, sp.updated_at,
-			spi.object_key,
-			smp.nickname,
-			smp.username,
-			pai.object_key,
+			spi.object_key, spi.width, spi.height,
+			spv.object_key, spv.thumbnail_object_key, spv.width, spv.height,
+			smp.nickname, smp.username, pai.object_key,
 			(SELECT COUNT(*) FROM server_post_likes WHERE post_id = sp.id) AS like_count,
 			(SELECT COUNT(*) FROM server_post_comments WHERE post_id = sp.id) AS comment_count,
 			EXISTS (SELECT 1 FROM server_post_likes l WHERE l.post_id = sp.id AND l.user_id = $3) AS user_liked,
@@ -645,6 +749,7 @@ func (repository *PostRepository) GetServerPostsByAuthor(ctx context.Context, li
 		FROM server_posts sp
 		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = sp.author_id
 		LEFT JOIN server_post_images spi ON sp.post_image_id = spi.id
+		LEFT JOIN server_post_videos spv ON sp.post_video_id = spv.id
 		LEFT JOIN profile_avatar_images pai ON smp.avatar_image_id = pai.id`
 
 	var rows pgx.Rows
@@ -672,21 +777,16 @@ func (repository *PostRepository) GetServerPostsByAuthor(ctx context.Context, li
 	posts := []model.ServerPostResponse{}
 	for rows.Next() {
 		var resp model.ServerPostResponse
+		var imgW, imgH *int
+		var vidObjKey, thumbObjKey *string
+		var vidW, vidH *int
 		err = rows.Scan(
-			&resp.Id,
-			&resp.ServerId,
-			&resp.Caption,
-			&resp.Author.UserId,
-			&resp.CreatedAt,
-			&resp.UpdatedAt,
-			&resp.ImageUrl,
-			&resp.Author.Nickname,
-			&resp.Author.Username,
-			&resp.Author.AvatarUrl,
-			&resp.LikeCount,
-			&resp.CommentCount,
-			&resp.UserLiked,
-			&resp.UserSaved,
+			&resp.Id, &resp.ServerId, &resp.Caption, &resp.Author.UserId,
+			&resp.CreatedAt, &resp.UpdatedAt,
+			&resp.ImageUrl, &imgW, &imgH,
+			&vidObjKey, &thumbObjKey, &vidW, &vidH,
+			&resp.Author.Nickname, &resp.Author.Username, &resp.Author.AvatarUrl,
+			&resp.LikeCount, &resp.CommentCount, &resp.UserLiked, &resp.UserSaved,
 		)
 		if err != nil {
 			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan server post by author row", zap.Error(err))
@@ -698,6 +798,19 @@ func (repository *PostRepository) GetServerPostsByAuthor(ctx context.Context, li
 
 		if resp.ImageUrl != nil {
 			*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
+			resp.MediaType = "image"
+			resp.MediaWidth = imgW
+			resp.MediaHeight = imgH
+		} else if vidObjKey != nil {
+			videoUrl := fmt.Sprintf("%s/%s", minioFullUrl, *vidObjKey)
+			resp.VideoUrl = &videoUrl
+			if thumbObjKey != nil {
+				thumbUrl := fmt.Sprintf("%s/%s", minioFullUrl, *thumbObjKey)
+				resp.ThumbnailUrl = &thumbUrl
+			}
+			resp.MediaType = "video"
+			resp.MediaWidth = vidW
+			resp.MediaHeight = vidH
 		}
 		if resp.Author.AvatarUrl != nil {
 			*resp.Author.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarUrl)
@@ -1324,10 +1437,9 @@ func (repository *PostRepository) GetSavedPosts(ctx context.Context, limit int, 
 	baseSelect := `
 		SELECT sp.id, sp.server_id, sp.caption, sp.author_id,
 			sp.created_at, sp.updated_at,
-			spi.object_key,
-			smp.nickname,
-			smp.username,
-			pai.object_key,
+			spi.object_key, spi.width, spi.height,
+			spv.object_key, spv.thumbnail_object_key, spv.width, spv.height,
+			smp.nickname, smp.username, pai.object_key,
 			CASE
 				WHEN u.deleted_at IS NOT NULL THEN 'user_deleted'
 				WHEN sm_author.user_id IS NULL THEN 'user_left'
@@ -1343,6 +1455,7 @@ func (repository *PostRepository) GetSavedPosts(ctx context.Context, limit int, 
 		INNER JOIN server_member_profiles smp ON smp.server_id = sp.server_id AND smp.user_id = sp.author_id
 		LEFT JOIN server_members sm_author ON sm_author.server_id = sp.server_id AND sm_author.user_id = sp.author_id
 		LEFT JOIN server_post_images spi ON sp.post_image_id = spi.id
+		LEFT JOIN server_post_videos spv ON sp.post_video_id = spv.id
 		LEFT JOIN profile_avatar_images pai ON smp.avatar_image_id = pai.id`
 
 	var rows pgx.Rows
@@ -1372,22 +1485,16 @@ func (repository *PostRepository) GetSavedPosts(ctx context.Context, limit int, 
 		var resp model.ServerPostResponse
 		var authorStatus string
 		var savedAt time.Time
+		var imgW, imgH *int
+		var vidObjKey, thumbObjKey *string
+		var vidW, vidH *int
 		err = rows.Scan(
-			&resp.Id,
-			&resp.ServerId,
-			&resp.Caption,
-			&resp.Author.UserId,
-			&resp.CreatedAt,
-			&resp.UpdatedAt,
-			&resp.ImageUrl,
-			&resp.Author.Nickname,
-			&resp.Author.Username,
-			&resp.Author.AvatarUrl,
-			&authorStatus,
-			&resp.LikeCount,
-			&resp.CommentCount,
-			&resp.UserLiked,
-			&savedAt,
+			&resp.Id, &resp.ServerId, &resp.Caption, &resp.Author.UserId,
+			&resp.CreatedAt, &resp.UpdatedAt,
+			&resp.ImageUrl, &imgW, &imgH,
+			&vidObjKey, &thumbObjKey, &vidW, &vidH,
+			&resp.Author.Nickname, &resp.Author.Username, &resp.Author.AvatarUrl,
+			&authorStatus, &resp.LikeCount, &resp.CommentCount, &resp.UserLiked, &savedAt,
 		)
 		if err != nil {
 			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan saved post row", zap.Error(err))
@@ -1402,6 +1509,19 @@ func (repository *PostRepository) GetSavedPosts(ctx context.Context, limit int, 
 
 		if resp.ImageUrl != nil {
 			*resp.ImageUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.ImageUrl)
+			resp.MediaType = "image"
+			resp.MediaWidth = imgW
+			resp.MediaHeight = imgH
+		} else if vidObjKey != nil {
+			videoUrl := fmt.Sprintf("%s/%s", minioFullUrl, *vidObjKey)
+			resp.VideoUrl = &videoUrl
+			if thumbObjKey != nil {
+				thumbUrl := fmt.Sprintf("%s/%s", minioFullUrl, *thumbObjKey)
+				resp.ThumbnailUrl = &thumbUrl
+			}
+			resp.MediaType = "video"
+			resp.MediaWidth = vidW
+			resp.MediaHeight = vidH
 		}
 		if resp.Author.AvatarUrl != nil {
 			*resp.Author.AvatarUrl = fmt.Sprintf("%s/%s", minioFullUrl, *resp.Author.AvatarUrl)

@@ -1,7 +1,11 @@
 package usecase
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -81,8 +85,18 @@ func (usecase *PostUsecase) CreatePost(ctx fiber.Ctx, serverId string, userId st
 		return model.ServerPostResponse{}, err
 	}
 
-	imageFile, imageSize, err := util.ExtractAndValidateImage(ctx, ctxContext, "image")
-	if err != nil {
+	// Detect media type from form fields
+	imageHeader, imageErr := ctx.FormFile("image")
+	hasImage := imageErr == nil && imageHeader != nil
+	videoHeader, videoErr := ctx.FormFile("video")
+	hasVideo := videoErr == nil && videoHeader != nil
+
+	if !hasImage && !hasVideo {
+		err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "image or video is required", Param: "image"}
+		return model.ServerPostResponse{}, err
+	}
+	if hasImage && hasVideo {
+		err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "provide either image or video, not both", Param: "image"}
 		return model.ServerPostResponse{}, err
 	}
 
@@ -95,68 +109,183 @@ func (usecase *PostUsecase) CreatePost(ctx fiber.Ctx, serverId string, userId st
 	}
 
 	now := time.Now().UTC()
-	postImageId := uuid.New().String()
 	postId := uuid.New().String()
 	bucketName := usecase.Config.String("MINIO_BUCKET_NAME")
-	objectKey := fmt.Sprintf("server/post/%s.webp", postImageId)
 
-	serverPostImage := model.ServerPostImage{
-		Id:        postImageId,
-		Bucket:    bucketName,
-		ObjectKey: objectKey,
-		MimeType:  "image/webp",
-		Size:      imageSize,
-		CreatedAt: now,
-		UpdatedAt: now,
-		CreatedBy: userId,
-		UpdatedBy: userId,
-	}
-
-	serverPost := model.ServerPost{
-		Id:          postId,
-		ServerId:    serverId,
-		AuthorId:    userId,
-		PostImageId: &postImageId,
-		Caption:     caption,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		CreatedBy:   userId,
-		UpdatedBy:   userId,
-	}
-
-	committed := false
-	tx, err := usecase.DB.Begin(ctxContext)
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to begin transaction", zap.Error(err))
-		return model.ServerPostResponse{}, err
-	}
-	defer func() {
-		if !committed {
-			_ = tx.Rollback(ctxContext)
+	if hasImage {
+		// ── IMAGE FLOW ──
+		imageFile, imageSize, imageWidth, imageHeight, imgErr := util.ValidateImage(ctxContext, imageHeader, "image", 1080, 1350, false)
+		if imgErr != nil {
+			err = imgErr
+			return model.ServerPostResponse{}, err
 		}
-	}()
 
-	err = usecase.PostRepository.CreateServerPostImage(ctxContext, tx, serverPostImage)
-	if err != nil {
-		return model.ServerPostResponse{}, err
-	}
+		postImageId := uuid.New().String()
+		objectKey := fmt.Sprintf("server/post/%s.webp", postImageId)
 
-	err = usecase.PostRepository.CreateServerPost(ctxContext, tx, serverPost)
-	if err != nil {
-		return model.ServerPostResponse{}, err
-	}
+		serverPostImage := model.ServerPostImage{
+			Id:        postImageId,
+			Bucket:    bucketName,
+			ObjectKey: objectKey,
+			MimeType:  "image/webp",
+			Size:      imageSize,
+			Width:     imageWidth,
+			Height:    imageHeight,
+			CreatedAt: now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
+		}
 
-	err = usecase.PostRepository.UploadPostObject(ctxContext, bucketName, objectKey, imageFile, imageSize)
-	if err != nil {
-		return model.ServerPostResponse{}, err
-	}
+		serverPost := model.ServerPost{
+			Id: postId, ServerId: serverId, AuthorId: userId,
+			PostImageId: &postImageId, Caption: caption,
+			CreatedAt: now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
+		}
 
-	err = tx.Commit(ctxContext)
-	if err != nil {
-		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
-		return model.ServerPostResponse{}, err
+		committed := false
+		tx, txErr := usecase.DB.Begin(ctxContext)
+		if txErr != nil {
+			err = txErr
+			util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to begin transaction", zap.Error(err))
+			return model.ServerPostResponse{}, err
+		}
+		defer func() {
+			if !committed {
+				_ = tx.Rollback(ctxContext)
+			}
+		}()
+
+		if err = usecase.PostRepository.CreateServerPostImage(ctxContext, tx, serverPostImage); err != nil {
+			return model.ServerPostResponse{}, err
+		}
+		if err = usecase.PostRepository.CreateServerPost(ctxContext, tx, serverPost); err != nil {
+			return model.ServerPostResponse{}, err
+		}
+		if err = usecase.PostRepository.UploadPostObject(ctxContext, bucketName, objectKey, imageFile, imageSize, "image/webp"); err != nil {
+			return model.ServerPostResponse{}, err
+		}
+		if err = tx.Commit(ctxContext); err != nil {
+			util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
+			return model.ServerPostResponse{}, err
+		}
+		committed = true
+
+	} else {
+		// ── VIDEO FLOW ──
+		if vErr := util.ValidateVideoFile(ctxContext, videoHeader, "video"); vErr != nil {
+			err = vErr
+			return model.ServerPostResponse{}, err
+		}
+
+		tmpDir := "/app/tmp"
+		tmpPath, tmpFile, saveErr := util.SaveMultipartToTemp(videoHeader, tmpDir, "vid-"+postId)
+		if saveErr != nil {
+			err = saveErr
+			return model.ServerPostResponse{}, err
+		}
+		defer func() {
+			_ = tmpFile.Close()
+			_ = os.Remove(tmpPath)
+		}()
+
+		duration, videoWidth, videoHeight, probeErr := util.ProbeVideoMetadata(ctxContext, tmpPath)
+		if probeErr != nil {
+			err = probeErr
+			return model.ServerPostResponse{}, err
+		}
+
+		if duration > constant.MAX_VIDEO_DURATION {
+			err = &model.BadRequestError{
+				Code:    constant.ERR_VALIDATION_CODE,
+				Message: "video duration exceeded " + strconv.Itoa(constant.MAX_VIDEO_DURATION) + "s limit",
+				Param:   "video",
+			}
+			return model.ServerPostResponse{}, err
+		}
+
+		thumbnailBytes, thumbErr := util.GenerateVideoThumbnail(ctxContext, tmpPath, 75)
+		if thumbErr != nil {
+			err = thumbErr
+			return model.ServerPostResponse{}, err
+		}
+
+		postVideoId := uuid.New().String()
+		ext := filepath.Ext(videoHeader.Filename)
+		videoObjectKey := fmt.Sprintf("server/post/%s%s", postVideoId, ext)
+		thumbObjectKey := fmt.Sprintf("server/post/%s_thumb.webp", postVideoId)
+
+		// Determine MIME from extension
+		mimeType := "video/mp4"
+		switch strings.ToLower(ext) {
+		case ".mov":
+			mimeType = "video/quicktime"
+		case ".webm":
+			mimeType = "video/webm"
+		}
+
+		serverPostVideo := model.ServerPostVideo{
+			Id: postVideoId, Bucket: bucketName, ObjectKey: videoObjectKey,
+			MimeType: mimeType, Size: videoHeader.Size,
+			Duration: duration, Width: videoWidth, Height: videoHeight,
+			ThumbnailObjectKey: thumbObjectKey,
+			CreatedAt:          now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
+		}
+
+		serverPost := model.ServerPost{
+			Id: postId, ServerId: serverId, AuthorId: userId,
+			PostVideoId: &postVideoId, Caption: caption,
+			CreatedAt: now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
+		}
+
+		committed := false
+		tx, txErr := usecase.DB.Begin(ctxContext)
+		if txErr != nil {
+			err = txErr
+			util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to begin transaction", zap.Error(err))
+			return model.ServerPostResponse{}, err
+		}
+		defer func() {
+			if !committed {
+				_ = tx.Rollback(ctxContext)
+			}
+		}()
+
+		if err = usecase.PostRepository.CreateServerPostVideo(ctxContext, tx, serverPostVideo); err != nil {
+			return model.ServerPostResponse{}, err
+		}
+		if err = usecase.PostRepository.CreateServerPost(ctxContext, tx, serverPost); err != nil {
+			return model.ServerPostResponse{}, err
+		}
+
+		// Upload video file from disk
+		videoFile, openErr := os.Open(tmpPath)
+		if openErr != nil {
+			err = openErr
+			return model.ServerPostResponse{}, err
+		}
+		defer func() { _ = videoFile.Close() }()
+
+		videoBytes, readErr := io.ReadAll(videoFile)
+		if readErr != nil {
+			err = readErr
+			return model.ServerPostResponse{}, err
+		}
+		videoReader := bytes.NewReader(videoBytes)
+
+		if err = usecase.PostRepository.UploadPostObject(ctxContext, bucketName, videoObjectKey, videoReader, int64(len(videoBytes)), mimeType); err != nil {
+			return model.ServerPostResponse{}, err
+		}
+
+		// Upload thumbnail
+		thumbReader := bytes.NewReader(thumbnailBytes)
+		if err = usecase.PostRepository.UploadPostObject(ctxContext, bucketName, thumbObjectKey, thumbReader, int64(len(thumbnailBytes)), "image/webp"); err != nil {
+			return model.ServerPostResponse{}, err
+		}
+
+		if err = tx.Commit(ctxContext); err != nil {
+			util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("Failed to commit transaction", zap.Error(err))
+			return model.ServerPostResponse{}, err
+		}
+		committed = true
 	}
-	committed = true
 
 	minioFullUrl := fmt.Sprintf("%s%s/%s", usecase.Config.String("MINIO_HTTP"), usecase.Config.String("MINIO_URL"), usecase.Config.String("MINIO_BUCKET_NAME"))
 	response, err := usecase.PostRepository.GetPost(ctxContext, postId, userId, minioFullUrl)

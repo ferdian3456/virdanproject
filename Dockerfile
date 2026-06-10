@@ -27,6 +27,7 @@ RUN apk add --no-cache \
     vips-dev \
     gcc \
     musl-dev \
+    ffmpeg \
     && rm -rf /var/cache/apk/*
 
 WORKDIR /build
@@ -70,6 +71,7 @@ RUN apk add --no-cache \
     libstdc++ \
     libgcc \
     tini \
+    ffmpeg \
     && update-ca-certificates \
     && rm -rf /var/cache/apk/*
 
