@@ -318,7 +318,7 @@ func (usecase *ChatUsecase) SendMessage(ctx fiber.Ctx, conversationId, callerId 
 	}
 
 	ev := ws.Event{Type: "message.new", Payload: resp}
-	if pubErr := usecase.Broker.Publish(ctxContext, []string{peerId, callerId}, ev); pubErr != nil {
+	if pubErr := usecase.Broker.Publish(ctxContext, []string{peerId}, ev); pubErr != nil {
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Warn("dm fanout failed", zap.Error(pubErr))
 	}
 	usecase.NotificationUsecase.NotifyDM(ctxContext, peerId, conversationId, resp.Sender.Username, preview)
