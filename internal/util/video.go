@@ -35,9 +35,10 @@ type ffprobeOutput struct {
 }
 
 type ffprobeStream struct {
-	CodecType string `json:"codec_type"`
-	Width     int    `json:"width"`
-	Height    int    `json:"height"`
+	CodecType string            `json:"codec_type"`
+	Width     int               `json:"width"`
+	Height    int               `json:"height"`
+	Tags      map[string]string `json:"tags"`
 }
 
 type ffprobeFormat struct {
@@ -135,6 +136,13 @@ func ProbeVideoMetadata(ctx context.Context, filePath string) (int, int, int, er
 		if s.CodecType == "video" {
 			width = s.Width
 			height = s.Height
+			if s.Tags != nil {
+				if rotStr, ok := s.Tags["rotate"]; ok {
+					if rotStr == "90" || rotStr == "270" || rotStr == "-90" || rotStr == "-270" {
+						width, height = height, width
+					}
+				}
+			}
 			break
 		}
 	}
