@@ -947,14 +947,23 @@ func ConvertToWebP(data []byte, quality, maxW, maxH int, crop bool) ([]byte, int
 	}
 
 	img := bimg.NewImage(data)
+
+	// Apply EXIF orientation and strip the tag before any processing.
+	// bimg's internal auto-rotate may rotate pixels but leave the EXIF tag intact,
+	// causing decoders that read EXIF (e.g. Android WebP) to double-rotate.
+	if rotated, err := img.AutoRotate(); err == nil {
+		img = bimg.NewImage(rotated)
+	}
+
 	size, err := img.Size()
 	if err != nil {
 		return nil, 0, 0, err
 	}
 
 	opts := bimg.Options{
-		Quality: quality,
-		Type:    bimg.WEBP,
+		Quality:      quality,
+		Type:         bimg.WEBP,
+		NoAutoRotate: true, // already applied above
 	}
 
 	finalW, finalH := size.Width, size.Height
