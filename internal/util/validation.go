@@ -984,5 +984,12 @@ func ConvertToWebP(data []byte, quality, maxW, maxH int, crop bool) ([]byte, int
 	if err != nil {
 		return nil, 0, 0, ErrImageProcessing
 	}
-	return res, finalW, finalH, nil
+
+	// Get dimensions from processed output — input size is pre-EXIF-rotation,
+	// bimg auto-rotates the output so final dimensions may be swapped.
+	outputSize, err := bimg.NewImage(res).Size()
+	if err != nil {
+		return nil, 0, 0, ErrImageProcessing
+	}
+	return res, outputSize.Width, outputSize.Height, nil
 }
