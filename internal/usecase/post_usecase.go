@@ -101,6 +101,10 @@ func (usecase *PostUsecase) CreatePost(ctx fiber.Ctx, serverId string, userId st
 	}
 
 	caption := ctx.FormValue("caption")
+	// Front-camera clips record un-mirrored; the FE flags them so playback can
+	// be mirrored to match the selfie preview the user framed against. Only the
+	// video branch consumes this.
+	mirrorVideo := ctx.FormValue("mirror") == "true"
 	v.Reset()
 	v.String("caption", caption).Required().MaxLen(2000)
 	if valErr := v.Validate(); valErr != nil {
@@ -226,6 +230,7 @@ func (usecase *PostUsecase) CreatePost(ctx fiber.Ctx, serverId string, userId st
 			MimeType: mimeType, Size: videoHeader.Size,
 			Duration: duration, Width: videoWidth, Height: videoHeight,
 			ThumbnailObjectKey: thumbObjectKey,
+			Mirrored:           mirrorVideo,
 			CreatedAt:          now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
 		}
 

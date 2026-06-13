@@ -146,11 +146,11 @@ func (repository *PostRepository) CreateServerPostVideo(ctx context.Context, tx 
 		attribute.String("db.operation", "INSERT"),
 	)
 
-	query := `INSERT INTO server_post_videos (id, bucket, object_key, mime_type, size, duration, width, height, thumbnail_object_key, created_at, updated_at, created_by, updated_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
+	query := `INSERT INTO server_post_videos (id, bucket, object_key, mime_type, size, duration, width, height, thumbnail_object_key, mirrored, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
 
 	_, err = tx.Exec(ctx, query, video.Id, video.Bucket, video.ObjectKey, video.MimeType, video.Size,
-		video.Duration, video.Width, video.Height, video.ThumbnailObjectKey,
+		video.Duration, video.Width, video.Height, video.ThumbnailObjectKey, video.Mirrored,
 		video.CreatedAt, video.UpdatedAt, video.CreatedBy, video.UpdatedBy)
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to create server post video", zap.Error(err))
@@ -274,6 +274,7 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId string, us
 			spv.thumbnail_object_key,
 			spv.width,
 			spv.height,
+			spv.mirrored,
 			smp.nickname,
 			smp.username,
 			pai.object_key,
@@ -315,6 +316,7 @@ func (repository *PostRepository) GetPost(ctx context.Context, postId string, us
 		&thumbObjectKey,
 		&videoWidth,
 		&videoHeight,
+		&resp.Mirrored,
 		&resp.Author.Nickname,
 		&resp.Author.Username,
 		&resp.Author.AvatarUrl,
@@ -388,6 +390,7 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 			spv.thumbnail_object_key,
 			spv.width,
 			spv.height,
+			spv.mirrored,
 			smp.nickname,
 			smp.username,
 			pai.object_key,
@@ -451,6 +454,7 @@ func (repository *PostRepository) GetServerPosts(ctx context.Context, limit int,
 			&thumbObjKey,
 			&vidW,
 			&vidH,
+			&resp.Mirrored,
 			&resp.Author.Nickname,
 			&resp.Author.Username,
 			&resp.Author.AvatarUrl,
@@ -517,7 +521,7 @@ func (repository *PostRepository) SearchServerPosts(ctx context.Context, limit i
 		SELECT sp.id, sp.server_id, sp.caption, sp.author_id,
 			sp.created_at, sp.updated_at,
 			spi.object_key, spi.width, spi.height,
-			spv.object_key, spv.thumbnail_object_key, spv.width, spv.height,
+			spv.object_key, spv.thumbnail_object_key, spv.width, spv.height, spv.mirrored,
 			smp.nickname, smp.username, pai.object_key,
 			CASE
 				WHEN u.deleted_at IS NOT NULL THEN 'user_deleted'
@@ -571,7 +575,7 @@ func (repository *PostRepository) SearchServerPosts(ctx context.Context, limit i
 			&resp.Id, &resp.ServerId, &resp.Caption, &resp.Author.UserId,
 			&resp.CreatedAt, &resp.UpdatedAt,
 			&resp.ImageUrl, &imgW, &imgH,
-			&vidObjKey, &thumbObjKey, &vidW, &vidH,
+			&vidObjKey, &thumbObjKey, &vidW, &vidH, &resp.Mirrored,
 			&resp.Author.Nickname, &resp.Author.Username, &resp.Author.AvatarUrl,
 			&authorStatus, &resp.LikeCount, &resp.CommentCount, &resp.UserLiked, &resp.UserSaved,
 		)
@@ -631,7 +635,7 @@ func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit 
 		SELECT sp.id, sp.server_id, sp.caption, sp.author_id,
 			sp.created_at, sp.updated_at,
 			spi.object_key, spi.width, spi.height,
-			spv.object_key, spv.thumbnail_object_key, spv.width, spv.height,
+			spv.object_key, spv.thumbnail_object_key, spv.width, spv.height, spv.mirrored,
 			smp.nickname, smp.username, pai.object_key,
 			(SELECT COUNT(*) FROM server_post_likes WHERE post_id = sp.id) AS like_count,
 			(SELECT COUNT(*) FROM server_post_comments WHERE post_id = sp.id) AS comment_count,
@@ -675,7 +679,7 @@ func (repository *PostRepository) GetServerPostForMe(ctx context.Context, limit 
 			&resp.Id, &resp.ServerId, &resp.Caption, &resp.Author.UserId,
 			&resp.CreatedAt, &resp.UpdatedAt,
 			&resp.ImageUrl, &imgW, &imgH,
-			&vidObjKey, &thumbObjKey, &vidW, &vidH,
+			&vidObjKey, &thumbObjKey, &vidW, &vidH, &resp.Mirrored,
 			&resp.Author.Nickname, &resp.Author.Username, &resp.Author.AvatarUrl,
 			&resp.LikeCount, &resp.CommentCount, &resp.UserLiked, &resp.UserSaved,
 		)
@@ -740,7 +744,7 @@ func (repository *PostRepository) GetServerPostsByAuthor(ctx context.Context, li
 		SELECT sp.id, sp.server_id, sp.caption, sp.author_id,
 			sp.created_at, sp.updated_at,
 			spi.object_key, spi.width, spi.height,
-			spv.object_key, spv.thumbnail_object_key, spv.width, spv.height,
+			spv.object_key, spv.thumbnail_object_key, spv.width, spv.height, spv.mirrored,
 			smp.nickname, smp.username, pai.object_key,
 			(SELECT COUNT(*) FROM server_post_likes WHERE post_id = sp.id) AS like_count,
 			(SELECT COUNT(*) FROM server_post_comments WHERE post_id = sp.id) AS comment_count,
@@ -784,7 +788,7 @@ func (repository *PostRepository) GetServerPostsByAuthor(ctx context.Context, li
 			&resp.Id, &resp.ServerId, &resp.Caption, &resp.Author.UserId,
 			&resp.CreatedAt, &resp.UpdatedAt,
 			&resp.ImageUrl, &imgW, &imgH,
-			&vidObjKey, &thumbObjKey, &vidW, &vidH,
+			&vidObjKey, &thumbObjKey, &vidW, &vidH, &resp.Mirrored,
 			&resp.Author.Nickname, &resp.Author.Username, &resp.Author.AvatarUrl,
 			&resp.LikeCount, &resp.CommentCount, &resp.UserLiked, &resp.UserSaved,
 		)
@@ -1438,7 +1442,7 @@ func (repository *PostRepository) GetSavedPosts(ctx context.Context, limit int, 
 		SELECT sp.id, sp.server_id, sp.caption, sp.author_id,
 			sp.created_at, sp.updated_at,
 			spi.object_key, spi.width, spi.height,
-			spv.object_key, spv.thumbnail_object_key, spv.width, spv.height,
+			spv.object_key, spv.thumbnail_object_key, spv.width, spv.height, spv.mirrored,
 			smp.nickname, smp.username, pai.object_key,
 			CASE
 				WHEN u.deleted_at IS NOT NULL THEN 'user_deleted'
@@ -1492,7 +1496,7 @@ func (repository *PostRepository) GetSavedPosts(ctx context.Context, limit int, 
 			&resp.Id, &resp.ServerId, &resp.Caption, &resp.Author.UserId,
 			&resp.CreatedAt, &resp.UpdatedAt,
 			&resp.ImageUrl, &imgW, &imgH,
-			&vidObjKey, &thumbObjKey, &vidW, &vidH,
+			&vidObjKey, &thumbObjKey, &vidW, &vidH, &resp.Mirrored,
 			&resp.Author.Nickname, &resp.Author.Username, &resp.Author.AvatarUrl,
 			&authorStatus, &resp.LikeCount, &resp.CommentCount, &resp.UserLiked, &savedAt,
 		)

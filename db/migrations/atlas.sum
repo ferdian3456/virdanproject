@@ -1,4 +1,4 @@
-h1:XNgevz9csvrta+X+sa1YeMaS9Cnh7dm2x0MEGgV2WWU=
+h1:43sG70qX3yIapiuww+Hod9TDt4wQi8qMusrZA37E318=
 20260528000001_create_users_table.sql h1:YhiRViYy5+GYHIZrYtakNl+lpcXNM69L3rBafn9IhbY=
 20260528000002_create_refresh_tokens_table.sql h1:xhp5c8rfwokb3UGtN1gE/DeBr3OU2WYqt0/YV91bEuU=
 20260528000003_create_server_categories_table.sql h1:f8/r+J/bSHNUDKH023MXC0HLS8NTm6E0w3tkKkIjH3w=
@@ -23,3 +23,4 @@ h1:XNgevz9csvrta+X+sa1YeMaS9Cnh7dm2x0MEGgV2WWU=
 20260602232736_add_post_caption_trgm.sql h1:alhrK6tgRU0MewU0FsTP8EFtKPCJ2fDLLlA4Q5L9PZk=
 20260606150705_add_dm_chat.sql h1:NduubCwd+bfhoG+SRmDHArjG2pFnhDb9xhmkaNmqTMo=
 20260610230935_add_video_support.sql h1:PipzAZ4jHnPQMFQH5bpNUJ5ld2w5UbetkBw9VnapoRA=
+20260613061734_add_post_video_mirrored.sql h1:zsyAVsdZTEVP0Qo+N3pMNp0w/PSw8HWXf93HEkiRMWM=

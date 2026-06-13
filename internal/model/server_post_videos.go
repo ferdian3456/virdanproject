@@ -14,6 +14,7 @@ type ServerPostVideo struct {
 	Width              int
 	Height             int
 	ThumbnailObjectKey string
+	Mirrored           bool
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 	CreatedBy          string

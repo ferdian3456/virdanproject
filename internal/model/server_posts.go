@@ -41,6 +41,7 @@ type ServerPostResponse struct {
 	MediaType    string                 `json:"mediaType"`
 	MediaWidth   *int                   `json:"mediaWidth,omitempty"`
 	MediaHeight  *int                   `json:"mediaHeight,omitempty"`
+	Mirrored     *bool                  `json:"mirrored,omitempty"`
 	Author       AuthorIdentityResponse `json:"author"`
 	LikeCount    int                    `json:"likeCount"`
 	CommentCount int                    `json:"commentCount"`
