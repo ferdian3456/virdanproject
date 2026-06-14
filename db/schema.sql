@@ -158,3 +158,38 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_dm_messages_uk_01
     ON dm_messages(conversation_id, sender_id, client_message_id);
 CREATE INDEX IF NOT EXISTS idx_dm_messages_pk_01
     ON dm_messages(conversation_id, created_at DESC, id DESC);
+
+CREATE TABLE IF NOT EXISTS xendit_webhook_events (
+    id           uuid         PRIMARY KEY,
+    event_id     varchar(255) NOT NULL,
+    event_type   varchar(100) NOT NULL,
+    reference_id varchar(255),
+    payload      jsonb        NOT NULL,
+    status       varchar(20)  NOT NULL,
+    received_at  timestamptz  NOT NULL,
+    processed_at timestamptz
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_xendit_webhook_events_uk_01 ON xendit_webhook_events (event_id);
+
+CREATE TABLE IF NOT EXISTS server_plus_orders (
+    id                uuid         PRIMARY KEY,
+    server_id         uuid         NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+    user_id           uuid         NOT NULL REFERENCES users(id)   ON DELETE RESTRICT,
+    reference_id      varchar(255) NOT NULL,
+    xendit_session_id varchar(255),
+    xendit_payment_id varchar(255),
+    base_idr          bigint       NOT NULL,
+    tax_idr           bigint       NOT NULL,
+    total_idr         bigint       NOT NULL,
+    status            varchar(20)  NOT NULL,
+    paid_at           timestamptz,
+    plus_expires_at   timestamptz,
+    created_at        timestamptz  NOT NULL,
+    updated_at        timestamptz  NOT NULL,
+    created_by        uuid         NOT NULL,
+    updated_by        uuid         NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_server_plus_orders_uk_01 ON server_plus_orders (reference_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_server_plus_orders_uk_02 ON server_plus_orders (xendit_payment_id) WHERE xendit_payment_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_server_plus_orders_pk_01 ON server_plus_orders (server_id, plus_expires_at DESC);
+CREATE INDEX IF NOT EXISTS idx_server_plus_orders_pk_02 ON server_plus_orders (user_id, created_at DESC);
