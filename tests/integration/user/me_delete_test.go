@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestMeDelete_Success soft-deletes the authenticated account and verifies the
-// token can no longer be used.
+// TestMeDelete_Success hard-deletes the authenticated account (a fresh user who
+// owns no server) and verifies the token can no longer be used.
 func TestMeDelete_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -79,4 +79,33 @@ func TestMeDelete_Idempotent(t *testing.T) {
 	require.NoError(t, err, "second delete request should complete")
 	require.NotEqual(t, 200, resp.StatusCode, "second delete must not succeed with the now-stale token")
 	setup.LogTestPass(t, "TestMeDelete_Idempotent")
+}
+
+// TestMeDelete_BlockedWhenOwner verifies a user who still owns a server cannot
+// delete their account; they must transfer ownership or leave first (409).
+func TestMeDelete_BlockedWhenOwner(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+	t.Parallel()
+
+	setup.LogTestStart(t, "TestMeDelete_BlockedWhenOwner")
+	app, db, _, _ := setup.SetupParallelTest(t)
+	defer db.Close()
+
+	infra := setup.GetGlobalInfra()
+	token := setup.CreateTestUser(t, app, infra.MailhogURL, "owner-delete@example.com", "password123")
+	setup.CreateTestServer(t, app, infra.RedisURL, token, "Owned Server", "owned", 1, false)
+
+	req := setup.CreateAuthRequest(http.MethodDelete, "/api/users/me", nil, token)
+	resp, err := setup.AppTest(t, app, req)
+	require.NoError(t, err, "delete account request should complete")
+	setup.RequireStatus(t, resp, http.StatusConflict)
+
+	// The account must still be usable after the blocked deletion.
+	req = setup.CreateAuthRequest(http.MethodGet, "/api/users/me", nil, token)
+	resp, err = setup.AppTest(t, app, req)
+	require.NoError(t, err, "follow-up me request should complete")
+	setup.RequireStatus(t, resp, 200)
+	setup.LogTestPass(t, "TestMeDelete_BlockedWhenOwner")
 }

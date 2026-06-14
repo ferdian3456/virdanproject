@@ -915,6 +915,23 @@ func (usecase *UserUsecase) DeleteAccount(ctx fiber.Ctx, userId string) error {
 		return err
 	}
 
+	// Block deletion while the user still owns a server: they must transfer
+	// ownership or leave (which deletes solo-owned servers) first. This keeps
+	// other members' communities intact instead of nuking them.
+	var ownedServers int
+	ownedServers, err = usecase.ServerRepository.CountServersOwnedByUser(ctxContext, userId)
+	if err != nil {
+		return err
+	}
+	if ownedServers > 0 {
+		err = &model.ConflictError{
+			Code:    constant.ERR_CONFLICT_CODE,
+			Message: "You still own one or more servers. Transfer ownership or leave them before deleting your account.",
+			Param:   "",
+		}
+		return err
+	}
+
 	var tx pgx.Tx
 	tx, err = usecase.DB.Begin(ctxContext)
 	if err != nil {
@@ -923,24 +940,22 @@ func (usecase *UserUsecase) DeleteAccount(ctx fiber.Ctx, userId string) error {
 	}
 	defer func() { _ = tx.Rollback(ctxContext) }()
 
-	now := time.Now().UTC()
-
-	err = usecase.ServerRepository.DeleteServersByOwnerId(ctxContext, tx, userId)
+	// Hard delete. Clear the RESTRICT FKs first: delete the user's posts
+	// (comments/likes on them cascade via post_id) then the user's comments on
+	// other users' posts. The user row delete then cascades everything else
+	// (memberships, likes, profiles, notifications, DMs, device tokens, saves,
+	// refresh tokens).
+	err = usecase.ServerRepository.DeletePostsByAuthorId(ctxContext, tx, userId)
 	if err != nil {
 		return err
 	}
 
-	err = usecase.ServerRepository.DeleteAllServerMembersByUserId(ctxContext, tx, userId)
+	err = usecase.ServerRepository.DeleteCommentsByAuthorId(ctxContext, tx, userId)
 	if err != nil {
 		return err
 	}
 
-	err = usecase.UserRepository.SoftDeleteUser(ctxContext, tx, userId, now)
-	if err != nil {
-		return err
-	}
-
-	err = usecase.UserRepository.RevokeAllRefreshTokensByUserIdTx(ctxContext, tx, userId, now, now, userId)
+	err = usecase.UserRepository.HardDeleteUser(ctxContext, tx, userId)
 	if err != nil {
 		return err
 	}

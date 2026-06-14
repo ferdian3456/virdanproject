@@ -272,6 +272,39 @@ func (repository *ServerRepository) CheckServerOwnership(ctx context.Context, se
 	return count, nil
 }
 
+// CountServersOwnedByUser returns how many servers the user owns. Used by
+// account deletion to block when the user still owns a server (they must
+// transfer ownership or leave first).
+func (repository *ServerRepository) CountServersOwnedByUser(ctx context.Context, userId string) (int, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CountServersOwnedByUser")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("user.id", userId),
+	)
+
+	query := `SELECT COUNT(*) FROM servers WHERE owner_id = $1`
+
+	var count int
+	err = repository.DB.QueryRow(ctx, query, userId).Scan(&count)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to count servers owned by user", zap.Error(err))
+		return 0, err
+	}
+
+	return count, nil
+}
+
 func (repository *ServerRepository) CheckServerCategories(ctx context.Context, categoryId int) (int, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CheckServerCategories")
@@ -945,6 +978,70 @@ func (repository *ServerRepository) DeleteServersByOwnerId(ctx context.Context, 
 	_, err = tx.Exec(ctx, query, userId)
 	if err != nil {
 		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to batch delete owned servers", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+// DeletePostsByAuthorId hard-deletes every post authored by the user across all
+// servers. Comments and likes on those posts cascade via post_id FK. Used by
+// account deletion to clear the RESTRICT FK on server_posts.author_id.
+func (repository *ServerRepository) DeletePostsByAuthorId(ctx context.Context, tx pgx.Tx, userId string) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeletePostsByAuthorId")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "DELETE"),
+		attribute.String("user.id", userId),
+	)
+
+	query := `DELETE FROM server_posts WHERE author_id = $1`
+
+	_, err = tx.Exec(ctx, query, userId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete posts by author", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+// DeleteCommentsByAuthorId hard-deletes every comment authored by the user that
+// survives post deletion (i.e. comments on other users' posts). Used by account
+// deletion to clear the RESTRICT FK on server_post_comments.author_id.
+func (repository *ServerRepository) DeleteCommentsByAuthorId(ctx context.Context, tx pgx.Tx, userId string) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeleteCommentsByAuthorId")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "DELETE"),
+		attribute.String("user.id", userId),
+	)
+
+	query := `DELETE FROM server_post_comments WHERE author_id = $1`
+
+	_, err = tx.Exec(ctx, query, userId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to delete comments by author", zap.Error(err))
 		return err
 	}
 

@@ -264,6 +264,39 @@ func (repository *UserRepository) SoftDeleteUser(ctx context.Context, tx pgx.Tx,
 	return nil
 }
 
+// HardDeleteUser permanently removes the user row. Caller must first clear the
+// RESTRICT FKs (owned servers, authored posts/comments). Everything else
+// (memberships, likes, profiles, notifications, DMs, device tokens, saves,
+// refresh tokens) is removed via ON DELETE CASCADE. Operates inside a transaction.
+func (repository *UserRepository) HardDeleteUser(ctx context.Context, tx pgx.Tx, userId string) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.HardDeleteUser")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "DELETE"),
+		attribute.String("user.id", userId),
+	)
+
+	query := `DELETE FROM users WHERE id = $1`
+
+	_, err = tx.Exec(ctx, query, userId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to hard delete user", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
 // =============================================================================
 // Redis — Access token cache
 // =============================================================================
