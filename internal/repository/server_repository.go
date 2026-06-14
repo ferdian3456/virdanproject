@@ -1522,10 +1522,10 @@ func (repository *ServerRepository) GetServerMembers(ctx context.Context, server
 	          LIMIT $4`
 
 	var cursorJoinedAt *time.Time
-	var cursorUserId string
+	var cursorUserId *string
 	if cursor != nil {
 		cursorJoinedAt = &cursor.JoinedAt
-		cursorUserId = cursor.UserId
+		cursorUserId = &cursor.UserId
 	}
 
 	rows, err := repository.DB.Query(ctx, query, serverId, cursorJoinedAt, cursorUserId, limit)
