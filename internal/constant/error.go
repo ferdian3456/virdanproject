@@ -7,7 +7,10 @@ const (
 	ERR_INVALID_REQUEST_BODY_ERROR_CODE = "INVALID_REQUEST_BODY_ERROR"
 	ERR_INVALID_CONTENT_TYPE_MESSAGE    = "Invalid Content-Type header. Endpoint requires multipart/form-data."
 	ERR_INVALID_REQUEST_BODY_MESSAGE    = "The request is invalid or malformed"
-	
+
+	// Upload size enforcement (400) — FE branches on this code to show tailored message.
+	ERR_UPLOAD_SIZE_EXCEEDED_CODE = "UPLOAD_SIZE_EXCEEDED_ERROR"
+
 	// Server Errors (500)
 	ERR_INTERNAL_SERVER_ERROR_CODE      = "INTERNAL_SERVER_ERROR"
 	ERR_INTENRAL_SERVER_ERROR_MESSAGE   = "Something went wrong. If the problem persists, please contact support"
