@@ -756,12 +756,34 @@ func (usecase *PostUsecase) DeletePost(ctx fiber.Ctx, serverId string, postId st
 		return err
 	}
 	if ownerCount == 0 {
-		var role string
-		role, err = usecase.ServerRepository.GetMemberRoleName(ctxContext, serverId, userId)
+		// Not the post author: only moderators may delete. An admin can remove
+		// posts by regular members (or authors who already left), but never the
+		// owner's or another admin's post — mirrors the kick permission model.
+		var deleterRole string
+		deleterRole, err = usecase.ServerRepository.GetMemberRoleName(ctxContext, serverId, userId)
 		if err != nil {
 			return err
 		}
-		if role != model.OwnerRole && role != model.AdminRole {
+
+		switch deleterRole {
+		case model.OwnerRole:
+			// Owner can delete any post in the server.
+		case model.AdminRole:
+			var authorId string
+			authorId, err = usecase.PostRepository.GetPostAuthorId(ctxContext, postId)
+			if err != nil {
+				return err
+			}
+			var authorRole string
+			authorRole, err = usecase.ServerRepository.GetMemberRoleName(ctxContext, serverId, authorId)
+			if err != nil {
+				return err
+			}
+			if authorRole == model.OwnerRole || authorRole == model.AdminRole {
+				err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "Admins cannot delete posts by the owner or other admins", Param: "postId"}
+				return err
+			}
+		default:
 			err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not the author of this post", Param: "postId"}
 			return err
 		}
