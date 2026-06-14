@@ -756,8 +756,15 @@ func (usecase *PostUsecase) DeletePost(ctx fiber.Ctx, serverId string, postId st
 		return err
 	}
 	if ownerCount == 0 {
-		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not the author of this post", Param: "postId"}
-		return err
+		var role string
+		role, err = usecase.ServerRepository.GetMemberRoleName(ctxContext, serverId, userId)
+		if err != nil {
+			return err
+		}
+		if role != model.OwnerRole && role != model.AdminRole {
+			err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not the author of this post", Param: "postId"}
+			return err
+		}
 	}
 
 	err = usecase.PostRepository.DeletePostHard(ctxContext, postId)
@@ -1163,8 +1170,15 @@ func (usecase *PostUsecase) DeleteComment(ctx fiber.Ctx, postIdParam string, com
 		return err
 	}
 	if ownerCount == 0 {
-		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not the author of this comment", Param: "commentId"}
-		return err
+		var role string
+		role, err = usecase.ServerRepository.GetMemberRoleName(ctxContext, serverId, userId)
+		if err != nil {
+			return err
+		}
+		if role != model.OwnerRole && role != model.AdminRole {
+			err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not the author of this comment", Param: "commentId"}
+			return err
+		}
 	}
 
 	commentExists, err := usecase.PostRepository.CheckCommentExists(ctxContext, commentIdParam, postIdParam)

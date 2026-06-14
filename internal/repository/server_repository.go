@@ -1333,3 +1333,228 @@ func (repository *ServerRepository) GetServerCategories(ctx context.Context, lim
 
 	return categories, nil
 }
+
+func (repository *ServerRepository) GetMemberRoleName(ctx context.Context, serverId, userId string) (string, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetMemberRoleName")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("server.id", serverId),
+		attribute.String("user.id", userId),
+	)
+
+	query := `SELECT sr.name
+	          FROM server_members sm
+	          JOIN server_roles sr ON sr.id = sm.server_role_id
+	          WHERE sm.server_id = $1 AND sm.user_id = $2
+	          LIMIT 1`
+
+	var roleName string
+	err = repository.DB.QueryRow(ctx, query, serverId, userId).Scan(&roleName)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			err = nil
+			return "", nil
+		}
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to get member role name", zap.Error(err))
+		return "", err
+	}
+
+	return roleName, nil
+}
+
+func (repository *ServerRepository) CountServerMembers(ctx context.Context, serverId string) (int, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CountServerMembers")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("server.id", serverId),
+	)
+
+	query := `SELECT COUNT(*) FROM server_members WHERE server_id = $1`
+
+	var count int
+	err = repository.DB.QueryRow(ctx, query, serverId).Scan(&count)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to count server members", zap.Error(err))
+		return 0, err
+	}
+
+	return count, nil
+}
+
+func (repository *ServerRepository) UpdateMemberRole(ctx context.Context, serverId, userId, roleId, actorId string, now time.Time) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UpdateMemberRole")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("server.id", serverId),
+		attribute.String("user.id", userId),
+	)
+
+	query := `UPDATE server_members
+	          SET server_role_id = $1, updated_at = $2, updated_by = $3
+	          WHERE server_id = $4 AND user_id = $5`
+
+	_, err = repository.DB.Exec(ctx, query, roleId, now, actorId, serverId, userId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to update member role", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (repository *ServerRepository) TransferServerOwnership(ctx context.Context, serverId, oldOwnerId, newOwnerId, ownerRoleId, adminRoleId, actorId string, now time.Time) error {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.TransferServerOwnership")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("server.id", serverId),
+	)
+
+	tx, err := repository.DB.Begin(ctx)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to begin tx for transfer ownership", zap.Error(err))
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx,
+		`UPDATE servers SET owner_id = $1, updated_at = $2, updated_by = $3 WHERE id = $4`,
+		newOwnerId, now, actorId, serverId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to update server owner_id", zap.Error(err))
+		return err
+	}
+
+	_, err = tx.Exec(ctx,
+		`UPDATE server_members SET server_role_id = $1, updated_at = $2, updated_by = $3 WHERE server_id = $4 AND user_id = $5`,
+		ownerRoleId, now, actorId, serverId, newOwnerId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to promote new owner", zap.Error(err))
+		return err
+	}
+
+	_, err = tx.Exec(ctx,
+		`UPDATE server_members SET server_role_id = $1, updated_at = $2, updated_by = $3 WHERE server_id = $4 AND user_id = $5`,
+		adminRoleId, now, actorId, serverId, oldOwnerId)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to demote old owner", zap.Error(err))
+		return err
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to commit transfer ownership", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (repository *ServerRepository) GetServerMembers(ctx context.Context, serverId string, limit int, cursor *model.ServerMemberCursor, minioFullUrl string) ([]model.ServerMemberItem, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerMembers")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("server.id", serverId),
+	)
+
+	query := `SELECT sm.user_id, sr.name, smp.nickname, smp.username, pai.object_key, sm.joined_at
+	          FROM server_members sm
+	          JOIN server_roles sr ON sr.id = sm.server_role_id
+	          JOIN server_member_profiles smp ON smp.server_id = sm.server_id AND smp.user_id = sm.user_id
+	          LEFT JOIN profile_avatar_images pai ON pai.id = smp.avatar_image_id
+	          WHERE sm.server_id = $1
+	            AND ($2::timestamptz IS NULL OR (sm.joined_at, sm.user_id) > ($2, $3))
+	          ORDER BY sm.joined_at ASC, sm.user_id ASC
+	          LIMIT $4`
+
+	var cursorJoinedAt *time.Time
+	var cursorUserId string
+	if cursor != nil {
+		cursorJoinedAt = &cursor.JoinedAt
+		cursorUserId = cursor.UserId
+	}
+
+	rows, err := repository.DB.Query(ctx, query, serverId, cursorJoinedAt, cursorUserId, limit)
+	if err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to query server members", zap.Error(err))
+		return nil, err
+	}
+	defer rows.Close()
+
+	members := []model.ServerMemberItem{}
+	for rows.Next() {
+		var item model.ServerMemberItem
+		var objectKey *string
+		err = rows.Scan(&item.UserId, &item.Role, &item.Nickname, &item.Username, &objectKey, &item.JoinedAt)
+		if err != nil {
+			util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Failed to scan server member", zap.Error(err))
+			return nil, err
+		}
+		if objectKey != nil {
+			url := fmt.Sprintf("%s/%s", minioFullUrl, *objectKey)
+			item.AvatarUrl = &url
+		}
+		members = append(members, item)
+	}
+
+	if err = rows.Err(); err != nil {
+		util.GetLoggerWithTraceContext(ctx, repository.Log).Error("Rows error on server members", zap.Error(err))
+		return nil, err
+	}
+
+	return members, nil
+}

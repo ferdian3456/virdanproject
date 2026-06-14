@@ -165,7 +165,15 @@ func (c *RouteConfig) SetupRoute() {
 	serverGroup.Get("/:serverId/notifications", c.NotificationController.GetFeed)
 	serverGroup.Post("/:serverId/notifications/:id/read", c.NotificationController.MarkRead)
 
-	serverGroup.Get("/:serverId/members", c.ChatController.ListMembers)
+	// RBAC member management endpoints
+	serverGroup.Get("/:serverId/members", c.ServerController.GetServerMembers)
+	serverGroup.Get("/:serverId/members/me", c.ServerController.GetMyRoleInServer)
+	serverGroup.Delete("/:serverId/members/:userId", c.ServerController.KickMember)
+	serverGroup.Put("/:serverId/members/:userId/role", c.ServerController.AssignMemberRole)
+	serverGroup.Put("/:serverId/ownership", c.ServerController.TransferOwnership)
+
+	// DM member search (moved from /:serverId/members to avoid conflict with RBAC list)
+	serverGroup.Get("/:serverId/members/dm", c.ChatController.ListMembers)
 	serverGroup.Get("/:serverId/conversations", c.ChatController.ListConversations)
 	serverGroup.Post("/:serverId/conversations", c.ChatController.GetOrCreateConversation)
 

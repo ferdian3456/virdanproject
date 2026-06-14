@@ -5,6 +5,7 @@ import (
 )
 
 const OwnerRole = "Owner"
+const AdminRole = "Admin"
 const MemberRole = "Member"
 
 type ServerRole struct {

@@ -1,5 +1,11 @@
 basePath: /api
 definitions:
+  model.AssignMemberRoleRequest:
+    properties:
+      role:
+        description: '"Admin" | "Member"'
+        type: string
+    type: object
   model.AuthorIdentityResponse:
     properties:
       avatarUrl:
@@ -332,6 +338,30 @@ definitions:
       username:
         type: string
     type: object
+  model.ServerMemberItem:
+    properties:
+      avatarUrl:
+        type: string
+      joinedAt:
+        type: string
+      nickname:
+        type: string
+      role:
+        type: string
+      userId:
+        type: string
+      username:
+        type: string
+    type: object
+  model.ServerMemberListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.ServerMemberItem'
+        type: array
+      page:
+        $ref: '#/definitions/model.Page'
+    type: object
   model.ServerMemberProfileResponse:
     properties:
       avatarImageId:
@@ -380,9 +410,19 @@ definitions:
         type: boolean
       likeCount:
         type: integer
+      mediaHeight:
+        type: integer
+      mediaType:
+        type: string
+      mediaWidth:
+        type: integer
+      mirrored:
+        type: boolean
       savedAt:
         type: string
       serverId:
+        type: string
+      thumbnailUrl:
         type: string
       updatedAt:
         type: string
@@ -390,6 +430,8 @@ definitions:
         type: boolean
       userSaved:
         type: boolean
+      videoUrl:
+        type: string
     type: object
   model.ServerPostUpdateCaptionRequest:
     properties:
@@ -478,6 +520,11 @@ definitions:
       refreshTokenExpiresIn:
         type: integer
       tokenType:
+        type: string
+    type: object
+  model.TransferOwnershipRequest:
+    properties:
+      newOwnerId:
         type: string
     type: object
   model.UnauthorizedError:
@@ -5279,6 +5326,134 @@ paths:
       summary: Join a public server
       tags:
       - servers
+  /servers/{serverId}/members:
+    get:
+      description: |
+        Mengembalikan daftar member server dengan role masing-masing. Hanya bisa diakses oleh member server (cegah enumerasi roster server private). Hasil diurutkan berdasarkan waktu bergabung (oldest first) dengan cursor pagination.
+
+        **Siapa bisa mengakses:** Member server mana pun (Owner, Admin, Member).
+
+        **Parameter query:**
+        - `limit` — jumlah item per halaman (default 10, max 20)
+        - `cursor` — cursor untuk halaman berikutnya (dari respons sebelumnya)
+
+        **Response:**
+        ```json
+        {
+          "data": [
+            {
+              "userId": "uuid",
+              "role": "Owner",
+              "nickname": "GamerX",
+              "username": "johndoe",
+              "avatarUrl": "http://...",
+              "joinedAt": "2024-01-15T10:30:00Z"
+            }
+          ],
+          "page": {
+            "nextCursor": "base64-encoded-cursor"
+          }
+        }
+        ```
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Page size
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ServerMemberListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: List server members with their roles
+      tags:
+      - servers
+  /servers/{serverId}/members/{userId}:
+    delete:
+      description: |
+        Mengeluarkan member dari server (hard delete row server_members). Post lama member yang di-kick tetap ada di server.
+
+        **Aturan izin:**
+        - Owner bisa kick Admin dan Member
+        - Admin hanya bisa kick Member (tidak bisa kick Admin lain atau Owner)
+        - Member tidak bisa kick siapapun
+        - Tidak bisa kick diri sendiri (gunakan leave server)
+        - Tidak bisa kick Owner
+
+        **Response sukses:** `{"status": "OK"}`
+
+        **Error:**
+        - 400 — mencoba kick diri sendiri
+        - 403 — tidak punya izin, atau target adalah Owner
+        - 404 — target bukan member server ini
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Target user UUID
+        in: path
+        name: userId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Kick a member from a server
+      tags:
+      - servers
   /servers/{serverId}/members/{userId}/posts:
     get:
       description: |
@@ -5608,6 +5783,109 @@ paths:
       summary: Get another member's profile in a server
       tags:
       - profiles
+  /servers/{serverId}/members/{userId}/role:
+    put:
+      consumes:
+      - application/json
+      description: |
+        Mengubah role member antara Admin dan Member. Hanya Owner yang bisa melakukan ini.
+
+        **Body:**
+        ```json
+        { "role": "Admin" }
+        ```
+        Nilai yang valid: `"Admin"` atau `"Member"`. Tidak bisa assign `"Owner"` melalui endpoint ini (gunakan transfer_ownership).
+
+        **Aturan:**
+        - Hanya Owner yang bisa assign role
+        - Tidak bisa mengubah role diri sendiri
+        - Target wajib sudah member server ini
+
+        **Response sukses:** `{"status": "OK"}`
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Target user UUID
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.AssignMemberRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Assign a role to a member (owner only)
+      tags:
+      - servers
+  /servers/{serverId}/members/me:
+    get:
+      description: |
+        Mengembalikan nama role caller di server tertentu. Digunakan oleh client untuk menentukan apakah user bisa melihat tombol moderasi (Owner/Admin bisa hapus post orang lain, kick member, dll).
+
+        **Response:**
+        ```json
+        { "role": "Owner" }
+        ```
+
+        Nilai `role` yang mungkin: `"Owner"`, `"Admin"`, `"Member"`. Jika bukan member, endpoint ini mengembalikan 403.
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Get caller's role in a server
+      tags:
+      - servers
   /servers/{serverId}/membership:
     delete:
       description: |
@@ -6147,6 +6425,69 @@ paths:
       summary: Get unread notification count
       tags:
       - notifications
+  /servers/{serverId}/ownership:
+    put:
+      consumes:
+      - application/json
+      description: |
+        Memindahkan kepemilikan server ke member lain. Owner lama otomatis menjadi Admin. Operasi bersifat atomik (satu transaksi database).
+
+        **Body:**
+        ```json
+        { "newOwnerId": "uuid-of-new-owner" }
+        ```
+
+        **Aturan:**
+        - Hanya Owner yang bisa transfer ownership
+        - Target wajib sudah member server ini
+        - Tidak bisa transfer ke diri sendiri
+
+        **Setelah transfer:**
+        - Target menjadi Owner (server_members.server_role_id → Owner role, servers.owner_id → target)
+        - Pemanggil menjadi Admin
+
+        **Response sukses:** `{"status": "OK"}`
+      parameters:
+      - description: Bearer access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Server UUID
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.TransferOwnershipRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ValidationError'
+      summary: Transfer server ownership (owner only)
+      tags:
+      - servers
   /servers/{serverId}/posts:
     get:
       description: |

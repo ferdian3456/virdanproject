@@ -776,3 +776,211 @@ func (controller *ServerController) CreateInviteLink(ctx fiber.Ctx) error {
 
 	return util.SendSuccessResponseWithData(ctx, response)
 }
+
+// GetServerMembers godoc
+// @Summary      List server members with their roles
+// @Description.markdown get_server_members
+// @Tags         servers
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
+// @Param        limit query int false "Page size"
+// @Param        cursor query string false "Pagination cursor"
+// @Success      200 {object} model.ServerMemberListResponse
+// @Failure      400 {object} model.ValidationError
+// @Failure      403 {object} model.ValidationError
+// @Failure      500 {object} model.ValidationError
+// @Router       /servers/{serverId}/members [get]
+func (controller *ServerController) GetServerMembers(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.GetServerMembers")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
+	cursor := ctx.Query("cursor")
+	limitStr := ctx.Query("limit")
+
+	var response model.ServerMemberListResponse
+	response, err = controller.ServerUsecase.GetServerMembers(ctx, serverId, userId, cursor, limitStr)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseWithData(ctx, response)
+}
+
+// GetMyRoleInServer godoc
+// @Summary      Get caller's role in a server
+// @Description.markdown get_my_role_in_server
+// @Tags         servers
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
+// @Success      200
+// @Failure      403 {object} model.ValidationError
+// @Failure      500 {object} model.ValidationError
+// @Router       /servers/{serverId}/members/me [get]
+func (controller *ServerController) GetMyRoleInServer(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.GetMyRoleInServer")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
+
+	var roleName string
+	roleName, err = controller.ServerUsecase.GetMyRoleInServer(ctx, serverId, userId)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseWithData(ctx, fiber.Map{"role": roleName})
+}
+
+// KickMember godoc
+// @Summary      Kick a member from a server
+// @Description.markdown kick_member
+// @Tags         servers
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
+// @Param        userId path string true "Target user UUID"
+// @Success      200
+// @Failure      400 {object} model.ValidationError
+// @Failure      403 {object} model.ValidationError
+// @Failure      404 {object} model.ValidationError
+// @Failure      500 {object} model.ValidationError
+// @Router       /servers/{serverId}/members/{userId} [delete]
+func (controller *ServerController) KickMember(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.KickMember")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	callerId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
+	targetUserId := ctx.Params("userId")
+
+	err = controller.ServerUsecase.KickMember(ctx, serverId, targetUserId, callerId)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseNoData(ctx)
+}
+
+// AssignMemberRole godoc
+// @Summary      Assign a role to a member (owner only)
+// @Description.markdown assign_member_role
+// @Tags         servers
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
+// @Param        userId path string true "Target user UUID"
+// @Param        body body model.AssignMemberRoleRequest true "Payload"
+// @Success      200
+// @Failure      400 {object} model.ValidationError
+// @Failure      403 {object} model.ValidationError
+// @Failure      404 {object} model.ValidationError
+// @Failure      500 {object} model.ValidationError
+// @Router       /servers/{serverId}/members/{userId}/role [put]
+func (controller *ServerController) AssignMemberRole(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.AssignMemberRole")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	callerId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
+	targetUserId := ctx.Params("userId")
+
+	var payload model.AssignMemberRoleRequest
+	err = util.ReadRequestBody(ctx, &payload)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	err = controller.ServerUsecase.AssignMemberRole(ctx, serverId, targetUserId, callerId, payload)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseNoData(ctx)
+}
+
+// TransferOwnership godoc
+// @Summary      Transfer server ownership (owner only)
+// @Description.markdown transfer_ownership
+// @Tags         servers
+// @Accept       json
+// @Produce      json
+// @Param        Authorization header string true "Bearer access token"
+// @Param        serverId path string true "Server UUID"
+// @Param        body body model.TransferOwnershipRequest true "Payload"
+// @Success      200
+// @Failure      400 {object} model.ValidationError
+// @Failure      403 {object} model.ValidationError
+// @Failure      404 {object} model.ValidationError
+// @Failure      500 {object} model.ValidationError
+// @Router       /servers/{serverId}/ownership [put]
+func (controller *ServerController) TransferOwnership(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-controller").Start(ctxContext, "controller.TransferOwnership")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	callerId := ctx.Locals("userId").(string)
+	serverId := ctx.Params("serverId")
+
+	var payload model.TransferOwnershipRequest
+	err = util.ReadRequestBody(ctx, &payload)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	err = controller.ServerUsecase.TransferOwnership(ctx, serverId, callerId, payload)
+	if err != nil {
+		return util.SendError(ctx, err)
+	}
+
+	return util.SendSuccessResponseNoData(ctx)
+}

@@ -199,6 +199,18 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 		return response, err
 	}
 
+	adminRole := model.ServerRole{
+		Id:          uuid.New().String(),
+		ServerId:    serverId,
+		Name:        model.AdminRole,
+		Permissions: []byte(`{}`),
+		CreatedAt:   now, UpdatedAt: now, CreatedBy: userId, UpdatedBy: userId,
+	}
+	err = usecase.ServerRepository.CreateServerRole(ctxContext, tx, adminRole)
+	if err != nil {
+		return response, err
+	}
+
 	memberRole := model.ServerRole{
 		Id:          uuid.New().String(),
 		ServerId:    serverId,
@@ -1165,8 +1177,20 @@ func (usecase *ServerUsecase) LeaveServer(ctx fiber.Ctx, userId, serverId string
 		return err
 	}
 	if ownerCount > 0 {
-		err = &model.ConflictError{Code: constant.ERR_CONFLICT_CODE, Message: "Owner cannot leave. Delete server or transfer ownership.", Param: "serverId"}
-		return err
+		var memberTotal int
+		memberTotal, err = usecase.ServerRepository.CountServerMembers(ctxContext, serverId)
+		if err != nil {
+			return err
+		}
+		if memberTotal > 1 {
+			err = &model.ConflictError{Code: constant.ERR_CONFLICT_CODE, Message: "Owner cannot leave while other members exist. Transfer ownership or delete the server.", Param: "serverId"}
+			return err
+		}
+		err = usecase.ServerRepository.DeleteServerHard(ctxContext, serverId)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	err = usecase.ServerRepository.DeleteServerMember(ctxContext, serverId, userId)
@@ -1401,4 +1425,323 @@ func (usecase *ServerUsecase) GetCategoryServer(ctx fiber.Ctx, cursor, limitStr 
 	response.Data = categories
 
 	return response, nil
+}
+
+func (usecase *ServerUsecase) KickMember(ctx fiber.Ctx, serverId, targetUserId, callerId string) error {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.KickMember")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("user.id", callerId),
+		attribute.String("server.id", serverId),
+		attribute.String("target.user.id", targetUserId),
+	)
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	v.UUID("userId", targetUserId).Required()
+	err = v.Validate()
+	if err != nil {
+		return err
+	}
+
+	if callerId == targetUserId {
+		err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "Use leave server to remove yourself", Param: "userId"}
+		return err
+	}
+
+	callerRole, err := usecase.ServerRepository.GetMemberRoleName(ctxContext, serverId, callerId)
+	if err != nil {
+		return err
+	}
+	if callerRole != model.OwnerRole && callerRole != model.AdminRole {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You do not have permission to kick members", Param: "serverId"}
+		return err
+	}
+
+	targetRole, err := usecase.ServerRepository.GetMemberRoleName(ctxContext, serverId, targetUserId)
+	if err != nil {
+		return err
+	}
+	if targetRole == "" {
+		err = &model.NotFoundError{Code: constant.ERR_NOT_FOUND_CODE, Message: "Target user is not a member of this server", Param: "userId"}
+		return err
+	}
+	if targetRole == model.OwnerRole {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "Owner cannot be kicked", Param: "userId"}
+		return err
+	}
+	if callerRole == model.AdminRole && targetRole == model.AdminRole {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "Admin cannot kick another admin", Param: "userId"}
+		return err
+	}
+
+	err = usecase.ServerRepository.DeleteServerMember(ctxContext, serverId, targetUserId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (usecase *ServerUsecase) AssignMemberRole(ctx fiber.Ctx, serverId, targetUserId, callerId string, payload model.AssignMemberRoleRequest) error {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.AssignMemberRole")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("user.id", callerId),
+		attribute.String("server.id", serverId),
+		attribute.String("target.user.id", targetUserId),
+	)
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	v.UUID("userId", targetUserId).Required()
+	err = v.Validate()
+	if err != nil {
+		return err
+	}
+
+	if payload.Role != model.AdminRole && payload.Role != model.MemberRole {
+		err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "Role must be Admin or Member", Param: "role"}
+		return err
+	}
+
+	if callerId == targetUserId {
+		err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "You cannot change your own role", Param: "userId"}
+		return err
+	}
+
+	ownerCount, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, callerId)
+	if err != nil {
+		return err
+	}
+	if ownerCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "Only the owner can assign roles", Param: "serverId"}
+		return err
+	}
+
+	targetRole, err := usecase.ServerRepository.GetMemberRoleName(ctxContext, serverId, targetUserId)
+	if err != nil {
+		return err
+	}
+	if targetRole == "" {
+		err = &model.NotFoundError{Code: constant.ERR_NOT_FOUND_CODE, Message: "Target user is not a member of this server", Param: "userId"}
+		return err
+	}
+
+	roleId, err := usecase.ServerRepository.GetRoleByName(ctxContext, serverId, payload.Role)
+	if err != nil {
+		return err
+	}
+	if roleId == "" {
+		err = &model.NotFoundError{Code: constant.ERR_NOT_FOUND_CODE, Message: "Role not found in this server", Param: "role"}
+		return err
+	}
+
+	now := time.Now().UTC()
+	err = usecase.ServerRepository.UpdateMemberRole(ctxContext, serverId, targetUserId, roleId, callerId, now)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (usecase *ServerUsecase) TransferOwnership(ctx fiber.Ctx, serverId, callerId string, payload model.TransferOwnershipRequest) error {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.TransferOwnership")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("user.id", callerId),
+		attribute.String("server.id", serverId),
+		attribute.String("target.user.id", payload.NewOwnerId),
+	)
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	v.UUID("newOwnerId", payload.NewOwnerId).Required()
+	err = v.Validate()
+	if err != nil {
+		return err
+	}
+
+	if callerId == payload.NewOwnerId {
+		err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "You are already the owner", Param: "newOwnerId"}
+		return err
+	}
+
+	ownerCount, err := usecase.ServerRepository.CheckServerOwnership(ctxContext, serverId, callerId)
+	if err != nil {
+		return err
+	}
+	if ownerCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "Only the owner can transfer ownership", Param: "serverId"}
+		return err
+	}
+
+	targetRole, err := usecase.ServerRepository.GetMemberRoleName(ctxContext, serverId, payload.NewOwnerId)
+	if err != nil {
+		return err
+	}
+	if targetRole == "" {
+		err = &model.NotFoundError{Code: constant.ERR_NOT_FOUND_CODE, Message: "New owner must be a member of this server", Param: "newOwnerId"}
+		return err
+	}
+
+	ownerRoleId, err := usecase.ServerRepository.GetRoleByName(ctxContext, serverId, model.OwnerRole)
+	if err != nil {
+		return err
+	}
+	adminRoleId, err := usecase.ServerRepository.GetRoleByName(ctxContext, serverId, model.AdminRole)
+	if err != nil {
+		return err
+	}
+	if ownerRoleId == "" || adminRoleId == "" {
+		err = &model.NotFoundError{Code: constant.ERR_NOT_FOUND_CODE, Message: "Server roles are not properly configured", Param: "serverId"}
+		return err
+	}
+
+	now := time.Now().UTC()
+	err = usecase.ServerRepository.TransferServerOwnership(ctxContext, serverId, callerId, payload.NewOwnerId, ownerRoleId, adminRoleId, callerId, now)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (usecase *ServerUsecase) GetServerMembers(ctx fiber.Ctx, serverId, userId, cursor, limitStr string) (model.ServerMemberListResponse, error) {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.GetServerMembers")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	var response model.ServerMemberListResponse
+	response.Data = []model.ServerMemberItem{}
+
+	span.SetAttributes(
+		attribute.String("user.id", userId),
+		attribute.String("server.id", serverId),
+	)
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	err = v.Validate()
+	if err != nil {
+		return response, err
+	}
+
+	limit, _ := strconv.Atoi(limitStr)
+	if limit <= 0 || limit > constant.MAX_LIMIT {
+		limit = constant.DEFAULT_LIMIT
+	}
+
+	memberCount, err := usecase.ServerRepository.CheckServerMember(ctxContext, serverId, userId)
+	if err != nil {
+		return response, err
+	}
+	if memberCount == 0 {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not a member of this server", Param: "serverId"}
+		return response, err
+	}
+
+	var cursorObj *model.ServerMemberCursor
+	if cursor != "" {
+		cursorObj, err = util.DecodeCursor[model.ServerMemberCursor](cursor)
+		if err != nil {
+			err = &model.BadRequestError{Code: constant.ERR_VALIDATION_CODE, Message: "Invalid cursor", Param: "cursor"}
+			return response, err
+		}
+	}
+
+	minioFullUrl := usecase.Config.String("MINIO_HTTP") + usecase.Config.String("MINIO_URL") + "/" + usecase.Config.String("MINIO_BUCKET_NAME")
+
+	members, err := usecase.ServerRepository.GetServerMembers(ctxContext, serverId, limit+1, cursorObj, minioFullUrl)
+	if err != nil {
+		return response, err
+	}
+
+	if len(members) > limit {
+		last := members[limit-1]
+		response.Page.NextCursor = util.EncodeCursor(model.ServerMemberCursor{
+			JoinedAt: last.JoinedAt,
+			UserId:   last.UserId,
+		})
+		members = members[:limit]
+	}
+	response.Data = members
+
+	return response, nil
+}
+
+func (usecase *ServerUsecase) GetMyRoleInServer(ctx fiber.Ctx, serverId, userId string) (string, error) {
+	ctxContext := ctx.Context()
+	serviceName := usecase.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName + "-usecase").Start(ctxContext, "usecase.GetMyRoleInServer")
+	var err error
+
+	defer func() {
+		if err != nil {
+			util.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("user.id", userId),
+		attribute.String("server.id", serverId),
+	)
+
+	v := util.NewValidator()
+	v.UUID("serverId", serverId).Required()
+	err = v.Validate()
+	if err != nil {
+		return "", err
+	}
+
+	roleName, err := usecase.ServerRepository.GetMemberRoleName(ctxContext, serverId, userId)
+	if err != nil {
+		return "", err
+	}
+	if roleName == "" {
+		err = &model.ForbiddenError{Code: constant.ERR_FORBIDDEN_CODE, Message: "You are not a member of this server", Param: "serverId"}
+		return "", err
+	}
+
+	return roleName, nil
 }
