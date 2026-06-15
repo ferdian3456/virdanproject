@@ -24,32 +24,35 @@ import (
 )
 
 type PostUsecase struct {
-	PostRepository      *repository.PostRepository
-	ServerRepository    *repository.ServerRepository
-	ProfileRepository   *repository.ProfileRepository
-	NotificationUsecase *NotificationUsecase
-	DB                  *pgxpool.Pool
-	Log                 *zap.Logger
-	Config              *koanf.Koanf
+	PostRepository       *repository.PostRepository
+	ServerRepository     *repository.ServerRepository
+	ProfileRepository    *repository.ProfileRepository
+	ServerPlusRepository *repository.ServerPlusRepository
+	NotificationUsecase  *NotificationUsecase
+	DB                   *pgxpool.Pool
+	Log                  *zap.Logger
+	Config               *koanf.Koanf
 }
 
 func NewPostUsecase(
 	postRepository *repository.PostRepository,
 	serverRepository *repository.ServerRepository,
 	profileRepository *repository.ProfileRepository,
+	serverPlusRepository *repository.ServerPlusRepository,
 	notificationUsecase *NotificationUsecase,
 	db *pgxpool.Pool,
 	zap *zap.Logger,
 	koanf *koanf.Koanf,
 ) *PostUsecase {
 	return &PostUsecase{
-		PostRepository:      postRepository,
-		ServerRepository:    serverRepository,
-		ProfileRepository:   profileRepository,
-		NotificationUsecase: notificationUsecase,
-		DB:                  db,
-		Log:                 zap,
-		Config:              koanf,
+		PostRepository:       postRepository,
+		ServerRepository:     serverRepository,
+		ProfileRepository:    profileRepository,
+		ServerPlusRepository: serverPlusRepository,
+		NotificationUsecase:  notificationUsecase,
+		DB:                   db,
+		Log:                  zap,
+		Config:               koanf,
 	}
 }
 
@@ -85,6 +88,19 @@ func (usecase *PostUsecase) CreatePost(ctx fiber.Ctx, serverId string, userId st
 		return model.ServerPostResponse{}, err
 	}
 
+	// Virdan Plus raises this server's per-post upload size limits (time-limited).
+	plusActive, _, plusErr := usecase.ServerPlusRepository.GetActivePlus(ctxContext, serverId)
+	if plusErr != nil {
+		err = plusErr
+		return model.ServerPostResponse{}, err
+	}
+	maxImageSize := int64(constant.MAX_IMAGE_SIZE_FREE)
+	maxVideoSize := int64(constant.MAX_VIDEO_SIZE_FREE)
+	if plusActive {
+		maxImageSize = int64(constant.MAX_IMAGE_SIZE_PLUS)
+		maxVideoSize = int64(constant.MAX_VIDEO_SIZE_PLUS)
+	}
+
 	// Detect media type from form fields
 	imageHeader, imageErr := ctx.FormFile("image")
 	hasImage := imageErr == nil && imageHeader != nil
@@ -118,7 +134,7 @@ func (usecase *PostUsecase) CreatePost(ctx fiber.Ctx, serverId string, userId st
 
 	if hasImage {
 		// ── IMAGE FLOW ──
-		imageFile, imageSize, imageWidth, imageHeight, imgErr := util.ValidateImage(ctxContext, imageHeader, "image", 1080, 1350, false)
+		imageFile, imageSize, imageWidth, imageHeight, imgErr := util.ValidateImage(ctxContext, imageHeader, "image", maxImageSize, 1080, 1350, false)
 		if imgErr != nil {
 			err = imgErr
 			return model.ServerPostResponse{}, err
@@ -174,7 +190,7 @@ func (usecase *PostUsecase) CreatePost(ctx fiber.Ctx, serverId string, userId st
 
 	} else {
 		// ── VIDEO FLOW ──
-		if vErr := util.ValidateVideoFile(ctxContext, videoHeader, "video"); vErr != nil {
+		if vErr := util.ValidateVideoFile(ctxContext, videoHeader, "video", maxVideoSize); vErr != nil {
 			err = vErr
 			return model.ServerPostResponse{}, err
 		}

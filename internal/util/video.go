@@ -53,15 +53,15 @@ type ffprobeFormat struct {
 
 // ValidateVideoFile validates a multipart file header for video:
 // checks size, file extension, and MIME type via content sniffing.
-func ValidateVideoFile(ctx context.Context, fileHeader *multipart.FileHeader, fieldName string) error {
+func ValidateVideoFile(ctx context.Context, fileHeader *multipart.FileHeader, fieldName string, maxSize int64) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 
-	if fileHeader.Size > constant.MAX_VIDEO_SIZE {
+	if fileHeader.Size > maxSize {
 		return &model.BadRequestError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "video size exceeded " + strconv.FormatInt(constant.MAX_VIDEO_SIZE/(1024*1024), 10) + "MB limit",
+			Code:    constant.ERR_UPLOAD_SIZE_EXCEEDED_CODE,
+			Message: "video size exceeded " + strconv.FormatInt(maxSize/(1024*1024), 10) + "MB limit",
 			Param:   fieldName,
 		}
 	}

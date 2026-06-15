@@ -111,7 +111,7 @@ func (usecase *ServerUsecase) CreateServer(ctx fiber.Ctx, userId string) (model.
 	var serverAvatarImageId *string
 	fh, fhErr := ctx.FormFile("serverAvatar")
 	if fhErr == nil && fh != nil {
-		serverAvatarFile, serverAvatarSize, _, _, err = util.ValidateImage(ctxContext, fh, "serverAvatar", 512, 512, true)
+		serverAvatarFile, serverAvatarSize, _, _, err = util.ValidateImage(ctxContext, fh, "serverAvatar", constant.MAX_IMAGE_SIZE, 512, 512, true)
 		if err != nil {
 			return response, err
 		}
@@ -936,7 +936,7 @@ func (usecase *ServerUsecase) UpdateServerAvatar(ctx fiber.Ctx, userId, serverId
 	}
 	var imageFile *bytes.Reader
 	var imageSize int64
-	imageFile, imageSize, _, _, err = util.ValidateImage(ctxContext, fh, "avatar", 512, 512, true)
+	imageFile, imageSize, _, _, err = util.ValidateImage(ctxContext, fh, "avatar", constant.MAX_IMAGE_SIZE, 512, 512, true)
 	if err != nil {
 		return err
 	}
@@ -1037,7 +1037,7 @@ func (usecase *ServerUsecase) UpdateServerBanner(ctx fiber.Ctx, userId, serverId
 	}
 	var imageFile *bytes.Reader
 	var imageSize int64
-	imageFile, imageSize, _, _, err = util.ValidateImage(ctxContext, fh, "banner", 1920, 1080, false)
+	imageFile, imageSize, _, _, err = util.ValidateImage(ctxContext, fh, "banner", constant.MAX_IMAGE_SIZE, 1920, 1080, false)
 	if err != nil {
 		return err
 	}

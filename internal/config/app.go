@@ -8,6 +8,7 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/repository"
 	"github.com/ferdian3456/virdanproject/internal/usecase"
 	"github.com/ferdian3456/virdanproject/internal/ws"
+	xenditpkg "github.com/ferdian3456/virdanproject/internal/xendit"
 	"github.com/minio/minio-go/v7"
 
 	"github.com/gofiber/fiber/v3"
@@ -45,8 +46,13 @@ func Server(config *ServerConfig) {
 	notificationUsecase := usecase.NewNotificationUsecase(notificationRepository, serverRepository, config.FCM, config.DB, config.Log, config.Config)
 	notificationController := http.NewNotificationController(notificationUsecase, config.Log, config.Config)
 
+	serverPlusRepository := repository.NewServerPlusRepository(config.Log, config.Config, config.DB)
+	xenditClient := xenditpkg.NewClient(config.Config, config.Log)
+	serverPlusUsecase := usecase.NewServerPlusUsecase(serverPlusRepository, serverRepository, xenditClient, config.DB, config.Log, config.Config)
+	serverPlusController := http.NewServerPlusController(serverPlusUsecase, config.Log, config.Config)
+
 	postRepository := repository.NewPostRepository(config.Log, config.Config, config.DB, config.DBCache, config.MinIO)
-	postUsecase := usecase.NewPostUsecase(postRepository, serverRepository, profileRepository, notificationUsecase, config.DB, config.Log, config.Config)
+	postUsecase := usecase.NewPostUsecase(postRepository, serverRepository, profileRepository, serverPlusRepository, notificationUsecase, config.DB, config.Log, config.Config)
 	postController := http.NewPostController(postUsecase, config.Log, config.Config)
 
 	profileUsecase := usecase.NewProfileUsecase(profileRepository, serverRepository, config.DB, config.Log, config.Config)
@@ -67,6 +73,7 @@ func Server(config *ServerConfig) {
 		ProfileController:      profileController,
 		NotificationController: notificationController,
 		ChatController:         chatController,
+		ServerPlusController:   serverPlusController,
 		AuthMiddleware:         authMiddleware,
 		DB:                     config.DB,
 		DBCache:                config.DBCache,

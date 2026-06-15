@@ -104,6 +104,8 @@ type ServerDetailResponse struct {
 	Settings      sonic.NoCopyRawMessage `json:"settings" swaggertype:"object"`
 	MemberCount   int                    `json:"memberCount"`
 	IsMember      bool                   `json:"isMember"`
+	PlusActive    bool                   `json:"plusActive"`
+	PlusExpiresAt *time.Time             `json:"plusExpiresAt"`
 	CreatedAt     time.Time              `json:"createdAt"`
 	UpdatedAt     time.Time              `json:"updatedAt"`
 }

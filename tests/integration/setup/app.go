@@ -12,6 +12,7 @@ import (
 	"github.com/ferdian3456/virdanproject/internal/repository"
 	"github.com/ferdian3456/virdanproject/internal/usecase"
 	"github.com/ferdian3456/virdanproject/internal/ws"
+	xenditpkg "github.com/ferdian3456/virdanproject/internal/xendit"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/redis/go-redis/v9"
@@ -62,6 +63,14 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 	_ = testConfig.Set("SENDER_NAME", "Virdan Test <noreply@virdan.test>") // Include email address
 	_ = testConfig.Set("SENDER_EMAIL", "noreply@virdan.test")
 	_ = testConfig.Set("SENDER_PASSWORD", "")
+
+	// Xendit (Virdan Plus) — stubbed in tests; CreatePaymentSession is never called by the
+	// webhook/status/history tests, and webhook token verification uses XENDIT_WEBHOOK_TOKEN.
+	_ = testConfig.Set("XENDIT_SECRET_KEY", "xnd_development_test_key")
+	_ = testConfig.Set("XENDIT_WEBHOOK_TOKEN", "test_webhook_token_12345")
+	_ = testConfig.Set("XENDIT_API_BASE_URL", "https://api.xendit.co")
+	_ = testConfig.Set("XENDIT_SUCCESS_URL", "https://virdan.cloud/payment/success")
+	_ = testConfig.Set("XENDIT_CANCEL_URL", "https://virdan.cloud/payment/cancel")
 
 	// 3. Connect to PostgreSQL
 	t.Log("Connecting to test PostgreSQL...")
@@ -139,7 +148,10 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 	// goroutine recover() would catch it anyway). DB-side notif behaviour (rows inserted) is testable.
 	notificationRepository := repository.NewNotificationRepository(zapLogger, testConfig, dbPool)
 	notificationUsecase := usecase.NewNotificationUsecase(notificationRepository, serverRepository, nil, dbPool, zapLogger, testConfig)
-	postUsecase := usecase.NewPostUsecase(postRepository, serverRepository, profileRepository, notificationUsecase, dbPool, zapLogger, testConfig)
+	serverPlusRepository := repository.NewServerPlusRepository(zapLogger, testConfig, dbPool)
+	xenditClient := xenditpkg.NewClient(testConfig, zapLogger)
+	serverPlusUsecase := usecase.NewServerPlusUsecase(serverPlusRepository, serverRepository, xenditClient, dbPool, zapLogger, testConfig)
+	postUsecase := usecase.NewPostUsecase(postRepository, serverRepository, profileRepository, serverPlusRepository, notificationUsecase, dbPool, zapLogger, testConfig)
 	profileUsecase := usecase.NewProfileUsecase(profileRepository, serverRepository, dbPool, zapLogger, testConfig)
 
 	// 9. Setup controllers
@@ -148,6 +160,7 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 	postController := http.NewPostController(postUsecase, zapLogger, testConfig)
 	profileController := http.NewProfileController(profileUsecase, zapLogger, testConfig)
 	notificationController := http.NewNotificationController(notificationUsecase, zapLogger, testConfig)
+	serverPlusController := http.NewServerPlusController(serverPlusUsecase, zapLogger, testConfig)
 
 	// 10. Setup middleware
 	authMiddleware := middleware.NewAuthMiddleware(testConfig, zapLogger, userUsecase)
@@ -177,6 +190,7 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 		PostController:         postController,
 		ProfileController:      profileController,
 		NotificationController: notificationController,
+		ServerPlusController:   serverPlusController,
 		AuthMiddleware:         authMiddleware,
 		DB:                     dbPool,
 		DBCache:                redisClient,

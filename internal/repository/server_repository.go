@@ -40,7 +40,7 @@ func NewServerRepository(zap *zap.Logger, koanf *koanf.Koanf, db *pgxpool.Pool, 
 
 func (repository *ServerRepository) CreateServer(ctx context.Context, tx pgx.Tx, server model.Server) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CreateServer")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CreateServer")
 	var err error
 
 	defer func() {
@@ -75,7 +75,7 @@ func (repository *ServerRepository) CreateServer(ctx context.Context, tx pgx.Tx,
 
 func (repository *ServerRepository) CreateServerRole(ctx context.Context, tx pgx.Tx, serverRole model.ServerRole) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CreateServerRole")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CreateServerRole")
 	var err error
 
 	defer func() {
@@ -107,7 +107,7 @@ func (repository *ServerRepository) CreateServerRole(ctx context.Context, tx pgx
 
 func (repository *ServerRepository) GetRoleByName(ctx context.Context, serverId, roleName string) (string, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetRoleByName")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetRoleByName")
 	var err error
 
 	defer func() {
@@ -141,7 +141,7 @@ func (repository *ServerRepository) GetRoleByName(ctx context.Context, serverId,
 
 func (repository *ServerRepository) CreateServerMember(ctx context.Context, tx pgx.Tx, serverMember model.ServerMember) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CreateServerMember")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CreateServerMember")
 	var err error
 
 	defer func() {
@@ -175,7 +175,7 @@ func (repository *ServerRepository) CreateServerMember(ctx context.Context, tx p
 
 func (repository *ServerRepository) CheckServerEligibleForJoin(ctx context.Context, serverId string) (model.ServerCheckEligibleInfo, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CheckServerEligibleForJoin")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CheckServerEligibleForJoin")
 	var err error
 
 	defer func() {
@@ -212,7 +212,7 @@ func (repository *ServerRepository) CheckServerEligibleForJoin(ctx context.Conte
 
 func (repository *ServerRepository) CheckServerMember(ctx context.Context, serverId, userId string) (int, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CheckServerMember")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CheckServerMember")
 	var err error
 
 	defer func() {
@@ -243,7 +243,7 @@ func (repository *ServerRepository) CheckServerMember(ctx context.Context, serve
 
 func (repository *ServerRepository) CheckServerOwnership(ctx context.Context, serverId, userId string) (int, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CheckServerOwnership")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CheckServerOwnership")
 	var err error
 
 	defer func() {
@@ -277,7 +277,7 @@ func (repository *ServerRepository) CheckServerOwnership(ctx context.Context, se
 // transfer ownership or leave first).
 func (repository *ServerRepository) CountServersOwnedByUser(ctx context.Context, userId string) (int, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CountServersOwnedByUser")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CountServersOwnedByUser")
 	var err error
 
 	defer func() {
@@ -307,7 +307,7 @@ func (repository *ServerRepository) CountServersOwnedByUser(ctx context.Context,
 
 func (repository *ServerRepository) CheckServerCategories(ctx context.Context, categoryId int) (int, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CheckServerCategories")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CheckServerCategories")
 	var err error
 
 	defer func() {
@@ -337,7 +337,7 @@ func (repository *ServerRepository) CheckServerCategories(ctx context.Context, c
 
 func (repository *ServerRepository) CheckCategoryActive(ctx context.Context, categoryId int) (bool, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CheckCategoryActive")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CheckCategoryActive")
 	var err error
 
 	defer func() {
@@ -367,7 +367,7 @@ func (repository *ServerRepository) CheckCategoryActive(ctx context.Context, cat
 
 func (repository *ServerRepository) ValidateAndConsumeInvite(ctx context.Context, code string) (string, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.ValidateAndConsumeInvite")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.ValidateAndConsumeInvite")
 	var err error
 
 	defer func() {
@@ -411,7 +411,7 @@ func (repository *ServerRepository) ValidateAndConsumeInvite(ctx context.Context
 
 func (repository *ServerRepository) CreateServerInvites(ctx context.Context, invite model.ServerInvite) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CreateServerInvites")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CreateServerInvites")
 	var err error
 
 	defer func() {
@@ -444,7 +444,7 @@ func (repository *ServerRepository) CreateServerInvites(ctx context.Context, inv
 
 func (repository *ServerRepository) GetServerInfoForInvite(ctx context.Context, code, minioFullUrl string) (model.ServerInfoForInviteResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerInfoForInvite")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetServerInfoForInvite")
 	var err error
 
 	defer func() {
@@ -505,7 +505,7 @@ func (repository *ServerRepository) GetServerInfoForInvite(ctx context.Context, 
 
 func (repository *ServerRepository) CreateServerAvatarImage(ctx context.Context, tx pgx.Tx, image model.ServerAvatarImage) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CreateServerAvatarImage")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CreateServerAvatarImage")
 	var err error
 
 	defer func() {
@@ -537,7 +537,7 @@ func (repository *ServerRepository) CreateServerAvatarImage(ctx context.Context,
 
 func (repository *ServerRepository) GetServerAvatarImageId(ctx context.Context, tx pgx.Tx, serverId string) (*string, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerAvatarImageId")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetServerAvatarImageId")
 	var err error
 
 	defer func() {
@@ -571,7 +571,7 @@ func (repository *ServerRepository) GetServerAvatarImageId(ctx context.Context, 
 
 func (repository *ServerRepository) UpdateServerAvatarImage(ctx context.Context, tx pgx.Tx, serverId string, avatarImageId *string, updatedBy string, updatedAt time.Time) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UpdateServerAvatarImage")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.UpdateServerAvatarImage")
 	var err error
 
 	defer func() {
@@ -600,7 +600,7 @@ func (repository *ServerRepository) UpdateServerAvatarImage(ctx context.Context,
 
 func (repository *ServerRepository) DeleteServerAvatarImage(ctx context.Context, tx pgx.Tx, imageId string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeleteServerAvatarImage")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.DeleteServerAvatarImage")
 	var err error
 
 	defer func() {
@@ -629,7 +629,7 @@ func (repository *ServerRepository) DeleteServerAvatarImage(ctx context.Context,
 
 func (repository *ServerRepository) CreateServerBannerImage(ctx context.Context, tx pgx.Tx, image model.ServerBannerImage) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CreateServerBannerImage")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CreateServerBannerImage")
 	var err error
 
 	defer func() {
@@ -661,7 +661,7 @@ func (repository *ServerRepository) CreateServerBannerImage(ctx context.Context,
 
 func (repository *ServerRepository) GetServerBannerImageId(ctx context.Context, tx pgx.Tx, serverId string) (*string, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerBannerImageId")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetServerBannerImageId")
 	var err error
 
 	defer func() {
@@ -695,7 +695,7 @@ func (repository *ServerRepository) GetServerBannerImageId(ctx context.Context, 
 
 func (repository *ServerRepository) UpdateServerBannerImage(ctx context.Context, tx pgx.Tx, serverId string, bannerImageId *string, updatedBy string, updatedAt time.Time) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UpdateServerBannerImage")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.UpdateServerBannerImage")
 	var err error
 
 	defer func() {
@@ -724,7 +724,7 @@ func (repository *ServerRepository) UpdateServerBannerImage(ctx context.Context,
 
 func (repository *ServerRepository) DeleteServerBannerImage(ctx context.Context, tx pgx.Tx, imageId string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeleteServerBannerImage")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.DeleteServerBannerImage")
 	var err error
 
 	defer func() {
@@ -753,7 +753,7 @@ func (repository *ServerRepository) DeleteServerBannerImage(ctx context.Context,
 
 func (repository *ServerRepository) UploadObject(ctx context.Context, bucketName, imageName string, imageFile *bytes.Reader, imageSize int64) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UploadObject")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.UploadObject")
 	var err error
 
 	defer func() {
@@ -783,7 +783,7 @@ func (repository *ServerRepository) UploadObject(ctx context.Context, bucketName
 
 func (repository *ServerRepository) UpdateServerName(ctx context.Context, serverId, name, updatedBy string, updatedAt time.Time) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UpdateServerName")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.UpdateServerName")
 	var err error
 
 	defer func() {
@@ -812,7 +812,7 @@ func (repository *ServerRepository) UpdateServerName(ctx context.Context, server
 
 func (repository *ServerRepository) UpdateServerShortName(ctx context.Context, serverId, shortName, updatedBy string, updatedAt time.Time) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UpdateServerShortName")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.UpdateServerShortName")
 	var err error
 
 	defer func() {
@@ -841,7 +841,7 @@ func (repository *ServerRepository) UpdateServerShortName(ctx context.Context, s
 
 func (repository *ServerRepository) UpdateServerCategory(ctx context.Context, serverId string, categoryId int, updatedBy string, updatedAt time.Time) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UpdateServerCategory")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.UpdateServerCategory")
 	var err error
 
 	defer func() {
@@ -870,7 +870,7 @@ func (repository *ServerRepository) UpdateServerCategory(ctx context.Context, se
 
 func (repository *ServerRepository) UpdateServerDescription(ctx context.Context, serverId string, description *string, updatedBy string, updatedAt time.Time) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UpdateServerDescription")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.UpdateServerDescription")
 	var err error
 
 	defer func() {
@@ -899,7 +899,7 @@ func (repository *ServerRepository) UpdateServerDescription(ctx context.Context,
 
 func (repository *ServerRepository) UpdateServerSettings(ctx context.Context, serverId string, settings []byte, updatedBy string, updatedAt time.Time) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UpdateServerSettings")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.UpdateServerSettings")
 	var err error
 
 	defer func() {
@@ -928,7 +928,7 @@ func (repository *ServerRepository) UpdateServerSettings(ctx context.Context, se
 
 func (repository *ServerRepository) DeleteServerHard(ctx context.Context, serverId string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeleteServerHard")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.DeleteServerHard")
 	var err error
 
 	defer func() {
@@ -957,7 +957,7 @@ func (repository *ServerRepository) DeleteServerHard(ctx context.Context, server
 
 func (repository *ServerRepository) DeleteServersByOwnerId(ctx context.Context, tx pgx.Tx, userId string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeleteServersByOwnerId")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.DeleteServersByOwnerId")
 	var err error
 
 	defer func() {
@@ -989,7 +989,7 @@ func (repository *ServerRepository) DeleteServersByOwnerId(ctx context.Context, 
 // account deletion to clear the RESTRICT FK on server_posts.author_id.
 func (repository *ServerRepository) DeletePostsByAuthorId(ctx context.Context, tx pgx.Tx, userId string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeletePostsByAuthorId")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.DeletePostsByAuthorId")
 	var err error
 
 	defer func() {
@@ -1021,7 +1021,7 @@ func (repository *ServerRepository) DeletePostsByAuthorId(ctx context.Context, t
 // deletion to clear the RESTRICT FK on server_post_comments.author_id.
 func (repository *ServerRepository) DeleteCommentsByAuthorId(ctx context.Context, tx pgx.Tx, userId string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeleteCommentsByAuthorId")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.DeleteCommentsByAuthorId")
 	var err error
 
 	defer func() {
@@ -1050,7 +1050,7 @@ func (repository *ServerRepository) DeleteCommentsByAuthorId(ctx context.Context
 
 func (repository *ServerRepository) DeleteAllServerMembersByUserId(ctx context.Context, tx pgx.Tx, userId string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeleteAllServerMembersByUserId")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.DeleteAllServerMembersByUserId")
 	var err error
 
 	defer func() {
@@ -1079,7 +1079,7 @@ func (repository *ServerRepository) DeleteAllServerMembersByUserId(ctx context.C
 
 func (repository *ServerRepository) DeleteServerMember(ctx context.Context, serverId, userId string) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.DeleteServerMember")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.DeleteServerMember")
 	var err error
 
 	defer func() {
@@ -1109,7 +1109,7 @@ func (repository *ServerRepository) DeleteServerMember(ctx context.Context, serv
 
 func (repository *ServerRepository) GetServerById(ctx context.Context, serverId, userId, minioFullUrl string) (model.ServerDetailResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerById")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetServerById")
 	var err error
 
 	defer func() {
@@ -1137,6 +1137,8 @@ func (repository *ServerRepository) GetServerById(ctx context.Context, serverId,
             sbi.object_key AS server_banner_key,
             (SELECT COUNT(*) FROM server_members sm WHERE sm.server_id = s.id) AS member_count,
             EXISTS (SELECT 1 FROM server_members sm2 WHERE sm2.server_id = s.id AND sm2.user_id = $2) AS is_member,
+            (SELECT MAX(spo.plus_expires_at) FROM server_plus_orders spo
+                WHERE spo.server_id = s.id AND spo.status = 'PAID' AND spo.plus_expires_at > $3) AS plus_expires_at,
             s.created_at, s.updated_at
         FROM servers s
         INNER JOIN server_member_profiles smp ON smp.server_id = s.id AND smp.user_id = s.owner_id
@@ -1153,12 +1155,15 @@ func (repository *ServerRepository) GetServerById(ctx context.Context, serverId,
 
 	var description *string
 	var avatarKey, bannerKey *string
-	err = repository.DB.QueryRow(ctx, query, serverId, userId).Scan(
+	var plusExpiresAt *time.Time
+	now := time.Now().UTC()
+	err = repository.DB.QueryRow(ctx, query, serverId, userId, now).Scan(
 		&resp.Id, &resp.Name, &resp.ShortName, &resp.CategoryId, &resp.CategoryName,
 		&description, &resp.Settings,
 		&resp.OwnerId, &resp.OwnerNickname,
 		&avatarKey, &bannerKey,
 		&resp.MemberCount, &resp.IsMember,
+		&plusExpiresAt,
 		&resp.CreatedAt, &resp.UpdatedAt,
 	)
 	if err != nil {
@@ -1183,13 +1188,17 @@ func (repository *ServerRepository) GetServerById(ctx context.Context, serverId,
 		url := fmt.Sprintf("%s/%s", minioFullUrl, *bannerKey)
 		resp.BannerUrl = &url
 	}
+	if plusExpiresAt != nil {
+		resp.PlusActive = true
+		resp.PlusExpiresAt = plusExpiresAt
+	}
 
 	return resp, nil
 }
 
 func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, userId string, limit int, categoryId *int, cursor *model.ServerDiscoveryCursor, minioFullUrl string) ([]model.ServerInfoResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerDiscovery")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetServerDiscovery")
 	var err error
 
 	defer func() {
@@ -1286,7 +1295,7 @@ func (repository *ServerRepository) GetServerDiscovery(ctx context.Context, user
 
 func (repository *ServerRepository) GetUserServers(ctx context.Context, userId string, limit int, cursor *model.ServerUserCursor, minioFullUrl string) ([]model.ServerUserResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetUserServers")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetUserServers")
 	var err error
 
 	defer func() {
@@ -1386,7 +1395,7 @@ func (repository *ServerRepository) GetUserServers(ctx context.Context, userId s
 
 func (repository *ServerRepository) GetServerCategories(ctx context.Context, limit, cursorId int) ([]model.ServerCategoryResponse, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerCategories")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetServerCategories")
 	var err error
 
 	defer func() {
@@ -1433,7 +1442,7 @@ func (repository *ServerRepository) GetServerCategories(ctx context.Context, lim
 
 func (repository *ServerRepository) GetMemberRoleName(ctx context.Context, serverId, userId string) (string, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetMemberRoleName")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetMemberRoleName")
 	var err error
 
 	defer func() {
@@ -1472,7 +1481,7 @@ func (repository *ServerRepository) GetMemberRoleName(ctx context.Context, serve
 
 func (repository *ServerRepository) CountServerMembers(ctx context.Context, serverId string) (int, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.CountServerMembers")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.CountServerMembers")
 	var err error
 
 	defer func() {
@@ -1502,7 +1511,7 @@ func (repository *ServerRepository) CountServerMembers(ctx context.Context, serv
 
 func (repository *ServerRepository) UpdateMemberRole(ctx context.Context, serverId, userId, roleId, actorId string, now time.Time) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.UpdateMemberRole")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.UpdateMemberRole")
 	var err error
 
 	defer func() {
@@ -1534,7 +1543,7 @@ func (repository *ServerRepository) UpdateMemberRole(ctx context.Context, server
 
 func (repository *ServerRepository) TransferServerOwnership(ctx context.Context, serverId, oldOwnerId, newOwnerId, ownerRoleId, adminRoleId, actorId string, now time.Time) error {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.TransferServerOwnership")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.TransferServerOwnership")
 	var err error
 
 	defer func() {
@@ -1592,7 +1601,7 @@ func (repository *ServerRepository) TransferServerOwnership(ctx context.Context,
 
 func (repository *ServerRepository) GetServerMembers(ctx context.Context, serverId string, limit int, cursor *model.ServerMemberCursor, minioFullUrl string) ([]model.ServerMemberItem, error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
-	ctx, span := otel.Tracer(serviceName + "-repository").Start(ctx, "repository.GetServerMembers")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetServerMembers")
 	var err error
 
 	defer func() {

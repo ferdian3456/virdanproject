@@ -857,15 +857,15 @@ var allowedImageMIME = map[string]bool{
 // ValidateImage performs comprehensive validation on an uploaded image,
 // checking size, extension, and actual MIME type, then converts it to WebP format.
 // Returns a Reader for the optimized WebP data.
-func ValidateImage(ctx context.Context, fileHeader *multipart.FileHeader, fieldName string, maxW, maxH int, crop bool) (*bytes.Reader, int64, int, int, error) {
+func ValidateImage(ctx context.Context, fileHeader *multipart.FileHeader, fieldName string, maxSize int64, maxW, maxH int, crop bool) (*bytes.Reader, int64, int, int, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, 0, 0, 0, err
 	}
 
-	if fileHeader.Size > constant.MAX_IMAGE_SIZE {
+	if fileHeader.Size > maxSize {
 		return nil, 0, 0, 0, &model.BadRequestError{
-			Code:    constant.ERR_VALIDATION_CODE,
-			Message: "image size exceeded " + strconv.FormatInt(constant.MAX_IMAGE_SIZE/(1024*1024), 10) + "MB limit",
+			Code:    constant.ERR_UPLOAD_SIZE_EXCEEDED_CODE,
+			Message: "image size exceeded " + strconv.FormatInt(maxSize/(1024*1024), 10) + "MB limit",
 			Param:   fieldName,
 		}
 	}
@@ -907,11 +907,11 @@ func ValidateImage(ctx context.Context, fileHeader *multipart.FileHeader, fieldN
 	buf := getBuffer()
 	defer putBuffer(buf)
 
-	if _, err := io.Copy(buf, io.LimitReader(f, constant.MAX_IMAGE_SIZE+1)); err != nil {
+	if _, err := io.Copy(buf, io.LimitReader(f, maxSize+1)); err != nil {
 		return nil, 0, 0, 0, err
 	}
 
-	if int64(buf.Len()) > constant.MAX_IMAGE_SIZE {
+	if int64(buf.Len()) > maxSize {
 		return nil, 0, 0, 0, errors.New("file too large")
 	}
 
@@ -925,7 +925,7 @@ func ValidateImage(ctx context.Context, fileHeader *multipart.FileHeader, fieldN
 
 // ExtractAndValidateImage extracts multipart file header from fiber.Ctx,
 // validates size/extension/MIME, converts to WebP. Returns reader, final size, width, height.
-func ExtractAndValidateImage(ctx fiber.Ctx, ctxContext context.Context, fieldName string, maxW, maxH int, crop bool) (*bytes.Reader, int64, int, int, error) {
+func ExtractAndValidateImage(ctx fiber.Ctx, ctxContext context.Context, fieldName string, maxSize int64, maxW, maxH int, crop bool) (*bytes.Reader, int64, int, int, error) {
 	fileHeader, err := ctx.FormFile(fieldName)
 	if err != nil {
 		return nil, 0, 0, 0, &model.BadRequestError{
@@ -934,7 +934,7 @@ func ExtractAndValidateImage(ctx fiber.Ctx, ctxContext context.Context, fieldNam
 			Param:   fieldName,
 		}
 	}
-	return ValidateImage(ctxContext, fileHeader, fieldName, maxW, maxH, crop)
+	return ValidateImage(ctxContext, fileHeader, fieldName, maxSize, maxW, maxH, crop)
 }
 
 // ConvertToWebP converts image data to WebP format using bimg.
@@ -966,14 +966,11 @@ func ConvertToWebP(data []byte, quality, maxW, maxH int, crop bool) ([]byte, int
 		NoAutoRotate: true, // already applied above
 	}
 
-	finalW, finalH := size.Width, size.Height
-
 	if maxW > 0 && maxH > 0 && (size.Width > maxW || size.Height > maxH) {
 		if crop {
 			opts.Width = maxW
 			opts.Height = maxH
 			opts.Crop = true
-			finalW, finalH = maxW, maxH
 		} else {
 			scaleW := float64(maxW) / float64(size.Width)
 			scaleH := float64(maxH) / float64(size.Height)
@@ -981,10 +978,8 @@ func ConvertToWebP(data []byte, quality, maxW, maxH int, crop bool) ([]byte, int
 			if scaleH < scaleW {
 				scale = scaleH
 			}
-			finalW = int(float64(size.Width) * scale)
-			finalH = int(float64(size.Height) * scale)
-			opts.Width = finalW
-			opts.Height = finalH
+			opts.Width = int(float64(size.Width) * scale)
+			opts.Height = int(float64(size.Height) * scale)
 			opts.Crop = false
 		}
 	}

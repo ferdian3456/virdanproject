@@ -82,7 +82,7 @@ func ResolveProfileAvatar(
 		return nil, nil
 	}
 
-	imageReader, imageSize, _, _, err := ValidateImage(ctxContext, fileHeader, "profileAvatar", 512, 512, true)
+	imageReader, imageSize, _, _, err := ValidateImage(ctxContext, fileHeader, "profileAvatar", constant.MAX_IMAGE_SIZE, 512, 512, true)
 	if err != nil {
 		return nil, err
 	}

@@ -20,6 +20,7 @@ type RouteConfig struct {
 	ProfileController      *http.ProfileController
 	NotificationController *http.NotificationController
 	ChatController         *http.ChatController
+	ServerPlusController   *http.ServerPlusController
 	DB                     *pgxpool.Pool
 	DBCache                *redis.Client
 	MinIO                  *minio.Client
@@ -164,6 +165,19 @@ func (c *RouteConfig) SetupRoute() {
 	serverGroup.Get("/:serverId/notifications/unread-count", c.NotificationController.GetUnreadCount)
 	serverGroup.Get("/:serverId/notifications", c.NotificationController.GetFeed)
 	serverGroup.Post("/:serverId/notifications/:id/read", c.NotificationController.MarkRead)
+
+	// Virdan Plus (one-time per-server upgrade). 2-segment literal paths don't collide
+	// with the single-segment "/:id" route (Fiber matches by segment count).
+	serverGroup.Get("/:serverId/plus", c.ServerPlusController.GetPlusStatus)
+	serverGroup.Post("/:serverId/plus/checkout", c.ServerPlusController.Checkout)
+
+	// Global per-user payment history.
+	meGroup := api.Group("/me", c.AuthMiddleware.ProtectedRoute())
+	meGroup.Get("/plus-orders", c.ServerPlusController.ListMyOrders)
+
+	// Xendit webhook — NO auth middleware; the x-callback-token is verified in the usecase.
+	webhookGroup := api.Group("/webhooks")
+	webhookGroup.Post("/xendit", c.ServerPlusController.HandleWebhook)
 
 	// RBAC member management endpoints
 	serverGroup.Get("/:serverId/members", c.ServerController.GetServerMembers)
