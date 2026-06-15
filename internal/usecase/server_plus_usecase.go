@@ -173,7 +173,7 @@ func (usecase *ServerPlusUsecase) Checkout(ctx fiber.Ctx, userId, serverId strin
 		return response, err
 	}
 
-	sessionId, paymentUrl, sErr := usecase.XenditClient.CreatePaymentSession(ctxContext, referenceId, userId, "Virdan Plus (30 days)", total)
+	sessionId, paymentUrl, sErr := usecase.XenditClient.CreatePaymentSession(ctxContext, referenceId, "Virdan Plus (30 days)", total)
 	if sErr != nil {
 		// Order stays PENDING; the user can retry (new order). Log the Xendit error.
 		util.GetLoggerWithTraceContext(ctxContext, usecase.Log).Error("CreatePaymentSession failed", zap.Error(sErr))

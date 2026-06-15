@@ -74,21 +74,19 @@ func (c *Client) doRequest(ctx context.Context, method, path string, reqBody any
 // CreatePaymentSession creates a one-off PAY session (PAYMENT_LINK mode) and
 // returns (sessionId, paymentLinkUrl). amount is the total charged to the user
 // (base price plus tax), in IDR.
-func (c *Client) CreatePaymentSession(ctx context.Context, referenceId, userId, description string, amount int64) (string, string, error) {
+//
+// No customer object is sent: Xendit treats customer.reference_id as unique, so
+// reusing the same user's id across checkouts returns 409 DUPLICATE_ERROR. A
+// one-off payment does not need a registered customer; the hosted page collects
+// the payment method directly.
+func (c *Client) CreatePaymentSession(ctx context.Context, referenceId, description string, amount int64) (string, string, error) {
 	payload := map[string]any{
-		"reference_id": referenceId,
-		"session_type": "PAY",
-		"mode":         "PAYMENT_LINK",
-		"amount":       amount,
-		"currency":     "IDR",
-		"country":      "ID",
-		"customer": map[string]any{
-			"reference_id": userId,
-			"type":         "INDIVIDUAL",
-			"individual_detail": map[string]string{
-				"given_names": "Virdan User",
-			},
-		},
+		"reference_id":       referenceId,
+		"session_type":       "PAY",
+		"mode":               "PAYMENT_LINK",
+		"amount":             amount,
+		"currency":           "IDR",
+		"country":            "ID",
 		"success_return_url": c.successURL,
 		"cancel_return_url":  c.cancelURL,
 		"description":        description,
