@@ -175,14 +175,16 @@ func ProbeVideoMetadata(ctx context.Context, filePath string) (int, int, int, er
 	return duration, width, height, nil
 }
 
-// GenerateVideoThumbnail uses ffmpeg to extract the first frame of a video
-// and converts it to WebP format. Returns the raw WebP bytes.
-func GenerateVideoThumbnail(ctx context.Context, filePath string, quality int) ([]byte, error) {
+// GenerateVideoThumbnail uses ffmpeg to extract a frame from a video at the
+// given seekSec offset and converts it to WebP format. Returns the raw WebP bytes.
+// Use seekSec > 0 to skip the black first frame that cameras often produce.
+func GenerateVideoThumbnail(ctx context.Context, filePath string, quality int, seekSec float64) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
 	args := []string{
+		"-ss", strconv.FormatFloat(seekSec, 'f', 3, 64),
 		"-i", filePath,
 		"-vframes", "1",
 		"-q:v", strconv.Itoa(quality),

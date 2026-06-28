@@ -134,7 +134,7 @@ func (usecase *PostUsecase) CreatePost(ctx fiber.Ctx, serverId string, userId st
 
 	if hasImage {
 		// ── IMAGE FLOW ──
-		imageFile, imageSize, imageWidth, imageHeight, imgErr := util.ValidateImage(ctxContext, imageHeader, "image", maxImageSize, 1080, 1350, false)
+		imageFile, imageSize, imageWidth, imageHeight, imgErr := util.ValidateImage(ctxContext, imageHeader, "image", maxImageSize, 1080, 1440, false)
 		if imgErr != nil {
 			err = imgErr
 			return model.ServerPostResponse{}, err
@@ -221,7 +221,10 @@ func (usecase *PostUsecase) CreatePost(ctx fiber.Ctx, serverId string, userId st
 			return model.ServerPostResponse{}, err
 		}
 
-		thumbnailBytes, thumbErr := util.GenerateVideoThumbnail(ctxContext, tmpPath, 75)
+		// Seek 10% into the video (capped at 1s) to skip the black/blank first
+		// frame that cameras often produce before auto-exposure stabilises.
+		seekSec := min(1.0, float64(duration)/10.0)
+		thumbnailBytes, thumbErr := util.GenerateVideoThumbnail(ctxContext, tmpPath, 75, seekSec)
 		if thumbErr != nil {
 			err = thumbErr
 			return model.ServerPostResponse{}, err
