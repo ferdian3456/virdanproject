@@ -9,9 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestServerProfilePut_Success updates the caller's per-server nickname,
-// username, and bio, then re-fetches the profile to verify the persisted
-// changes match the request.
 func TestServerProfilePut_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -40,7 +37,6 @@ func TestServerProfilePut_Success(t *testing.T) {
 	require.Contains(t, result, "profileId", "response should contain profileId")
 	require.Contains(t, result, "updatedAt", "response should contain updatedAt")
 
-	// Re-fetch and confirm the new values landed.
 	req = setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/profile/me", serverID), nil, token)
 	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "follow-up get profile should succeed")
@@ -53,7 +49,6 @@ func TestServerProfilePut_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestServerProfilePut_Success")
 }
 
-// TestServerProfilePut_NotAMember rejects updates from non-members.
 func TestServerProfilePut_NotAMember(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -83,8 +78,6 @@ func TestServerProfilePut_NotAMember(t *testing.T) {
 	setup.LogTestPass(t, "TestServerProfilePut_NotAMember")
 }
 
-// TestServerProfilePut_DuplicateUsername rejects a username that is already
-// taken by another member of the same server.
 func TestServerProfilePut_DuplicateUsername(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -102,8 +95,6 @@ func TestServerProfilePut_DuplicateUsername(t *testing.T) {
 	memberToken := setup.CreateTestUser(t, app, infra.MailhogURL, "spput-dup-member@example.com", "password123")
 	setup.JoinTestServer(t, app, memberToken, serverID, "MemberOne", "memberone", "")
 
-	// Member tries to take the owner's username (which was set via CreateServer
-	// helper to the server's shortName, "dupprof").
 	body, contentType := setup.CreateMultipartTextOnly(t, map[string]string{
 		"nickname": "MemberClone",
 		"username": "dupprof",
@@ -118,7 +109,6 @@ func TestServerProfilePut_DuplicateUsername(t *testing.T) {
 	setup.LogTestPass(t, "TestServerProfilePut_DuplicateUsername")
 }
 
-// TestServerProfilePut_Unauthorized rejects unauthenticated callers.
 func TestServerProfilePut_Unauthorized(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")

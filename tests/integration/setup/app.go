@@ -6,13 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ferdian3456/virdanproject/internal/delivery/http"
-	"github.com/ferdian3456/virdanproject/internal/delivery/http/middleware"
-	"github.com/ferdian3456/virdanproject/internal/delivery/http/route"
-	"github.com/ferdian3456/virdanproject/internal/repository"
-	"github.com/ferdian3456/virdanproject/internal/usecase"
-	"github.com/ferdian3456/virdanproject/internal/ws"
-	xenditpkg "github.com/ferdian3456/virdanproject/internal/xendit"
+	"github.com/ferdian3456/virdanproject/services"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/redis/go-redis/v9"
@@ -28,7 +22,6 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 
 	ctx := context.Background()
 
-	// 1. Create test config with test infrastructure values
 	testConfig := koanf.New(".")
 	_ = testConfig.Set("postgres_url", pgURL)
 	_ = testConfig.Set("redis_addr", redisURL)
@@ -39,14 +32,11 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 	_ = testConfig.Set("minio_secret_key", "minioadmin")
 	_ = testConfig.Set("jwt_secret_key", "test-secret-key-for-jwt-token-generation")
 
-	// Set uppercase keys for compatibility with existing code
 	_ = testConfig.Set("JWT_SECRET_KEY", "test-secret-key-for-jwt-token-generation")
 	_ = testConfig.Set("MINIO_BUCKET_NAME", "virdan-test")
 	_ = testConfig.Set("MINIO_ACCESS_KEY", "minioadmin")
 	_ = testConfig.Set("MINIO_SECRET_KEY", "minioadmin")
 
-	// Use MailHog for SMTP
-	// mailhogSMTP format: host:port (e.g., localhost:32768)
 	smtpParts := strings.Split(mailhogSMTP, ":")
 	smtpHost := smtpParts[0]
 	smtpPort, _ := strconv.Atoi(smtpParts[1])
@@ -57,41 +47,34 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 	_ = testConfig.Set("sender_email", "noreply@virdan.test")
 	_ = testConfig.Set("sender_password", "")
 
-	// Set uppercase keys for compatibility with existing code
 	_ = testConfig.Set("SMTP_HOST", smtpHost)
 	_ = testConfig.Set("SMTP_PORT", smtpPort)
-	_ = testConfig.Set("SENDER_NAME", "Virdan Test <noreply@virdan.test>") // Include email address
+	_ = testConfig.Set("SENDER_NAME", "Virdan Test <noreply@virdan.test>")
 	_ = testConfig.Set("SENDER_EMAIL", "noreply@virdan.test")
 	_ = testConfig.Set("SENDER_PASSWORD", "")
 
-	// Xendit (Virdan Plus) — stubbed in tests; CreatePaymentSession is never called by the
-	// webhook/status/history tests, and webhook token verification uses XENDIT_WEBHOOK_TOKEN.
 	_ = testConfig.Set("XENDIT_SECRET_KEY", "xnd_development_test_key")
 	_ = testConfig.Set("XENDIT_WEBHOOK_TOKEN", "test_webhook_token_12345")
 	_ = testConfig.Set("XENDIT_API_BASE_URL", "https://api.xendit.co")
 	_ = testConfig.Set("XENDIT_SUCCESS_URL", "https://virdan.cloud/payment/success")
 	_ = testConfig.Set("XENDIT_CANCEL_URL", "https://virdan.cloud/payment/cancel")
 
-	// 3. Connect to PostgreSQL
 	t.Log("Connecting to test PostgreSQL...")
 	dbPool, err := pgxpool.New(ctx, pgURL)
 	if err != nil {
 		t.Fatalf("failed to connect to test db: %v", err)
 	}
 
-	// 4. Connect to Redis
 	t.Log("Connecting to test Redis...")
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: redisURL,
-		DB:   0, // Use default DB for testing
+		DB:   0,
 	})
 
-	// Test redis connection
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		t.Fatalf("failed to connect to test redis: %v", err)
 	}
 
-	// 5. Connect to MinIO
 	t.Log("Connecting to test MinIO...")
 	minioClient, err := minio.New(minioURL, &minio.Options{
 		Creds:  credentials.NewStaticV4("minioadmin", "minioadmin", ""),
@@ -101,10 +84,6 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 		t.Fatalf("failed to connect to minio: %v", err)
 	}
 
-	// Create bucket if it does not exist yet. Multiple parallel tests can race here:
-	// BucketExists returns false for two callers, both invoke MakeBucket, and
-	// the second one fails with "BucketAlreadyOwnedByYou". Treat that response
-	// as success so the race becomes idempotent.
 	bucketName := "virdan-test"
 	exists, err := minioClient.BucketExists(ctx, bucketName)
 	if err != nil {
@@ -125,50 +104,24 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 		t.Logf("MinIO bucket already exists: %s", bucketName)
 	}
 
-	// 6. Setup logger (use development config for test)
 	zapLogger := zap.NewExample()
 	defer func() {
 		_ = zapLogger.Sync()
 	}()
 
-	// 7. Setup repositories
-	serverRepository := repository.NewServerRepository(zapLogger, testConfig, dbPool, redisClient, minioClient)
-	userRepository := repository.NewUserRepository(zapLogger, testConfig, dbPool, redisClient, minioClient)
-	postRepository := repository.NewPostRepository(zapLogger, testConfig, dbPool, redisClient, minioClient)
-	profileRepository := repository.NewProfileRepository(zapLogger, testConfig, dbPool, minioClient)
+	deps := services.Deps{
+		DB:     dbPool,
+		Redis:  redisClient,
+		MinIO:  minioClient,
+		FCM:    nil,
+		Config: testConfig,
+		Log:    zapLogger,
+	}
+	registry := services.Wire(deps)
 
-	// 8. Setup usecases — ServerUsecase needs ProfileRepository for the
-	// copy-on-join multi-identity flow, otherwise CreateServer / JoinServer
-	// will nil-panic when they try to write the snapshot row.
-	serverUsecase := usecase.NewServerUsecase(serverRepository, profileRepository, dbPool, zapLogger, testConfig)
-	testHub := ws.NewHub()
-	userUsecase := usecase.NewUserUsecase(userRepository, serverRepository, dbPool, zapLogger, testConfig, testHub)
-	// FCM client is nil in tests — push is never reached because test users register no device
-	// tokens, so Notify's `len(tokens) == 0` short-circuits before touching the client (and the
-	// goroutine recover() would catch it anyway). DB-side notif behaviour (rows inserted) is testable.
-	notificationRepository := repository.NewNotificationRepository(zapLogger, testConfig, dbPool)
-	notificationUsecase := usecase.NewNotificationUsecase(notificationRepository, serverRepository, nil, dbPool, zapLogger, testConfig)
-	serverPlusRepository := repository.NewServerPlusRepository(zapLogger, testConfig, dbPool)
-	xenditClient := xenditpkg.NewClient(testConfig, zapLogger)
-	serverPlusUsecase := usecase.NewServerPlusUsecase(serverPlusRepository, serverRepository, xenditClient, dbPool, zapLogger, testConfig)
-	postUsecase := usecase.NewPostUsecase(postRepository, serverRepository, profileRepository, serverPlusRepository, notificationUsecase, dbPool, zapLogger, testConfig)
-	profileUsecase := usecase.NewProfileUsecase(profileRepository, serverRepository, dbPool, zapLogger, testConfig)
-
-	// 9. Setup controllers
-	serverController := http.NewServerController(serverUsecase, zapLogger, testConfig)
-	userController := http.NewUserController(userUsecase, zapLogger, testConfig)
-	postController := http.NewPostController(postUsecase, zapLogger, testConfig)
-	profileController := http.NewProfileController(profileUsecase, zapLogger, testConfig)
-	notificationController := http.NewNotificationController(notificationUsecase, zapLogger, testConfig)
-	serverPlusController := http.NewServerPlusController(serverPlusUsecase, zapLogger, testConfig)
-
-	// 10. Setup middleware
-	authMiddleware := middleware.NewAuthMiddleware(testConfig, zapLogger, userUsecase)
-
-	// 11. Setup Fiber app
 	fiberApp := fiber.New(fiber.Config{
 		AppName:          "Virdan Test",
-		DisableKeepalive: true, // Important for tests
+		DisableKeepalive: true,
 		ErrorHandler: func(c fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {
@@ -180,24 +133,7 @@ func SetupTestApp(t *testing.T, pgURL, redisURL, minioURL, mailhogSMTP string) (
 		},
 	})
 
-	// 12. Setup routes — the /api/health handler reads DB / DBCache / MinIO
-	// off RouteConfig and the profile endpoints need ProfileController, so
-	// every field RouteConfig declares must be wired here.
-	routeConfig := route.RouteConfig{
-		App:                    fiberApp,
-		UserController:         userController,
-		ServerController:       serverController,
-		PostController:         postController,
-		ProfileController:      profileController,
-		NotificationController: notificationController,
-		ServerPlusController:   serverPlusController,
-		AuthMiddleware:         authMiddleware,
-		DB:                     dbPool,
-		DBCache:                redisClient,
-		MinIO:                  minioClient,
-	}
-
-	routeConfig.SetupRoute()
+	services.RegisterRoutes(fiberApp, registry, deps)
 
 	t.Log("Test application setup completed successfully")
 

@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestMeDelete_Success hard-deletes the authenticated account (a fresh user who
-// owns no server) and verifies the token can no longer be used.
 func TestMeDelete_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -28,7 +26,6 @@ func TestMeDelete_Success(t *testing.T) {
 	require.NoError(t, err, "delete account should succeed")
 	setup.RequireStatus(t, resp, 200)
 
-	// Token should be invalidated after soft-delete.
 	req = setup.CreateAuthRequest(http.MethodGet, "/api/users/me", nil, token)
 	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "follow-up me request should complete")
@@ -36,7 +33,6 @@ func TestMeDelete_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestMeDelete_Success")
 }
 
-// TestMeDelete_Unauthorized verifies the endpoint rejects unauthenticated callers.
 func TestMeDelete_Unauthorized(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -54,8 +50,6 @@ func TestMeDelete_Unauthorized(t *testing.T) {
 	setup.LogTestPass(t, "TestMeDelete_Unauthorized")
 }
 
-// TestMeDelete_Idempotent verifies a deleted user cannot be deleted twice
-// (the second call should hit the "not found / already deleted" branch).
 func TestMeDelete_Idempotent(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -81,8 +75,6 @@ func TestMeDelete_Idempotent(t *testing.T) {
 	setup.LogTestPass(t, "TestMeDelete_Idempotent")
 }
 
-// TestMeDelete_BlockedWhenOwner verifies a user who still owns a server cannot
-// delete their account; they must transfer ownership or leave first (409).
 func TestMeDelete_BlockedWhenOwner(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -102,7 +94,6 @@ func TestMeDelete_BlockedWhenOwner(t *testing.T) {
 	require.NoError(t, err, "delete account request should complete")
 	setup.RequireStatus(t, resp, http.StatusConflict)
 
-	// The account must still be usable after the blocked deletion.
 	req = setup.CreateAuthRequest(http.MethodGet, "/api/users/me", nil, token)
 	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "follow-up me request should complete")

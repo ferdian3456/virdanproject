@@ -9,10 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRefresh_ChainRotation verifies that a refresh token produced by a
-// rotation can itself be rotated. This guards against a regression where the
-// rotation flow returns a token that fails the next refresh attempt (for
-// example because the new family / hash row was not stored correctly).
 func TestRefresh_ChainRotation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -27,7 +23,6 @@ func TestRefresh_ChainRotation(t *testing.T) {
 	_, refresh1 := loginAndReturnTokens(t, app, infra.MailhogURL, "refreshchain@example.com", "password123")
 	require.NotEmpty(t, refresh1, "initial refresh token must not be empty")
 
-	// First rotation.
 	reqBody := []byte(fmt.Sprintf(`{"refreshToken":%q}`, refresh1))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/refresh", reqBody)
 	resp, err := setup.AppTest(t, app, req)
@@ -39,7 +34,6 @@ func TestRefresh_ChainRotation(t *testing.T) {
 	require.True(t, ok, "first rotation should return a string refreshToken")
 	require.NotEqual(t, refresh1, refresh2, "refresh token must be rotated")
 
-	// Second rotation using the freshly issued token.
 	reqBody = []byte(fmt.Sprintf(`{"refreshToken":%q}`, refresh2))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/refresh", reqBody)
 	resp, err = setup.AppTest(t, app, req)

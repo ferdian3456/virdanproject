@@ -9,16 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ServerInviteLinkRequest only carries maxUses + expiresAt — there is no
-// expiresInMinutes field, so anything we send for it is silently ignored.
-// The usecase only enforces:
-//   - maxUses <= 0 ⇒ defaults to 10 (no error)
-//   - maxUses > 100 ⇒ "Max uses cannot exceed 100"
-//   - maxUses=N joins succeed; the (N+1)-th join is rejected by
-//     ValidateAndConsumeInvite ("Invite code is invalid, expired, or has
-//     reached max uses").
-
-// TestInvitesPost_MaxUsesTooLarge verifies the >100 ceiling is enforced.
 func TestInvitesPost_MaxUsesTooLarge(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -44,9 +34,6 @@ func TestInvitesPost_MaxUsesTooLarge(t *testing.T) {
 	setup.LogTestPass(t, "TestInvitesPost_MaxUsesTooLarge")
 }
 
-// TestInvitesPost_MaxUsesDefaultsWhenZero documents that the usecase silently
-// falls back to maxUses=10 when the caller sends 0. Useful as an explicit
-// contract test so this behaviour does not change without us noticing.
 func TestInvitesPost_MaxUsesDefaultsWhenZero(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -72,8 +59,6 @@ func TestInvitesPost_MaxUsesDefaultsWhenZero(t *testing.T) {
 	setup.LogTestPass(t, "TestInvitesPost_MaxUsesDefaultsWhenZero")
 }
 
-// TestInvitesPost_MaxUsesReached verifies that the (N+1)-th join via an invite
-// with maxUses=N is rejected at the consume step.
 func TestInvitesPost_MaxUsesReached(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -88,7 +73,6 @@ func TestInvitesPost_MaxUsesReached(t *testing.T) {
 	token1 := setup.CreateTestUser(t, app, infra.MailhogURL, "maxusesowner@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, infra.RedisURL, token1, "Max Uses Server", "maxuses", 1, false)
 
-	// Create an invite with maxUses=2.
 	reqBody := []byte(`{"maxUses":2}`)
 	req := setup.CreateAuthRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/invites", serverID), reqBody, token1)
 	resp, err := setup.TestRequestWithLogging(t, app, req)
@@ -97,7 +81,6 @@ func TestInvitesPost_MaxUsesReached(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	inviteCode := result["code"].(string)
 
-	// Two joins should succeed.
 	token2 := setup.CreateTestUser(t, app, infra.MailhogURL, "maxuses-user1@example.com", "password123")
 	token3 := setup.CreateTestUser(t, app, infra.MailhogURL, "maxuses-user2@example.com", "password123")
 
@@ -113,7 +96,6 @@ func TestInvitesPost_MaxUsesReached(t *testing.T) {
 	require.NoError(t, err)
 	setup.RequireStatus(t, resp, 200)
 
-	// Third join should fail with the max-uses error from the repository.
 	token4 := setup.CreateTestUser(t, app, infra.MailhogURL, "maxuses-user3@example.com", "password123")
 	setup.LogTestStep(t, "Testing Join Server When Max Uses Reached")
 	reqBody = []byte(fmt.Sprintf(`{"inviteCode":"%s","nickname":"User3","username":"user3max"}`, inviteCode))

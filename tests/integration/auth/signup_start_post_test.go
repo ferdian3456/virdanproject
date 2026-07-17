@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSignupStartPost_Success tests successful signup start with valid email
 func TestSignupStartPost_Success(t *testing.T) {
 	t.Parallel()
 
@@ -39,7 +38,6 @@ func TestSignupStartPost_Success(t *testing.T) {
 	t.Logf("Signup started successfully, sessionId: %s", sessionId)
 }
 
-// TestSignupStartPost_EmailAlreadyRegistered tests signup with already registered email
 func TestSignupStartPost_EmailAlreadyRegistered(t *testing.T) {
 	t.Parallel()
 
@@ -54,18 +52,14 @@ func TestSignupStartPost_EmailAlreadyRegistered(t *testing.T) {
 
 	infra := setup.GetGlobalInfra()
 
-	// Setup: Create first user
 	testEmail := "existing@example.com"
 	setup.LogTestStep(t, "Creating existing user: %s", testEmail)
 	_ = setup.CreateTestUser(t, app, infra.MailhogURL, testEmail, "password123")
 
-	// Test: Try to signup with same email
 	setup.LogTestStep(t, "Testing Signup Start with Already Registered Email")
 	reqBody := []byte(fmt.Sprintf(`{"email":"%s"}`, testEmail))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
 
-	// Duplicate-email path returns ConflictError → HTTP 409 with the
-	// "Email is already registered" copy from StartSignup.
 	result := setup.RequireJSONWithLog(t, app, req, 409)
 
 	require.Contains(t, result, "error", "response should contain error field")
@@ -76,7 +70,6 @@ func TestSignupStartPost_EmailAlreadyRegistered(t *testing.T) {
 	t.Logf("Correctly rejected duplicate email: %s", errMsg)
 }
 
-// TestSignupStartPost_EmailValidation tests email validation
 func TestSignupStartPost_EmailValidation(t *testing.T) {
 	t.Parallel()
 
@@ -89,7 +82,6 @@ func TestSignupStartPost_EmailValidation(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	// Test 1: Empty email
 	setup.LogTestStep(t, "Test 1: Empty Email")
 	reqBody := []byte(`{"email":""}`)
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
@@ -100,7 +92,6 @@ func TestSignupStartPost_EmailValidation(t *testing.T) {
 	require.Contains(t, errMsg, "required", "error message should mention email is required")
 	t.Logf("Correctly rejected empty email: %s", errMsg)
 
-	// Test 2: Email shorter than the validator's MinLen(5).
 	setup.LogTestStep(t, "Test 2: Email shorter than 5 characters")
 	reqBody = []byte(`{"email":"a@b"}`)
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
@@ -111,11 +102,8 @@ func TestSignupStartPost_EmailValidation(t *testing.T) {
 	require.Contains(t, errMsg, "at least 5 characters", "error message should mention minimum length")
 	t.Logf("Correctly rejected short email: %s", errMsg)
 
-	// Test 3: Email longer than the validator's MaxLen(255). Build a 256-char
-	// string with a valid email suffix so the only failing constraint is
-	// length, not the Email() regex.
 	setup.LogTestStep(t, "Test 3: Email longer than 255 characters")
-	longEmail := strings.Repeat("a", 251) + "@b.co" // 251 + 5 = 256 chars
+	longEmail := strings.Repeat("a", 251) + "@b.co"
 	require.Equal(t, 256, len(longEmail), "longEmail should be 256 chars to exceed MaxLen(255)")
 	reqBody = []byte(fmt.Sprintf(`{"email":"%s"}`, longEmail))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
@@ -129,7 +117,6 @@ func TestSignupStartPost_EmailValidation(t *testing.T) {
 	setup.LogTestPass(t, "TestSignupStartPost_EmailValidation")
 }
 
-// TestSignupStartPost_ReplacesExistingSession tests that new signup replaces existing session for same email
 func TestSignupStartPost_ReplacesExistingSession(t *testing.T) {
 	t.Parallel()
 
@@ -144,7 +131,6 @@ func TestSignupStartPost_ReplacesExistingSession(t *testing.T) {
 
 	testEmail := "replace@example.com"
 
-	// First signup attempt
 	setup.LogTestStep(t, "First Signup Attempt")
 	reqBody := []byte(fmt.Sprintf(`{"email":"%s"}`, testEmail))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
@@ -153,7 +139,6 @@ func TestSignupStartPost_ReplacesExistingSession(t *testing.T) {
 	firstSessionId := result["sessionId"].(string)
 	t.Logf("First session ID: %s", firstSessionId)
 
-	// Second signup attempt with same email (should create new session)
 	setup.LogTestStep(t, "Second Signup Attempt with Same Email")
 	reqBody = []byte(fmt.Sprintf(`{"email":"%s"}`, testEmail))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", reqBody)
@@ -162,7 +147,6 @@ func TestSignupStartPost_ReplacesExistingSession(t *testing.T) {
 	secondSessionId := result["sessionId"].(string)
 	t.Logf("Second session ID: %s", secondSessionId)
 
-	// Session IDs should be different
 	require.NotEqual(t, firstSessionId, secondSessionId, "new signup should create new session")
 
 	setup.LogTestPass(t, "TestSignupStartPost_ReplacesExistingSession")

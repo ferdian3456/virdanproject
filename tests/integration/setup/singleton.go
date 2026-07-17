@@ -13,42 +13,28 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-// Global singleton infrastructure - shared across all tests
 var (
 	globalInfra   *TestInfra
 	globalInfraMu sync.RWMutex
 	globalCtx     context.Context
 	globalCancel  context.CancelFunc
 
-	// Track how many "TestMain" calls are active
-	// When this reaches 0, we can safely shutdown
 	testMainCount int
 	testMainMu    sync.Mutex
 )
 
-// RunTestsWithSingleton is a helper to use in TestMain of each test package
-// It initializes the singleton infrastructure, runs tests, and cleans up
-//
-// Usage in each test package:
-//
-//	func TestMain(m *testing.M) {
-//	    setup.RunTestsWithSingleton(m)
-//	}
 func RunTestsWithSingleton(m *testing.M) {
 	testMainMu.Lock()
 	testMainCount++
 	testMainMu.Unlock()
 
-	// Initialize singleton if not already done
 	if err := EnsureSingletonInitialized(); err != nil {
 		fmt.Printf("FATAL: Failed to start test infrastructure: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Run tests
 	exitCode := m.Run()
 
-	// Decrement counter and cleanup if this is the last TestMain
 	testMainMu.Lock()
 	testMainCount--
 	isLast := testMainCount == 0
@@ -64,15 +50,11 @@ func RunTestsWithSingleton(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-// TestMain sets up singleton infrastructure for all tests
-// This is called once before any test runs and cleans up after all tests complete
 func TestMain(m *testing.M) {
 	RunTestsWithSingleton(m)
 }
 
-// startSingletonInfra starts all containers once for all tests
 func startSingletonInfra(ctx context.Context) (*TestInfra, error) {
-	// 1. Start Postgres
 	fmt.Println("Starting PostgreSQL container...")
 	pgContainer, err := postgres.Run(ctx,
 		"postgres:15-alpine",
@@ -93,7 +75,6 @@ func startSingletonInfra(ctx context.Context) (*TestInfra, error) {
 	}
 	fmt.Printf("PostgreSQL started at: %s\n", pgURL)
 
-	// 2. Start Redis
 	fmt.Println("Starting Redis container...")
 	redisContainer, err := redis.Run(ctx,
 		"redis:7-alpine",
@@ -118,7 +99,6 @@ func startSingletonInfra(ctx context.Context) (*TestInfra, error) {
 	redisURL := fmt.Sprintf("%s:%s", redisHost, redisPort.Port())
 	fmt.Printf("Redis started at: %s\n", redisURL)
 
-	// 3. Start MinIO
 	fmt.Println("Starting MinIO container...")
 	minioContainer, err := testcontainers.GenericContainer(ctx,
 		testcontainers.GenericContainerRequest{
@@ -152,7 +132,6 @@ func startSingletonInfra(ctx context.Context) (*TestInfra, error) {
 	minioURL := fmt.Sprintf("%s:%s", minioHost, minioPort.Port())
 	fmt.Printf("MinIO started at: %s\n", minioURL)
 
-	// 4. Start MailHog
 	fmt.Println("Starting MailHog container...")
 	mailhogContainer, err := testcontainers.GenericContainer(ctx,
 		testcontainers.GenericContainerRequest{
@@ -200,37 +179,28 @@ func startSingletonInfra(ctx context.Context) (*TestInfra, error) {
 	}, nil
 }
 
-// GetGlobalInfra returns the global singleton infrastructure
-// This is safe to call from parallel tests
 func GetGlobalInfra() *TestInfra {
 	globalInfraMu.RLock()
 	defer globalInfraMu.RUnlock()
 	return globalInfra
 }
 
-// GetGlobalContext returns the global context
 func GetGlobalContext() context.Context {
 	return globalCtx
 }
 
-// EnsureSingletonInitialized ensures the singleton infrastructure is initialized
-// This can be called from any test package to initialize the singleton
-// Must be paired with ShutdownSingleton() when tests complete
 func EnsureSingletonInitialized() error {
 	globalInfraMu.Lock()
 	defer globalInfraMu.Unlock()
 
 	if globalInfra != nil {
-		return nil // Already initialized
+		return nil
 	}
 
-	// Setup context with cancellation
 	globalCtx, globalCancel = context.WithCancel(context.Background())
 
-	// Start singleton infrastructure (only once)
 	fmt.Println("=== Starting Singleton Test Infrastructure ===")
 
-	// Start containers
 	infra, err := startSingletonInfra(globalCtx)
 	if err != nil {
 		return fmt.Errorf("failed to start test infrastructure: %w", err)
@@ -241,14 +211,12 @@ func EnsureSingletonInitialized() error {
 	return nil
 }
 
-// ShutdownSingleton shuts down the singleton infrastructure
-// This should be called once after all tests complete
 func ShutdownSingleton() error {
 	globalInfraMu.Lock()
 	defer globalInfraMu.Unlock()
 
 	if globalInfra == nil {
-		return nil // Already shut down
+		return nil
 	}
 
 	fmt.Println("=== Shutting Down Singleton Test Infrastructure ===")

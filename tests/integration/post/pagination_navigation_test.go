@@ -9,9 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestGetServerPosts_NextPage walks through the cursor-based pagination by
-// creating limit+1 posts, asking for the first page with limit=2, then
-// re-issuing the request with the returned nextCursor to fetch the next page.
 func TestGetServerPosts_NextPage(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -26,7 +23,6 @@ func TestGetServerPosts_NextPage(t *testing.T) {
 	token := setup.CreateTestUser(t, app, infra.MailhogURL, "pagnav@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, infra.RedisURL, token, "Pagination Nav Server", "pagnav", 1, false)
 
-	// Create three posts so a limit=2 page leaves a tail for page two.
 	for i := 1; i <= 3; i++ {
 		imageData := setup.CreateTestWebPImage(t)
 		body, contentType := setup.CreateMultipartFormData(t, "image", fmt.Sprintf("nav%d.webp", i), imageData, map[string]string{
@@ -38,7 +34,6 @@ func TestGetServerPosts_NextPage(t *testing.T) {
 		setup.RequireStatus(t, resp, 200)
 	}
 
-	// Page 1: ask for 2 items.
 	req := setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/posts?limit=2", serverID), nil, token)
 	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "first page should succeed")
@@ -55,7 +50,6 @@ func TestGetServerPosts_NextPage(t *testing.T) {
 	require.True(t, ok, "page 1 nextCursor must be a string")
 	require.NotEmpty(t, cursor, "page 1 nextCursor must not be empty when there is more data")
 
-	// Page 2: pass nextCursor back to the API.
 	req = setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/posts?limit=2&cursor=%s", serverID, cursor), nil, token)
 	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "second page should succeed")
@@ -66,7 +60,6 @@ func TestGetServerPosts_NextPage(t *testing.T) {
 	require.True(t, ok, "page 2 data must be an array")
 	require.Len(t, data2, 1, "page 2 should contain the remaining 1 post")
 
-	// IDs across pages must not overlap.
 	idsPage1 := map[string]bool{}
 	for _, item := range data1 {
 		m := item.(map[string]interface{})

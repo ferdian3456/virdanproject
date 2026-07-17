@@ -10,13 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// loginAndReturnTokens runs the full signup flow and returns the issued
-// access + refresh tokens. The refresh-token tests need both to exercise the
-// rotation flow and the theft-escalation path.
 func loginAndReturnTokens(t *testing.T, app *fiber.App, mailhogURL, email, password string) (accessToken, refreshToken string) {
 	t.Helper()
-	// We can't reuse setup.CreateTestUser because it only surfaces the access
-	// token. Inline the full flow here to also capture the refresh token.
 	startBody := []byte(fmt.Sprintf(`{"email":%q}`, email))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/signup/start", startBody)
 	resp, err := setup.AppTest(t, app, req)
@@ -42,8 +37,6 @@ func loginAndReturnTokens(t *testing.T, app *fiber.App, mailhogURL, email, passw
 	return accessToken, refreshToken
 }
 
-// TestRefresh_Success rotates a freshly issued refresh token and verifies the
-// caller receives a new access/refresh pair.
 func TestRefresh_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -72,9 +65,6 @@ func TestRefresh_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestRefresh_Success")
 }
 
-// TestRefresh_ReusedToken exercises the theft-escalation path: presenting an
-// already-rotated refresh token should both fail and revoke every active token
-// for the user.
 func TestRefresh_ReusedToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -88,14 +78,12 @@ func TestRefresh_ReusedToken(t *testing.T) {
 	infra := setup.GetGlobalInfra()
 	_, refresh := loginAndReturnTokens(t, app, infra.MailhogURL, "refreshreuse@example.com", "password123")
 
-	// First rotation succeeds.
 	reqBody := []byte(fmt.Sprintf(`{"refreshToken":%q}`, refresh))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/refresh", reqBody)
 	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "first refresh should succeed")
 	setup.RequireStatus(t, resp, 200)
 
-	// Second rotation with the same (now revoked) token must fail.
 	reqBody = []byte(fmt.Sprintf(`{"refreshToken":%q}`, refresh))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/refresh", reqBody)
 	resp, err = setup.AppTest(t, app, req)
@@ -107,7 +95,6 @@ func TestRefresh_ReusedToken(t *testing.T) {
 	setup.LogTestPass(t, "TestRefresh_ReusedToken")
 }
 
-// TestRefresh_InvalidToken verifies that an unknown refresh token is rejected.
 func TestRefresh_InvalidToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -128,7 +115,6 @@ func TestRefresh_InvalidToken(t *testing.T) {
 	setup.LogTestPass(t, "TestRefresh_InvalidToken")
 }
 
-// TestRefresh_EmptyRefreshToken covers the validator path.
 func TestRefresh_EmptyRefreshToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")

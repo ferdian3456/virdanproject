@@ -11,10 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestCreateServer_WithAvatarFile drives the optional serverAvatar branch in
-// CreateServer. The endpoint accepts multipart text fields plus an optional
-// serverAvatar image; the response's server.avatarUrl pointer must be
-// populated when a file was attached.
 func TestCreateServer_WithAvatarFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -56,10 +52,6 @@ func TestCreateServer_WithAvatarFile(t *testing.T) {
 	setup.LogTestPass(t, "TestCreateServer_WithAvatarFile")
 }
 
-// buildMultipartWithFile is a local helper that builds a multipart body with
-// one file part plus the supplied text fields. It mirrors
-// setup.CreateMultipartFormData but does not impose a specific extension to
-// content-type mapping (the test re-uses the webp test fixture).
 func buildMultipartWithFile(t *testing.T, fieldName, fileName string, fileData []byte, fields map[string]string) (*bytes.Buffer, string) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)

@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestGetServerPosts_LimitNegative tests get server posts with negative limit
 func TestGetServerPosts_LimitNegative(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -26,7 +25,6 @@ func TestGetServerPosts_LimitNegative(t *testing.T) {
 	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "neglimitpost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Neg Limit Post Server", "neglimpost", 1, false)
 
-	// Test: Get server posts with negative limit
 	setup.LogTestStep(t, "Testing Get Server Posts with Negative Limit")
 	req := setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/posts?limit=-1", serverID), nil, token)
 	resp, err := setup.TestRequestWithLogging(t, app, req)
@@ -41,7 +39,6 @@ func TestGetServerPosts_LimitNegative(t *testing.T) {
 	setup.LogTestPass(t, "TestGetServerPosts_LimitNegative")
 }
 
-// TestGetServerPosts_LimitExceeded tests get server posts with limit > MAX_LIMIT
 func TestGetServerPosts_LimitExceeded(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -58,7 +55,6 @@ func TestGetServerPosts_LimitExceeded(t *testing.T) {
 	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "maxlimitpost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Max Limit Post Server", "maxlimpost", 1, false)
 
-	// Test: Get server posts with limit > 20
 	setup.LogTestStep(t, "Testing Get Server Posts with Limit Exceeded")
 	req := setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/posts?limit=21", serverID), nil, token)
 	resp, err := setup.TestRequestWithLogging(t, app, req)
@@ -73,7 +69,6 @@ func TestGetServerPosts_LimitExceeded(t *testing.T) {
 	setup.LogTestPass(t, "TestGetServerPosts_LimitExceeded")
 }
 
-// TestGetComments_LimitNegative tests get comments with negative limit
 func TestGetComments_LimitNegative(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -100,7 +95,6 @@ func TestGetComments_LimitNegative(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	postID := result["id"].(string)
 
-	// Test: Get comments with negative limit
 	setup.LogTestStep(t, "Testing Get Comments with Negative Limit")
 	req = setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/posts/%s/comments?limit=-1", postID), nil, token)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
@@ -115,7 +109,6 @@ func TestGetComments_LimitNegative(t *testing.T) {
 	setup.LogTestPass(t, "TestGetComments_LimitNegative")
 }
 
-// TestGetComments_LimitExceeded tests get comments with limit > MAX_LIMIT
 func TestGetComments_LimitExceeded(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -142,7 +135,6 @@ func TestGetComments_LimitExceeded(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	postID := result["id"].(string)
 
-	// Test: Get comments with limit > 20
 	setup.LogTestStep(t, "Testing Get Comments with Limit Exceeded")
 	req = setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/posts/%s/comments?limit=21", postID), nil, token)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
@@ -157,7 +149,6 @@ func TestGetComments_LimitExceeded(t *testing.T) {
 	setup.LogTestPass(t, "TestGetComments_LimitExceeded")
 }
 
-// TestUpdatePost_EmptyCaption tests update post with empty caption
 func TestUpdatePost_EmptyCaption(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -184,7 +175,6 @@ func TestUpdatePost_EmptyCaption(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	postID := result["id"].(string)
 
-	// Test: Update post with empty caption
 	setup.LogTestStep(t, "Testing Update Post with Empty Caption")
 	reqBody := []byte(`{"caption":""}`)
 	req = setup.CreateAuthRequest(http.MethodPut, fmt.Sprintf("/api/servers/%s/posts/%s", serverID, postID), reqBody, token)
@@ -192,7 +182,6 @@ func TestUpdatePost_EmptyCaption(t *testing.T) {
 	require.NoError(t, err, "update post request should complete")
 
 	result = setup.ParseJSONResponse(t, resp)
-	// Empty caption might be allowed or rejected - check the response
 	if _, hasError := result["error"]; hasError {
 		errMsg := setup.ParseErrorMessage(t, result)
 		t.Logf("Empty caption rejected: %s", errMsg)
@@ -202,7 +191,6 @@ func TestUpdatePost_EmptyCaption(t *testing.T) {
 	setup.LogTestPass(t, "TestUpdatePost_EmptyCaption")
 }
 
-// TestCreateComment_TooLongContent tests create comment with very long content
 func TestCreateComment_TooLongContent(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -229,7 +217,6 @@ func TestCreateComment_TooLongContent(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	postID := result["id"].(string)
 
-	// Test: Create comment with very long content (10000 characters)
 	setup.LogTestStep(t, "Testing Create Comment with Very Long Content")
 	longContent := string(make([]byte, 10000))
 	for i := range longContent {
@@ -241,7 +228,6 @@ func TestCreateComment_TooLongContent(t *testing.T) {
 	require.NoError(t, err, "create comment request should complete")
 
 	result = setup.ParseJSONResponse(t, resp)
-	// Long content might be allowed or rejected - check the response
 	if _, hasError := result["error"]; hasError {
 		errMsg := setup.ParseErrorMessage(t, result)
 		t.Logf("Long content rejected: %s", errMsg)

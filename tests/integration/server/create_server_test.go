@@ -10,9 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// baseCreateServerFields returns the minimum multipart fields the
-// POST /api/servers/create endpoint accepts in the multi-identity flow.
-// Callers override the entries they want to mutate.
 func baseCreateServerFields() map[string]string {
 	return map[string]string{
 		"name":        "Test Server",
@@ -25,7 +22,6 @@ func baseCreateServerFields() map[string]string {
 	}
 }
 
-// TestCreateServer_Success tests successful server creation.
 func TestCreateServer_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -40,10 +36,8 @@ func TestCreateServer_Success(t *testing.T) {
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
 	defer db.Close()
 
-	// Setup: create user.
 	token := setup.CreateTestUser(t, app, infra.MailhogURL, "server@example.com", "password123")
 
-	// Test: create server.
 	t.Log("=== Testing Create Server ===")
 	fields := baseCreateServerFields()
 	fields["name"] = "Test Server " + setup.GenerateRandomString(6)
@@ -75,7 +69,6 @@ func TestCreateServer_Success(t *testing.T) {
 	t.Logf("Server created successfully: %s", serverID)
 }
 
-// TestCreateServer_Validation tests server creation validation.
 func TestCreateServer_Validation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -143,7 +136,6 @@ func TestCreateServer_Validation(t *testing.T) {
 	}
 }
 
-// TestCreateServer_Unauthorized tests server creation without authentication.
 func TestCreateServer_Unauthorized(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -158,7 +150,6 @@ func TestCreateServer_Unauthorized(t *testing.T) {
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
 	defer db.Close()
 
-	// Test: create server without token.
 	t.Log("=== Testing Create Server Without Auth ===")
 	body, contentType := setup.CreateMultipartTextOnly(t, baseCreateServerFields())
 	req := setup.CreateAuthMultipartRequest(http.MethodPost, "/api/servers/create", body, contentType, "")
@@ -169,7 +160,6 @@ func TestCreateServer_Unauthorized(t *testing.T) {
 	t.Logf("Correctly rejected unauthenticated request")
 }
 
-// TestCreateServer_PrivateServer tests creating a private server.
 func TestCreateServer_PrivateServer(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -186,7 +176,6 @@ func TestCreateServer_PrivateServer(t *testing.T) {
 
 	token := setup.CreateTestUser(t, app, infra.MailhogURL, "private@example.com", "password123")
 
-	// Test: create private server.
 	t.Log("=== Testing Create Private Server ===")
 	fields := baseCreateServerFields()
 	fields["name"] = "Private Server"
@@ -209,7 +198,6 @@ func TestCreateServer_PrivateServer(t *testing.T) {
 	require.True(t, ok, "server.id should be a string")
 	t.Logf("Private server created successfully: %s", serverID)
 
-	// Verify server is private by trying to access it as a non-member.
 	token2 := setup.CreateTestUser(t, app, infra.MailhogURL, "other@example.com", "password123")
 	req = setup.CreateAuthRequest(http.MethodGet, "/api/servers/"+serverID, nil, token2)
 	resp, err = setup.AppTest(t, app, req)

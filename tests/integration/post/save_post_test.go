@@ -91,7 +91,6 @@ func TestSavePost_NotAMember(t *testing.T) {
 	require.NoError(t, err)
 	postID := setup.ParseJSONResponse(t, resp)["id"].(string)
 
-	// Outsider never joined the server.
 	outsiderToken := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "saveoutsider@example.com", "password123")
 	setup.LogTestStep(t, "Testing save by non-member -> 403")
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/saves", nil, outsiderToken)
@@ -220,7 +219,6 @@ func TestGetSavedPosts_Success(t *testing.T) {
 	require.NoError(t, err)
 	savedPostID := setup.ParseJSONResponse(t, resp)["id"].(string)
 
-	// A second post that stays unsaved.
 	body2, ct2 := setup.CreateMultipartFormData(t, "image", "test.webp", setup.CreateTestWebPImage(t), map[string]string{"caption": "not saved"})
 	req = setup.CreateAuthMultipartRequest("POST", fmt.Sprintf("/api/servers/%s/posts", serverID), body2, ct2, token)
 	_, err = setup.TestRequestWithLogging(t, app, req)
@@ -330,7 +328,6 @@ func TestFeed_UserSavedFlag(t *testing.T) {
 	require.NoError(t, err)
 	postID := setup.ParseJSONResponse(t, resp)["id"].(string)
 
-	// Before save: userSaved false in single-post fetch.
 	req = setup.CreateAuthRequest(http.MethodGet, "/api/posts/"+postID, nil, token)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err)
@@ -341,7 +338,6 @@ func TestFeed_UserSavedFlag(t *testing.T) {
 	_, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err)
 
-	// After save: userSaved true.
 	req = setup.CreateAuthRequest(http.MethodGet, "/api/posts/"+postID, nil, token)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err)

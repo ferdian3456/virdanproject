@@ -100,7 +100,6 @@ func TestWebhook_GrantsPlus(t *testing.T) {
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Plus Grant", "plusgrant", 1, false)
 	userID := setup.GetUserId(t, app, token)
 
-	// Insert a PENDING order directly (bypass the Xendit checkout, which needs a live API call).
 	orderID := uuid.New().String()
 	referenceID := "virdan-plus-" + orderID
 	now := time.Now().UTC()
@@ -111,7 +110,6 @@ func TestWebhook_GrantsPlus(t *testing.T) {
 		orderID, serverID, userID, referenceID, 50000, 5500, 55500, now)
 	require.NoError(t, execErr, "insert pending order")
 
-	// Send a payment.capture webhook with a valid token.
 	paymentID := "py-" + setup.GenerateRandomString(12)
 	payload := map[string]interface{}{
 		"event": "payment.capture",
@@ -128,7 +126,6 @@ func TestWebhook_GrantsPlus(t *testing.T) {
 	require.NoError(t, err)
 	setup.RequireStatus(t, resp, 200)
 
-	// The grant runs async (goroutine). Poll the DB until the order flips to PAID (~5s max).
 	var status string
 	for i := 0; i < 50; i++ {
 		row := db.QueryRow(t.Context(), `SELECT status FROM server_plus_orders WHERE id = $1`, orderID)
@@ -140,7 +137,6 @@ func TestWebhook_GrantsPlus(t *testing.T) {
 	}
 	require.Equal(t, "PAID", status, "order should be PAID after webhook")
 
-	// The status endpoint should now report active.
 	statusReq := setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/plus", serverID), nil, token)
 	statusResp, err := setup.TestRequestWithLogging(t, app, statusReq)
 	require.NoError(t, err)
@@ -190,7 +186,7 @@ func TestWebhook_Idempotent(t *testing.T) {
 	}
 	send()
 	time.Sleep(1 * time.Second)
-	send() // duplicate delivery
+	send()
 
 	var count int
 	require.NoError(t, db.QueryRow(t.Context(), `SELECT COUNT(*) FROM xendit_webhook_events WHERE event_id = $1`, paymentID).Scan(&count))
@@ -212,7 +208,6 @@ func TestCheckout_RejectWhenActive(t *testing.T) {
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Plus Active", "plusactive", 1, false)
 	userID := setup.GetUserId(t, app, token)
 
-	// Insert a PAID order with future expiry → the server already has active plus.
 	orderID := uuid.New().String()
 	now := time.Now().UTC()
 	expires := now.AddDate(0, 0, 30)

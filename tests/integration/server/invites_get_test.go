@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestGetInviteInfo_Success tests successful get server info for invite
 func TestGetInviteInfo_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -24,11 +23,9 @@ func TestGetInviteInfo_Success(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	// Setup: Create user and server with invite
 	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "inviteinfo@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Invite Info Server", "inviteinfo", 1, false)
 
-	// Create invite link
 	reqBody := []byte(`{"expiresInMinutes":60,"maxUses":10}`)
 	req := setup.CreateAuthRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/invites", serverID), reqBody, token)
 	resp, err := setup.TestRequestWithLogging(t, app, req)
@@ -37,7 +34,6 @@ func TestGetInviteInfo_Success(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	inviteCode := result["code"].(string)
 
-	// Test: Get server info for invite (public endpoint, no auth needed)
 	setup.LogTestStep(t, "Testing Get Server Info for Invite")
 	t.Logf("Using invite code: %s", inviteCode)
 	req = setup.CreateJSONRequest(http.MethodGet, "/api/servers/invites/"+inviteCode, nil)
@@ -51,7 +47,6 @@ func TestGetInviteInfo_Success(t *testing.T) {
 	setup.RequireStatus(t, resp, 200)
 
 	result = setup.ParseJSONResponse(t, resp)
-	// API returns serverName instead of name
 	require.Contains(t, result, "serverName", "response should contain server name")
 
 	t.Logf("Server info for invite retrieved successfully")
@@ -59,7 +54,6 @@ func TestGetInviteInfo_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestGetInviteInfo_Success")
 }
 
-// TestGetInviteInfo_InvalidInviteCode tests get server info with invalid invite code
 func TestGetInviteInfo_InvalidInviteCode(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -71,7 +65,6 @@ func TestGetInviteInfo_InvalidInviteCode(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	// Test: Get server info with invalid invite code
 	setup.LogTestStep(t, "Testing Get Server Info with Invalid Invite Code")
 	req := setup.CreateJSONRequest(http.MethodGet, "/api/servers/invites/INVALID1", nil)
 	resp, err := setup.TestRequestWithLogging(t, app, req)
