@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNotificationsFeed_Member: a member can read the per-server feed (empty on
-// a fresh server) — verifies the nested route + member-guard pass.
 func TestNotificationsFeed_Member(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -35,7 +33,6 @@ func TestNotificationsFeed_Member(t *testing.T) {
 	setup.LogTestPass(t, "TestNotificationsFeed_Member")
 }
 
-// TestNotificationsFeed_NotMember: a non-member is forbidden (no roster enumeration).
 func TestNotificationsFeed_NotMember(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -58,7 +55,6 @@ func TestNotificationsFeed_NotMember(t *testing.T) {
 	setup.LogTestPass(t, "TestNotificationsFeed_NotMember")
 }
 
-// TestNotificationsUnreadCount_Member: a member gets a count (0 on a fresh server).
 func TestNotificationsUnreadCount_Member(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -84,7 +80,6 @@ func TestNotificationsUnreadCount_Member(t *testing.T) {
 	setup.LogTestPass(t, "TestNotificationsUnreadCount_Member")
 }
 
-// TestNotificationsUnreadCount_NotMember: non-member forbidden.
 func TestNotificationsUnreadCount_NotMember(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")

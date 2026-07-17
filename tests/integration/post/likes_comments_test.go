@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestLikePost_Success tests successful post like
 func TestLikePost_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -23,7 +22,6 @@ func TestLikePost_Success(t *testing.T) {
 
 	globalInfra := setup.GetGlobalInfra()
 
-	// Setup: Create user, server, and post
 	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "likepost@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Like Post Server", "likepost", 1, false)
 
@@ -37,7 +35,6 @@ func TestLikePost_Success(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	postID := result["id"].(string)
 
-	// Test: Like post
 	setup.LogTestStep(t, "Testing Like Post")
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/likes", nil, token)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
@@ -45,7 +42,6 @@ func TestLikePost_Success(t *testing.T) {
 	setup.RequireStatus(t, resp, 200)
 
 	result = setup.ParseJSONResponse(t, resp)
-	// API returns likeCount
 	if likeCount, hasCount := result["likeCount"]; hasCount {
 		t.Logf("Post liked successfully, likeCount: %v", likeCount)
 	} else {
@@ -54,7 +50,6 @@ func TestLikePost_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestLikePost_Success")
 }
 
-// TestLikePost_DoubleLike tests double like (should handle gracefully)
 func TestLikePost_DoubleLike(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -81,19 +76,16 @@ func TestLikePost_DoubleLike(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	postID := result["id"].(string)
 
-	// First like
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/likes", nil, token)
 	_, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "first like should succeed")
 
-	// Test: Like post again
 	setup.LogTestStep(t, "Testing Double Like Post")
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/likes", nil, token)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "second like request should complete")
 
 	result = setup.ParseJSONResponse(t, resp)
-	// API returns likeCount (double like might be idempotent)
 	if likeCount, hasCount := result["likeCount"]; hasCount {
 		t.Logf("Double like handled correctly, likeCount: %v", likeCount)
 	} else {
@@ -102,7 +94,6 @@ func TestLikePost_DoubleLike(t *testing.T) {
 	setup.LogTestPass(t, "TestLikePost_DoubleLike")
 }
 
-// TestUnlikePost_Success tests successful post unlike
 func TestUnlikePost_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -129,12 +120,10 @@ func TestUnlikePost_Success(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	postID := result["id"].(string)
 
-	// Like the post first
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/likes", nil, token)
 	_, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "like post should succeed")
 
-	// Test: Unlike post
 	setup.LogTestStep(t, "Testing Unlike Post")
 	req = setup.CreateAuthRequest(http.MethodDelete, "/api/posts/"+postID+"/likes", nil, token)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
@@ -142,7 +131,6 @@ func TestUnlikePost_Success(t *testing.T) {
 	setup.RequireStatus(t, resp, 200)
 
 	result = setup.ParseJSONResponse(t, resp)
-	// API returns likeCount
 	if likeCount, hasCount := result["likeCount"]; hasCount {
 		count := int(likeCount.(float64))
 		require.Equal(t, 0, count, "post should not be liked")
@@ -153,7 +141,6 @@ func TestUnlikePost_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestUnlikePost_Success")
 }
 
-// TestUnlikePost_NotLiked tests unlike when post is not liked
 func TestUnlikePost_NotLiked(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -180,14 +167,12 @@ func TestUnlikePost_NotLiked(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	postID := result["id"].(string)
 
-	// Test: Unlike post when not liked
 	setup.LogTestStep(t, "Testing Unlike Post When Not Liked")
 	req = setup.CreateAuthRequest(http.MethodDelete, "/api/posts/"+postID+"/likes", nil, token)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "unlike post request should complete")
 
 	result = setup.ParseJSONResponse(t, resp)
-	// API returns likeCount (should be 0 since post was never liked)
 	if likeCount, hasCount := result["likeCount"]; hasCount {
 		count := int(likeCount.(float64))
 		require.Equal(t, 0, count, "post should not be liked")
@@ -198,7 +183,6 @@ func TestUnlikePost_NotLiked(t *testing.T) {
 	setup.LogTestPass(t, "TestUnlikePost_NotLiked")
 }
 
-// TestCreateComment_Success tests successful comment creation
 func TestCreateComment_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -225,7 +209,6 @@ func TestCreateComment_Success(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	postID := result["id"].(string)
 
-	// Test: Create comment
 	setup.LogTestStep(t, "Testing Create Comment")
 	reqBody := []byte(`{"content":"This is a test comment"}`)
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/comments", reqBody, token)
@@ -240,7 +223,6 @@ func TestCreateComment_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestCreateComment_Success")
 }
 
-// TestCreateComment_EmptyContent tests comment creation with empty content
 func TestCreateComment_EmptyContent(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -267,7 +249,6 @@ func TestCreateComment_EmptyContent(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	postID := result["id"].(string)
 
-	// Test: Create comment with empty content
 	setup.LogTestStep(t, "Testing Create Comment with Empty Content")
 	reqBody := []byte(`{"content":""}`)
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/comments", reqBody, token)
@@ -283,7 +264,6 @@ func TestCreateComment_EmptyContent(t *testing.T) {
 	setup.LogTestPass(t, "TestCreateComment_EmptyContent")
 }
 
-// TestGetComments_Success tests successful get comments
 func TestGetComments_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -310,13 +290,11 @@ func TestGetComments_Success(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	postID := result["id"].(string)
 
-	// Create a comment
 	reqBody := []byte(`{"content":"Test comment"}`)
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/comments", reqBody, token)
 	_, err = setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "create comment should succeed")
 
-	// Test: Get comments
 	setup.LogTestStep(t, "Testing Get Comments")
 	req = setup.CreateAuthRequest(http.MethodGet, "/api/posts/"+postID+"/comments", nil, token)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
@@ -330,7 +308,6 @@ func TestGetComments_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestGetComments_Success")
 }
 
-// TestGetComments_Empty tests get comments when no comments exist
 func TestGetComments_Empty(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -357,7 +334,6 @@ func TestGetComments_Empty(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	postID := result["id"].(string)
 
-	// Test: Get comments (no comments exist)
 	setup.LogTestStep(t, "Testing Get Comments with No Comments")
 	req = setup.CreateAuthRequest(http.MethodGet, "/api/posts/"+postID+"/comments", nil, token)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
@@ -371,7 +347,6 @@ func TestGetComments_Empty(t *testing.T) {
 	setup.LogTestPass(t, "TestGetComments_Empty")
 }
 
-// TestDeleteComment_Success tests successful comment deletion
 func TestDeleteComment_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -398,7 +373,6 @@ func TestDeleteComment_Success(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	postID := result["id"].(string)
 
-	// Create a comment
 	reqBody := []byte(`{"content":"Test comment to delete"}`)
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/comments", reqBody, token)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
@@ -406,7 +380,6 @@ func TestDeleteComment_Success(t *testing.T) {
 	result = setup.ParseJSONResponse(t, resp)
 	commentID := result["id"].(string)
 
-	// Test: Delete comment
 	setup.LogTestStep(t, "Testing Delete Comment")
 	req = setup.CreateAuthRequest(http.MethodDelete, fmt.Sprintf("/api/posts/%s/comments/%s", postID, commentID), nil, token)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
@@ -417,7 +390,6 @@ func TestDeleteComment_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestDeleteComment_Success")
 }
 
-// TestDeleteComment_NotOwner tests comment deletion when user is not comment owner
 func TestDeleteComment_NotOwner(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -444,7 +416,6 @@ func TestDeleteComment_NotOwner(t *testing.T) {
 	result := setup.ParseJSONResponse(t, resp)
 	postID := result["id"].(string)
 
-	// Create a comment as user 1
 	reqBody := []byte(`{"content":"Test comment"}`)
 	req = setup.CreateAuthRequest(http.MethodPost, "/api/posts/"+postID+"/comments", reqBody, token1)
 	resp, err = setup.TestRequestWithLogging(t, app, req)
@@ -452,10 +423,8 @@ func TestDeleteComment_NotOwner(t *testing.T) {
 	result = setup.ParseJSONResponse(t, resp)
 	commentID := result["id"].(string)
 
-	// Create another user (not owner of the comment)
 	token2 := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "notownerdelcomment@example.com", "password123")
 
-	// Test: Try to delete comment as non-owner
 	setup.LogTestStep(t, "Testing Delete Comment as Non-Owner")
 	req = setup.CreateAuthRequest(http.MethodDelete, fmt.Sprintf("/api/posts/%s/comments/%s", postID, commentID), nil, token2)
 	resp, err = setup.TestRequestWithLogging(t, app, req)

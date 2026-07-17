@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestPasswordVerify_Success confirms the user's current password (step 1 of
-// the FE change-password flow).
 func TestPasswordVerify_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -31,7 +29,6 @@ func TestPasswordVerify_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestPasswordVerify_Success")
 }
 
-// TestPasswordVerify_WrongPassword rejects an incorrect current password.
 func TestPasswordVerify_WrongPassword(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -57,7 +54,6 @@ func TestPasswordVerify_WrongPassword(t *testing.T) {
 	setup.LogTestPass(t, "TestPasswordVerify_WrongPassword")
 }
 
-// TestPasswordVerify_Unauthorized rejects unauthenticated callers.
 func TestPasswordVerify_Unauthorized(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")

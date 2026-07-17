@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestListGet_Success tests successful server list retrieval
 func TestListGet_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -24,11 +23,9 @@ func TestListGet_Success(t *testing.T) {
 	app, db, _, _ := setup.SetupTestApp(t, infra.PgURL, infra.RedisURL, infra.MinioURL, infra.MailhogSMTP)
 	defer db.Close()
 
-	// Setup: Create a public server
 	token := setup.CreateTestUser(t, app, infra.MailhogURL, "list@example.com", "password123")
 	_ = setup.CreateTestServer(t, app, infra.RedisURL, token, "Discovery Server", "disco", 1, false)
 
-	// Test: Get server list
 	t.Log("=== Testing Get Discovery Servers ===")
 	req := setup.CreateAuthRequest(http.MethodGet, "/api/servers/", nil, token)
 	resp, err := setup.AppTest(t, app, req)
@@ -42,7 +39,6 @@ func TestListGet_Success(t *testing.T) {
 	t.Logf("Server list retrieved successfully")
 }
 
-// TestList_Get_WithCategory tests server list filtered by category
 func TestList_Get_WithCategory(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -56,7 +52,6 @@ func TestList_Get_WithCategory(t *testing.T) {
 	token := setup.CreateTestUser(t, app, setup.GetGlobalInfra().MailhogURL, "category@example.com", "password123")
 	_ = setup.CreateTestServer(t, app, setup.GetGlobalInfra().RedisURL, token, "Category Server", "cat", 1, false)
 
-	// Test: Get servers by category
 	setup.LogTestStep(t, "Testing Get Discovery Servers by Category")
 	req := setup.CreateAuthRequest(http.MethodGet, "/api/servers/?categoryId=1", nil, token)
 	resp, err := setup.TestRequestWithLogging(t, app, req)
@@ -70,7 +65,6 @@ func TestList_Get_WithCategory(t *testing.T) {
 	setup.LogTestPass(t, "TestList_Get_WithCategory")
 }
 
-// TestList_Get_Unauthorized tests server list without authentication
 func TestList_Get_Unauthorized(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -81,13 +75,11 @@ func TestList_Get_Unauthorized(t *testing.T) {
 	app, db, _, _ := setup.SetupParallelTest(t)
 	defer db.Close()
 
-	// Test: Get servers without token
 	setup.LogTestStep(t, "Testing Get Servers Without Auth")
 	req := setup.CreateJSONRequest(http.MethodGet, "/api/servers/", nil)
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "get servers request should complete")
 
-	// API returns 404 for unauthorized requests (note: different from standard 401)
 	if resp.StatusCode != 200 && resp.StatusCode != 401 && resp.StatusCode != 404 {
 		t.Logf("Got unexpected status: %d", resp.StatusCode)
 	}

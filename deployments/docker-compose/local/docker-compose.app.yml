@@ -1,0 +1,26 @@
+# Override that adds the app as a container, for when you want to test the
+# full containerized stack instead of running the binary on the host.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.app.yml up -d --build
+#
+# For day-to-day development, skip this file and run `docker compose up -d`
+# (infra only) + `go run ./cmd` on the host — no image rebuild per code change.
+services:
+  app:
+    build:
+      context: ../../..
+      dockerfile: build/Dockerfile
+    container_name: virdanproject-app
+    ports:
+      - "8081:8081"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    networks:
+      - observability

@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestMembershipDelete_Success has a second user join a public server and then
-// leave it via DELETE /api/servers/:serverId/membership.
 func TestMembershipDelete_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -28,7 +26,6 @@ func TestMembershipDelete_Success(t *testing.T) {
 	memberToken := setup.CreateTestUser(t, app, infra.MailhogURL, "leavemember@example.com", "password123")
 	setup.JoinTestServer(t, app, memberToken, serverID, "Leaver", "leaver", "")
 
-	// Leave the server.
 	req := setup.CreateAuthRequest(http.MethodDelete, fmt.Sprintf("/api/servers/%s/membership", serverID), nil, memberToken)
 	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "leave server should succeed")
@@ -36,8 +33,6 @@ func TestMembershipDelete_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestMembershipDelete_Success")
 }
 
-// TestMembershipDelete_NotAMember rejects a leave call from a user who never
-// joined the server in the first place.
 func TestMembershipDelete_NotAMember(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -63,8 +58,6 @@ func TestMembershipDelete_NotAMember(t *testing.T) {
 	setup.LogTestPass(t, "TestMembershipDelete_NotAMember")
 }
 
-// TestMembershipDelete_OwnerCannotLeave verifies that the server owner cannot
-// leave their own server (they should delete it instead).
 func TestMembershipDelete_OwnerCannotLeave(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -89,7 +82,6 @@ func TestMembershipDelete_OwnerCannotLeave(t *testing.T) {
 	setup.LogTestPass(t, "TestMembershipDelete_OwnerCannotLeave")
 }
 
-// TestMembershipDelete_Unauthorized rejects unauthenticated callers.
 func TestMembershipDelete_Unauthorized(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")

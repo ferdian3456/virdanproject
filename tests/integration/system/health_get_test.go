@@ -8,9 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestHealthGet_Success verifies the public /api/health endpoint reports
-// Postgres, Redis, and MinIO as up when the singleton infrastructure is
-// healthy. The endpoint requires no authentication.
 func TestHealthGet_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")

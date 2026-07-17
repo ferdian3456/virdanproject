@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestServerMemberProfileGet_Success lets a member view another member's
-// per-server profile (view-only).
 func TestServerMemberProfileGet_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -41,8 +39,6 @@ func TestServerMemberProfileGet_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestServerMemberProfileGet_Success")
 }
 
-// TestServerMemberProfileGet_RequesterNotMember rejects a requester that is not
-// a member of the server, preventing private-roster enumeration.
 func TestServerMemberProfileGet_RequesterNotMember(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -70,8 +66,6 @@ func TestServerMemberProfileGet_RequesterNotMember(t *testing.T) {
 	setup.LogTestPass(t, "TestServerMemberProfileGet_RequesterNotMember")
 }
 
-// TestServerMemberProfileGet_TargetNoProfile returns 404 when the target user
-// has no profile in the server.
 func TestServerMemberProfileGet_TargetNoProfile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -86,7 +80,6 @@ func TestServerMemberProfileGet_TargetNoProfile(t *testing.T) {
 	ownerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "smp3-owner@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, infra.RedisURL, ownerToken, "Member Profile Missing", "memprofm", 1, false)
 
-	// A real user who never joined the server: no profile row for this server.
 	otherToken := setup.CreateTestUser(t, app, infra.MailhogURL, "smp3-other@example.com", "password123")
 	otherID := setup.GetUserId(t, app, otherToken)
 
@@ -97,7 +90,6 @@ func TestServerMemberProfileGet_TargetNoProfile(t *testing.T) {
 	setup.LogTestPass(t, "TestServerMemberProfileGet_TargetNoProfile")
 }
 
-// TestServerMemberProfileGet_InvalidUserId returns 400 for a non-UUID userId.
 func TestServerMemberProfileGet_InvalidUserId(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -119,7 +111,6 @@ func TestServerMemberProfileGet_InvalidUserId(t *testing.T) {
 	setup.LogTestPass(t, "TestServerMemberProfileGet_InvalidUserId")
 }
 
-// TestServerMemberProfileGet_Unauthorized rejects unauthenticated callers.
 func TestServerMemberProfileGet_Unauthorized(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")

@@ -8,9 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestProfileHistoryGet_Success returns the caller's per-server profile
-// snapshots. After creating a server the helper writes one profile row for the
-// owner, so the history endpoint should surface at least that entry.
 func TestProfileHistoryGet_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -46,8 +43,6 @@ func TestProfileHistoryGet_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestProfileHistoryGet_Success")
 }
 
-// TestProfileHistoryGet_Empty returns an empty list when the user has not
-// joined or created any server yet.
 func TestProfileHistoryGet_Empty(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -71,7 +66,6 @@ func TestProfileHistoryGet_Empty(t *testing.T) {
 	setup.LogTestPass(t, "TestProfileHistoryGet_Empty")
 }
 
-// TestProfileHistoryGet_Unauthorized rejects unauthenticated callers.
 func TestProfileHistoryGet_Unauthorized(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")

@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestPasswordPut_Success swaps the current password for a fresh one and
-// verifies the new password works against /api/auth/login.
 func TestPasswordPut_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -31,7 +29,6 @@ func TestPasswordPut_Success(t *testing.T) {
 	require.NoError(t, err, "change password should succeed")
 	setup.RequireStatus(t, resp, 200)
 
-	// The new password should let the user log in.
 	loginBody := []byte(fmt.Sprintf(`{"email":"%s","password":"NewPassword123"}`, email))
 	req = setup.CreateJSONRequest(http.MethodPost, "/api/auth/login", loginBody)
 	resp, err = setup.AppTest(t, app, req)
@@ -40,8 +37,6 @@ func TestPasswordPut_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestPasswordPut_Success")
 }
 
-// TestPasswordPut_WrongCurrent rejects requests that supply the wrong current
-// password.
 func TestPasswordPut_WrongCurrent(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -67,8 +62,6 @@ func TestPasswordPut_WrongCurrent(t *testing.T) {
 	setup.LogTestPass(t, "TestPasswordPut_WrongCurrent")
 }
 
-// TestPasswordPut_NewEqualsCurrent rejects requests where the new password is
-// identical to the current one (validator's NotEqual rule).
 func TestPasswordPut_NewEqualsCurrent(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -92,7 +85,6 @@ func TestPasswordPut_NewEqualsCurrent(t *testing.T) {
 	setup.LogTestPass(t, "TestPasswordPut_NewEqualsCurrent")
 }
 
-// TestPasswordPut_ValidationErrors covers length-driven validator paths.
 func TestPasswordPut_ValidationErrors(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")

@@ -8,12 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The categories + user-server list endpoints silently fall back to a sane
-// default when the caller passes an out-of-range limit (see usecase
-// GetUserServer and GetCategoryServer: `if limit <= 0 || limit > N { limit = … }`).
-// These tests document that contract so we notice if it ever changes.
-
-// TestCategoriesGet_LimitNegative — negative limit silently defaults to 50.
 func TestCategoriesGet_LimitNegative(t *testing.T) {
 	t.Parallel()
 
@@ -33,7 +27,6 @@ func TestCategoriesGet_LimitNegative(t *testing.T) {
 	setup.LogTestPass(t, "TestCategoriesGet_LimitNegative")
 }
 
-// TestCategoriesGet_LimitExceeded — limit > 100 silently defaults to 50.
 func TestCategoriesGet_LimitExceeded(t *testing.T) {
 	t.Parallel()
 
@@ -53,7 +46,6 @@ func TestCategoriesGet_LimitExceeded(t *testing.T) {
 	setup.LogTestPass(t, "TestCategoriesGet_LimitExceeded")
 }
 
-// TestMeGet_LimitNegative — negative limit silently defaults to 10.
 func TestMeGet_LimitNegative(t *testing.T) {
 	t.Parallel()
 
@@ -73,7 +65,6 @@ func TestMeGet_LimitNegative(t *testing.T) {
 	setup.LogTestPass(t, "TestMeGet_LimitNegative")
 }
 
-// TestMeGet_LimitExceeded — limit > 50 silently defaults to 10.
 func TestMeGet_LimitExceeded(t *testing.T) {
 	t.Parallel()
 

@@ -1,92 +1,69 @@
-// @title           Virdan API
-// @version         1.0
-// @description     Virdan Project API Documentation
-// @host            localhost:8081
-// @BasePath        /api
 package main
 
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/ferdian3456/virdanproject/internal/config"
-	"github.com/ferdian3456/virdanproject/internal/delivery/http/middleware"
-	"github.com/ferdian3456/virdanproject/internal/exception"
+	"github.com/ferdian3456/virdanproject/services"
+	"github.com/ferdian3456/virdanproject/shared"
 	gofiber "github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/compress"
 	zapLog "go.uber.org/zap"
 )
 
-var (
-	Version   = "dev"
-	Commit    = "none"
-	BuildTime = "unknown"
-)
-
 func main() {
 	healthcheck := flag.Bool("healthcheck", false, "run healthcheck")
-	versionFlag := flag.Bool("version", false, "print version")
 	flag.Parse()
 
 	if *healthcheck {
-		os.Exit(0) // Minimal healthcheck for now
-	}
-
-	if *versionFlag {
-		fmt.Printf("Version: %s\nCommit: %s\nBuildTime: %s\n", Version, Commit, BuildTime)
 		os.Exit(0)
 	}
 
 	time.Local = time.UTC
 
-	// Init context — for bootstrapping resources (DB, Redis, MinIO, OTel)
 	initCtx, initCancel := context.WithTimeout(context.Background(), 30*time.Second)
 
-	fiber := config.NewFiber()
-	fiber.Use(middleware.CORSMiddleware())
-	bootstrapZap := config.NewBootstrapZap()
-	koanf := config.NewKoanf(bootstrapZap)
+	fiber := shared.NewFiber()
+	fiber.Use(shared.CORSMiddleware())
+	bootstrapZap := shared.NewBootstrapZap()
+	koanf := shared.NewKoanf(bootstrapZap)
 
-	// OTel providers — returned for graceful shutdown
-	loggerProvider := config.NewOtelLoggerProvider(initCtx, koanf, bootstrapZap)
-	zap := config.NewZap(koanf, loggerProvider)
+	loggerProvider := shared.NewOtelLoggerProvider(initCtx, koanf, bootstrapZap)
+	zap := shared.NewZap(koanf, loggerProvider)
 	_ = bootstrapZap.Sync()
 
-	meterProvider := config.NewOtelMetricProvider(initCtx, koanf, zap)
-	tracerProvider := config.NewOtelTracerProvider(initCtx, koanf, zap)
+	meterProvider := shared.NewOtelMetricProvider(initCtx, koanf, zap)
+	tracerProvider := shared.NewOtelTracerProvider(initCtx, koanf, zap)
 
-	rds := config.NewRedisClient(initCtx, koanf, zap)
-	postgresql := config.NewPostgresqlPool(initCtx, koanf, zap)
-	minio := config.NewMinIO(initCtx, koanf, zap)
-	fcm := config.NewFCMClient(initCtx, koanf, zap)
+	rds := shared.NewRedisClient(initCtx, koanf, zap)
+	postgresql := shared.NewPostgresqlPool(initCtx, koanf, zap)
+	minio := shared.NewMinIO(initCtx, koanf, zap)
+	fcm := shared.NewFCMClient(initCtx, koanf, zap)
 
-	initCancel() // init done, release init context
+	initCancel()
 
-	// Custom recovery middleware to handle panics with JSON response
-	fiber.Use(exception.Recovery(zap))
+	fiber.Use(shared.Recovery(zap))
 
-	// Compression middleware
 	fiber.Use(compress.New(compress.Config{
 		Level: compress.LevelBestSpeed,
 	}))
 
-	// Unified observability middleware (request id, root span, logs, metrics)
-	fiber.Use(middleware.ObservabilityMiddleware(koanf, meterProvider, zap))
+	fiber.Use(shared.ObservabilityMiddleware(koanf, meterProvider, zap))
 
-	config.Server(&config.ServerConfig{
-		Router:  fiber,
-		DB:      postgresql,
-		DBCache: rds,
-		Log:     zap,
-		Config:  koanf,
-		MinIO:   minio,
-		FCM:     fcm,
-	})
+	deps := services.Deps{
+		DB:     postgresql,
+		Redis:  rds,
+		MinIO:  minio,
+		FCM:    fcm,
+		Config: koanf,
+		Log:    zap,
+	}
+	registry := services.Wire(deps)
+	services.RegisterRoutes(fiber, registry, deps)
 
 	GO_SERVER_PORT := koanf.String("GO_SERVER")
 
@@ -109,11 +86,9 @@ func main() {
 	<-stop
 	zap.Info("Got one of stop signals")
 
-	// Shutdown context — for graceful shutdown only
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
-	// Shutdown OTel providers first — flush all telemetry data before app exits
 	if err := tracerProvider.Shutdown(shutdownCtx); err != nil {
 		zap.Error("Failed to shutdown tracer provider", zapLog.Error(err))
 	}

@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestPostsMeGet_Success retrieves the caller's posts inside a server. The
-// owner creates one post and then asks the API to return only their own posts.
 func TestPostsMeGet_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -25,7 +23,6 @@ func TestPostsMeGet_Success(t *testing.T) {
 	token := setup.CreateTestUser(t, app, infra.MailhogURL, "postsme@example.com", "password123")
 	serverID := setup.CreateTestServer(t, app, infra.RedisURL, token, "Posts Me Server", "postsme", 1, false)
 
-	// Create one post so the owner has something to retrieve.
 	imageData := setup.CreateTestWebPImage(t)
 	body, contentType := setup.CreateMultipartFormData(t, "image", "test.webp", imageData, map[string]string{
 		"caption": "Owner post",
@@ -35,7 +32,6 @@ func TestPostsMeGet_Success(t *testing.T) {
 	require.NoError(t, err, "create post should succeed")
 	setup.RequireStatus(t, resp, 200)
 
-	// Retrieve the caller's posts for this server.
 	req = setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/posts/me", serverID), nil, token)
 	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "get my posts should succeed")
@@ -49,8 +45,6 @@ func TestPostsMeGet_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestPostsMeGet_Success")
 }
 
-// TestPostsMeGet_NotAMember rejects a non-member's request to view their own
-// posts inside the server.
 func TestPostsMeGet_NotAMember(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -76,7 +70,6 @@ func TestPostsMeGet_NotAMember(t *testing.T) {
 	setup.LogTestPass(t, "TestPostsMeGet_NotAMember")
 }
 
-// TestPostsMeGet_Unauthorized rejects unauthenticated callers.
 func TestPostsMeGet_Unauthorized(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")

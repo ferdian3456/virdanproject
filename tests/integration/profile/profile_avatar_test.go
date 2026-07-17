@@ -12,10 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestServerProfilePut_UploadFile covers the profileAvatar file branch of
-// PUT /api/servers/:serverId/profile. The upload should land in MinIO,
-// register a profile_avatar_images row, and surface a populated avatarUrl
-// on the follow-up GET.
 func TestServerProfilePut_UploadFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -41,7 +37,6 @@ func TestServerProfilePut_UploadFile(t *testing.T) {
 	require.NoError(t, err, "profile avatar upload should succeed")
 	setup.RequireStatus(t, resp, 200)
 
-	// Re-fetch profile and check avatarUrl + avatarImageId are set.
 	req = setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/profile/me", serverID), nil, token)
 	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "follow-up GET should succeed")
@@ -55,10 +50,6 @@ func TestServerProfilePut_UploadFile(t *testing.T) {
 	setup.LogTestPass(t, "TestServerProfilePut_UploadFile")
 }
 
-// TestServerProfilePut_ReuseAvatarImageId uploads an avatar to one server
-// then reuses the resulting avatarImageId on a second server's profile.
-// ResolveProfileAvatar verifies ownership against profile_avatar_images, so
-// the reuse only works when the caller actually owns the row.
 func TestServerProfilePut_ReuseAvatarImageId(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -74,7 +65,6 @@ func TestServerProfilePut_ReuseAvatarImageId(t *testing.T) {
 	serverA := setup.CreateTestServer(t, app, infra.RedisURL, token, "Avatar Source", "pavtsrc", 1, false)
 	serverB := setup.CreateTestServer(t, app, infra.RedisURL, token, "Avatar Reuse", "pavtdst", 1, false)
 
-	// Upload an avatar through serverA.
 	imageData := setup.CreateTestWebPImage(t)
 	body, contentType := buildProfileAvatarBody(t, imageData, map[string]string{
 		"nickname": "ReuseOwner",
@@ -93,7 +83,6 @@ func TestServerProfilePut_ReuseAvatarImageId(t *testing.T) {
 	require.True(t, ok, "avatarImageId from serverA must be a string")
 	require.NotEmpty(t, avatarImageId, "avatarImageId must be set after upload")
 
-	// Reuse the same avatarImageId on serverB.
 	body, contentType = buildProfileFieldsBody(t, map[string]string{
 		"nickname":      "ReuseTarget",
 		"username":      "reusetarget",
@@ -104,7 +93,6 @@ func TestServerProfilePut_ReuseAvatarImageId(t *testing.T) {
 	require.NoError(t, err, "reuse on serverB should succeed")
 	setup.RequireStatus(t, resp, 200)
 
-	// Verify serverB profile now points at the same avatarImageId.
 	req = setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/profile/me", serverB), nil, token)
 	resp, err = setup.AppTest(t, app, req)
 	require.NoError(t, err, "GET serverB profile should succeed")
@@ -115,9 +103,6 @@ func TestServerProfilePut_ReuseAvatarImageId(t *testing.T) {
 	setup.LogTestPass(t, "TestServerProfilePut_ReuseAvatarImageId")
 }
 
-// TestServerProfilePut_AvatarFileAndIdConflict supplies BOTH profileAvatar
-// and avatarImageId in the same request. ResolveProfileAvatar enforces
-// mutual exclusion and must reject the call.
 func TestServerProfilePut_AvatarFileAndIdConflict(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -149,13 +134,10 @@ func TestServerProfilePut_AvatarFileAndIdConflict(t *testing.T) {
 	setup.LogTestPass(t, "TestServerProfilePut_AvatarFileAndIdConflict")
 }
 
-// buildProfileAvatarBody attaches a profileAvatar file plus text fields.
 func buildProfileAvatarBody(t *testing.T, fileData []byte, fields map[string]string) (*bytes.Buffer, string) {
 	return buildProfileAvatarBodyWithFields(t, fileData, fields)
 }
 
-// buildProfileAvatarBodyWithFields exists so the conflict test can attach
-// both the file part and the avatarImageId field in one body.
 func buildProfileAvatarBodyWithFields(t *testing.T, fileData []byte, fields map[string]string) (*bytes.Buffer, string) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -175,9 +157,6 @@ func buildProfileAvatarBodyWithFields(t *testing.T, fileData []byte, fields map[
 	return body, writer.FormDataContentType()
 }
 
-// buildProfileFieldsBody builds a text-only multipart body for the profile
-// PUT endpoint. The avatarImageId field doubles as the "reuse existing
-// avatar" trigger.
 func buildProfileFieldsBody(t *testing.T, fields map[string]string) (*bytes.Buffer, string) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)

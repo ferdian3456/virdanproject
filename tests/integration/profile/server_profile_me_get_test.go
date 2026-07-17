@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestServerProfileMeGet_Success returns the caller's profile in the given
-// server. The owner's profile was provisioned during CreateServer.
 func TestServerProfileMeGet_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -39,7 +37,6 @@ func TestServerProfileMeGet_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestServerProfileMeGet_Success")
 }
 
-// TestServerProfileMeGet_NotAMember rejects callers that have not joined the server.
 func TestServerProfileMeGet_NotAMember(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -65,7 +62,6 @@ func TestServerProfileMeGet_NotAMember(t *testing.T) {
 	setup.LogTestPass(t, "TestServerProfileMeGet_NotAMember")
 }
 
-// TestServerProfileMeGet_Unauthorized rejects unauthenticated callers.
 func TestServerProfileMeGet_Unauthorized(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")

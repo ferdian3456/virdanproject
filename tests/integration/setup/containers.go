@@ -27,7 +27,6 @@ type TestInfra struct {
 func StartInfra(ctx context.Context, t *testing.T) (*TestInfra, error) {
 	t.Log("Starting test infrastructure...")
 
-	// 1. Start Postgres
 	t.Log("Starting PostgreSQL container...")
 	pgContainer, err := postgres.Run(ctx,
 		"postgres:15-alpine",
@@ -48,7 +47,6 @@ func StartInfra(ctx context.Context, t *testing.T) (*TestInfra, error) {
 	}
 	t.Logf("PostgreSQL started at: %s", pgURL)
 
-	// 2. Start Redis
 	t.Log("Starting Redis container...")
 	redisContainer, err := redis.Run(ctx,
 		"redis:7-alpine",
@@ -72,7 +70,6 @@ func StartInfra(ctx context.Context, t *testing.T) (*TestInfra, error) {
 	redisURL := fmt.Sprintf("%s:%s", redisHost, redisPort.Port())
 	t.Logf("Redis started at: %s", redisURL)
 
-	// 3. Start MinIO
 	t.Log("Starting MinIO container...")
 	minioContainer, err := testcontainers.GenericContainer(ctx,
 		testcontainers.GenericContainerRequest{
@@ -106,7 +103,6 @@ func StartInfra(ctx context.Context, t *testing.T) (*TestInfra, error) {
 	minioURL := fmt.Sprintf("%s:%s", minioHost, minioPort.Port())
 	t.Logf("MinIO started at: %s", minioURL)
 
-	// 4. Start MailHog
 	t.Log("Starting MailHog container...")
 	mailhogContainer, err := testcontainers.GenericContainer(ctx,
 		testcontainers.GenericContainerRequest{

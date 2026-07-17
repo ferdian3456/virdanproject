@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// helper: create a post with a given caption, returns post id
 func createPostWithCaption(t *testing.T, app *fiber.App, token, serverID, caption string) string {
 	t.Helper()
 	imageData := setup.CreateTestWebPImage(t)
@@ -24,7 +23,6 @@ func createPostWithCaption(t *testing.T, app *fiber.App, token, serverID, captio
 	return result["id"].(string)
 }
 
-// TestSearchPosts_Success finds posts whose caption matches the query
 func TestSearchPosts_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -57,7 +55,6 @@ func TestSearchPosts_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestSearchPosts_Success")
 }
 
-// TestSearchPosts_NoMatch returns an empty data array (not an error)
 func TestSearchPosts_NoMatch(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -86,7 +83,6 @@ func TestSearchPosts_NoMatch(t *testing.T) {
 	setup.LogTestPass(t, "TestSearchPosts_NoMatch")
 }
 
-// TestSearchPosts_QueryTooShort rejects queries shorter than 2 chars
 func TestSearchPosts_QueryTooShort(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -109,7 +105,6 @@ func TestSearchPosts_QueryTooShort(t *testing.T) {
 	setup.LogTestPass(t, "TestSearchPosts_QueryTooShort")
 }
 
-// TestSearchPosts_NotAMember rejects a non-member requester
 func TestSearchPosts_NotAMember(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -134,8 +129,6 @@ func TestSearchPosts_NotAMember(t *testing.T) {
 	setup.LogTestPass(t, "TestSearchPosts_NotAMember")
 }
 
-// TestSearchPosts_EscapesWildcards treats ILIKE metacharacters in the query as
-// literals: "a_c" must not match "abc"/"axc" via the underscore wildcard.
 func TestSearchPosts_EscapesWildcards(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -153,7 +146,6 @@ func TestSearchPosts_EscapesWildcards(t *testing.T) {
 	createPostWithCaption(t, app, token, serverID, "abc")
 	createPostWithCaption(t, app, token, serverID, "axc")
 
-	// Underscore is an ILIKE wildcard; once escaped, "a_c" matches only a literal "a_c".
 	req := setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/posts/search?q=a_c", serverID), nil, token)
 	resp, err := setup.TestRequestWithLogging(t, app, req)
 	require.NoError(t, err, "search request should succeed")

@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestEmailChangeRequest_Success kicks off the email change flow: the API
-// sends an OTP to the current email and stashes a pending session in Redis.
 func TestEmailChangeRequest_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -34,8 +32,6 @@ func TestEmailChangeRequest_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestEmailChangeRequest_Success")
 }
 
-// TestEmailChangeRequest_SameAsCurrent rejects a request that reuses the
-// caller's current email.
 func TestEmailChangeRequest_SameAsCurrent(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -62,8 +58,6 @@ func TestEmailChangeRequest_SameAsCurrent(t *testing.T) {
 	setup.LogTestPass(t, "TestEmailChangeRequest_SameAsCurrent")
 }
 
-// TestEmailChangeRequest_AlreadyTaken rejects a new email that maps to an
-// existing account.
 func TestEmailChangeRequest_AlreadyTaken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -75,7 +69,6 @@ func TestEmailChangeRequest_AlreadyTaken(t *testing.T) {
 	defer db.Close()
 
 	infra := setup.GetGlobalInfra()
-	// First user owns the target email already.
 	_ = setup.CreateTestUser(t, app, infra.MailhogURL, "emailtaken-target@example.com", "password123")
 	token := setup.CreateTestUser(t, app, infra.MailhogURL, "emailtaken-source@example.com", "password123")
 
@@ -91,7 +84,6 @@ func TestEmailChangeRequest_AlreadyTaken(t *testing.T) {
 	setup.LogTestPass(t, "TestEmailChangeRequest_AlreadyTaken")
 }
 
-// TestEmailChangeRequest_Unauthorized rejects unauthenticated callers.
 func TestEmailChangeRequest_Unauthorized(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")

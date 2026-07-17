@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestLogin_Success tests the email-keyed login flow introduced by the
-// multi-identity refactor (users.username was dropped in migration 000016).
 func TestLogin_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -25,10 +23,8 @@ func TestLogin_Success(t *testing.T) {
 	email := "login@example.com"
 	password := "password123"
 
-	// Setup: create user via the new signup flow.
 	_ = setup.CreateTestUser(t, app, infra.MailhogURL, email, password)
 
-	// Test: login with email + password.
 	setup.LogTestStep(t, "Testing Login with valid email/password")
 	reqBody := []byte(fmt.Sprintf(`{"email":"%s","password":"%s"}`, email, password))
 	req := setup.CreateJSONRequest(http.MethodPost, "/api/auth/login", reqBody)
@@ -45,8 +41,6 @@ func TestLogin_Success(t *testing.T) {
 	setup.LogTestPass(t, "TestLogin_Success")
 }
 
-// TestLogin_WrongPassword verifies that a wrong password yields an error
-// without exposing whether the email exists.
 func TestLogin_WrongPassword(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -71,7 +65,6 @@ func TestLogin_WrongPassword(t *testing.T) {
 	setup.LogTestPass(t, "TestLogin_WrongPassword")
 }
 
-// TestLogin_UnknownEmail verifies that an unknown email is rejected.
 func TestLogin_UnknownEmail(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -92,7 +85,6 @@ func TestLogin_UnknownEmail(t *testing.T) {
 	setup.LogTestPass(t, "TestLogin_UnknownEmail")
 }
 
-// TestLogin_ValidationErrors covers the obvious validator paths.
 func TestLogin_ValidationErrors(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
