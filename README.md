@@ -44,10 +44,6 @@ PostgreSQL, Redis, and MinIO, with a full OpenTelemetry observability stack.
 
 <img src="https://raw.githubusercontent.com/testcontainers/testcontainers-java/main/docs/logo.svg" alt="Testcontainers" title="Testcontainers" height="28" />
 
-> Loki, Tempo, and Testcontainers icons are from [dashboardicons.com](https://dashboardicons.com/icons/)
-> and the official Testcontainers repo — neither has an entry in [simple-icons](https://simpleicons.org/).
-> Plain gray badges mark libraries with no official icon anywhere.
-
 ## Architecture
 
 Virdan is built as a **modular monolith**: a single deployable Go binary (`cmd/main.go`) whose
