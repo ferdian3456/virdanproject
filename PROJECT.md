@@ -7,6 +7,53 @@ PostgreSQL, Redis, and MinIO, with a full OpenTelemetry observability stack.
 
 ## Tech Stack
 
+**Language & framework**
+
+![Go](https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white)
+![Fiber](https://img.shields.io/badge/Fiber_v3-555555?style=for-the-badge)
+
+**Data & storage**
+
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
+![MinIO](https://img.shields.io/badge/MinIO-C72C48?style=for-the-badge&logo=minio&logoColor=white)
+
+**Realtime, auth & payments**
+
+![WebSocket](https://img.shields.io/badge/WebSocket-000000?style=for-the-badge&logo=websocket&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
+![Firebase](https://img.shields.io/badge/Firebase_Cloud_Messaging-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)
+![Xendit](https://img.shields.io/badge/Xendit-5B4DCA?style=for-the-badge&logo=xendit&logoColor=white)
+
+**Observability**
+
+![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-005B9C?style=for-the-badge&logo=opentelemetry&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-F05A28?style=for-the-badge&logo=grafana&logoColor=white)
+![Loki](https://img.shields.io/badge/Loki-555555?style=for-the-badge)
+![Tempo](https://img.shields.io/badge/Tempo-555555?style=for-the-badge)
+
+**API docs, infra & CI**
+
+![Swagger](https://img.shields.io/badge/Swagger_OpenAPI-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![NGINX](https://img.shields.io/badge/NGINX-009639?style=for-the-badge&logo=nginx&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
+![Atlas](https://img.shields.io/badge/Atlas_Migrations-555555?style=for-the-badge)
+
+**Config, logging, images & testing**
+
+![koanf](https://img.shields.io/badge/koanf-555555?style=for-the-badge)
+![zap](https://img.shields.io/badge/zap-555555?style=for-the-badge)
+![libvips](https://img.shields.io/badge/libvips_(bimg)-555555?style=for-the-badge)
+![gomail](https://img.shields.io/badge/gomail-555555?style=for-the-badge)
+![testcontainers](https://img.shields.io/badge/testcontainers--go-555555?style=for-the-badge)
+
+> Badges without a colored logo mark libraries/services that don't have an official icon in
+> [simple-icons](https://simpleicons.org/) — shown as plain labels rather than a mismatched icon.
+
+### What each piece is used for
+
 | Concern | Technology |
 |---|---|
 | Language | Go 1.26 |
