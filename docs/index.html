@@ -10,5 +10,57 @@
     data-url="./swagger.yaml">
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+
+  <!--
+    Scalar does not natively render mermaid code blocks embedded in operation
+    descriptions (see https://github.com/scalar/scalar/discussions/3477).
+    This renders them client-side after Scalar mounts, and re-runs on every
+    DOM mutation since Scalar is a client-routed SPA that swaps content in
+    without a full page reload when navigating between operations.
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({ startOnLoad: false, theme: "default" });
+
+    var MERMAID_KEYWORDS = [
+      "sequenceDiagram", "graph", "flowchart", "classDiagram",
+      "stateDiagram", "erDiagram", "gantt", "pie", "journey",
+      "gitGraph", "mindmap", "timeline", "quadrantChart"
+    ];
+
+    function looksLikeMermaid(text) {
+      var firstLine = text.trim().split("\n")[0].trim();
+      return MERMAID_KEYWORDS.some(function (kw) {
+        return firstLine.indexOf(kw) === 0;
+      });
+    }
+
+    function renderMermaidBlocks() {
+      document.querySelectorAll("pre > code").forEach(function (code) {
+        if (code.dataset.mermaidDone) return;
+        var text = code.textContent;
+        if (!looksLikeMermaid(text)) return;
+
+        code.dataset.mermaidDone = "true";
+        var pre = code.parentElement;
+        var container = document.createElement("div");
+        container.className = "mermaid-diagram";
+        pre.replaceWith(container);
+
+        var id = "mermaid-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+        mermaid.render(id, text).then(function (result) {
+          container.innerHTML = result.svg;
+        }).catch(function (err) {
+          container.textContent = "Mermaid render error: " + err.message;
+        });
+      });
+    }
+
+    new MutationObserver(renderMermaidBlocks).observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+    renderMermaidBlocks();
+  </script>
 </body>
 </html>
