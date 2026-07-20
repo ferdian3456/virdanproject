@@ -3,6 +3,7 @@ package notification
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	firebaseMessaging "firebase.google.com/go/v4/messaging"
@@ -194,6 +195,28 @@ func (service *Service) TestSend(ctx context.Context, userId string) error {
 
 func (service *Service) Notify(ctx context.Context, events []NotificationEvent) {
 	parentSpanCtx := trace.SpanContextFromContext(ctx)
+
+	// Clone every string field synchronously, while the caller's request is
+	// still in flight. Several of these values (e.g. PostId, ServerId)
+	// originate from fiber's ctx.Params(), whose backing buffer is only
+	// valid for the lifetime of the handler and gets reused for later
+	// requests once it returns. Reading them from the goroutine below
+	// without cloning first can observe corrupted, overwritten bytes.
+	cloned := make([]NotificationEvent, len(events))
+	for i, event := range events {
+		event.Type = strings.Clone(event.Type)
+		event.RecipientUserId = strings.Clone(event.RecipientUserId)
+		event.ActorUserId = strings.Clone(event.ActorUserId)
+		event.ActorProfileId = strings.Clone(event.ActorProfileId)
+		event.ServerId = strings.Clone(event.ServerId)
+		event.PostId = strings.Clone(event.PostId)
+		if event.CommentId != nil {
+			commentID := strings.Clone(*event.CommentId)
+			event.CommentId = &commentID
+		}
+		cloned[i] = event
+	}
+	events = cloned
 
 	go func() {
 		backgroundCtx := trace.ContextWithSpanContext(context.Background(), parentSpanCtx)
@@ -501,6 +524,15 @@ func (service *Service) GetUnreadCount(ctx context.Context, userId string, serve
 
 func (service *Service) NotifyDM(ctx context.Context, recipientUserId, conversationId, senderUsername, preview string) {
 	parentSpanCtx := trace.SpanContextFromContext(ctx)
+
+	// Clone synchronously before spawning the goroutine: conversationId in
+	// particular typically originates from fiber's ctx.Params(), whose
+	// backing buffer is only valid for the handler's lifetime.
+	recipientUserId = strings.Clone(recipientUserId)
+	conversationId = strings.Clone(conversationId)
+	senderUsername = strings.Clone(senderUsername)
+	preview = strings.Clone(preview)
+
 	go func() {
 		bg := trace.ContextWithSpanContext(context.Background(), parentSpanCtx)
 		bg, cancel := context.WithTimeout(bg, 30*time.Second)
