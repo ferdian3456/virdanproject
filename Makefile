@@ -1,5 +1,7 @@
+ifneq (,$(wildcard .env))
 export $(shell sed 's/=.*//' .env)
 include .env
+endif
 
 # Database Migrations (Atlas) — edit db/schema.sql, then `make migrate-diff name=xyz`
 ATLAS_ENV := local

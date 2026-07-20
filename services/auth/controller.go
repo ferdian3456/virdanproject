@@ -22,6 +22,17 @@ func NewController(service *Service, log *zap.Logger, config *koanf.Koanf) *Cont
 	}
 }
 
+// StartSignup godoc
+// @Summary Start user signup by sending an OTP to the given email
+// @description.markdown start_signup
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body auth.UserSignupStartRequest true "Signup email"
+// @Success 200 {object} auth.UserSignupStartResponse
+// @Failure 400 {object} shared.BadRequestError
+// @Failure 409 {object} shared.ConflictError
+// @Router /auth/signup/start [post]
 func (controller Controller) StartSignup(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
@@ -51,6 +62,16 @@ func (controller Controller) StartSignup(ctx fiber.Ctx) error {
 	return shared.SendSuccessResponseWithData(ctx, response)
 }
 
+// VerifyOtp godoc
+// @Summary Verify signup OTP code
+// @description.markdown verify_otp
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body auth.UserVerifyOTPRequest true "OTP verification payload"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} shared.BadRequestError
+// @Router /auth/signup/otp [post]
 func (controller Controller) VerifyOtp(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
@@ -79,6 +100,16 @@ func (controller Controller) VerifyOtp(ctx fiber.Ctx) error {
 	return shared.SendSuccessResponseNoData(ctx)
 }
 
+// ResendOtp godoc
+// @Summary Resend signup OTP code
+// @description.markdown resend_otp
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body auth.UserResendOTPRequest true "Resend OTP payload"
+// @Success 200 {object} auth.UserSignupStartResponse
+// @Failure 400 {object} shared.BadRequestError
+// @Router /auth/signup/resend-otp [post]
 func (controller Controller) ResendOtp(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
@@ -108,6 +139,17 @@ func (controller Controller) ResendOtp(ctx fiber.Ctx) error {
 	return shared.SendSuccessResponseWithData(ctx, response)
 }
 
+// VerifyPassword godoc
+// @Summary Set password to complete signup
+// @description.markdown set_password
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body auth.UserVerifyPasswordRequest true "Set password payload"
+// @Success 200 {object} shared.TokenResponse
+// @Failure 400 {object} shared.BadRequestError
+// @Failure 409 {object} shared.ConflictError
+// @Router /auth/signup/password [post]
 func (controller Controller) VerifyPassword(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
@@ -137,6 +179,16 @@ func (controller Controller) VerifyPassword(ctx fiber.Ctx) error {
 	return shared.SendSuccessResponseWithData(ctx, response)
 }
 
+// GetSignupStatus godoc
+// @Summary Get current signup session status
+// @description.markdown get_signup_status
+// @Tags auth
+// @Produce json
+// @Param sessionId path string true "Signup Session ID"
+// @Success 200 {object} auth.UserSignupStatus
+// @Failure 400 {object} shared.BadRequestError
+// @Failure 404 {object} shared.NotFoundError
+// @Router /auth/signup/{sessionId}/status [get]
 func (controller Controller) GetSignupStatus(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
@@ -162,6 +214,16 @@ func (controller Controller) GetSignupStatus(ctx fiber.Ctx) error {
 	return shared.SendSuccessResponseWithData(ctx, response)
 }
 
+// Login godoc
+// @Summary Login with email and password
+// @description.markdown login
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body auth.UserLoginRequest true "Login credentials"
+// @Success 200 {object} shared.TokenResponse
+// @Failure 400 {object} shared.BadRequestError
+// @Router /auth/login [post]
 func (controller Controller) Login(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
@@ -191,6 +253,18 @@ func (controller Controller) Login(ctx fiber.Ctx) error {
 	return shared.SendSuccessResponseWithData(ctx, response)
 }
 
+// RefreshToken godoc
+// @Summary Refresh access token using a refresh token
+// @description.markdown refresh_token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body auth.RefreshTokenRefreshRequest true "Refresh token payload"
+// @Success 200 {object} shared.TokenResponse
+// @Failure 400 {object} shared.BadRequestError
+// @Failure 404 {object} shared.NotFoundError
+// @Failure 401 {object} shared.UnauthorizedError
+// @Router /auth/refresh [post]
 func (controller Controller) RefreshToken(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
@@ -220,6 +294,15 @@ func (controller Controller) RefreshToken(ctx fiber.Ctx) error {
 	return shared.SendSuccessResponseWithData(ctx, response)
 }
 
+// Logout godoc
+// @Summary Logout current user and revoke tokens
+// @description.markdown logout
+// @Tags auth
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string]string
+// @Failure 401 {object} shared.UnauthorizedError
+// @Router /auth/logout [post]
 func (controller Controller) Logout(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")

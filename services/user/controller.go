@@ -22,6 +22,15 @@ func NewController(service *Service, log *zap.Logger, config *koanf.Koanf) *Cont
 	}
 }
 
+// GetUserInfo godoc
+// @Summary Get the logged-in user's account info
+// @description.markdown get_user_info
+// @Tags users
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} user.UserResponse
+// @Failure 401 {object} shared.UnauthorizedError
+// @Router /users/me [get]
 func (controller Controller) GetUserInfo(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
@@ -47,6 +56,17 @@ func (controller Controller) GetUserInfo(ctx fiber.Ctx) error {
 	return shared.SendSuccessResponseWithData(ctx, response)
 }
 
+// DeleteAccount godoc
+// @Summary Permanently delete the logged-in user's account
+// @description.markdown delete_account
+// @Tags users
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string]string
+// @Failure 404 {object} shared.NotFoundError
+// @Failure 409 {object} shared.ConflictError
+// @Failure 401 {object} shared.UnauthorizedError
+// @Router /users/me [delete]
 func (controller Controller) DeleteAccount(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
@@ -71,6 +91,18 @@ func (controller Controller) DeleteAccount(ctx fiber.Ctx) error {
 	return shared.SendSuccessResponseNoData(ctx)
 }
 
+// VerifyCurrentPassword godoc
+// @Summary Verify the logged-in user's current password
+// @description.markdown verify_current_password
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body user.UserVerifyCurrentPasswordRequest true "Current password"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} shared.BadRequestError
+// @Failure 401 {object} shared.UnauthorizedError
+// @Router /users/password/verify [post]
 func (controller Controller) VerifyCurrentPassword(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
@@ -100,6 +132,18 @@ func (controller Controller) VerifyCurrentPassword(ctx fiber.Ctx) error {
 	return shared.SendSuccessResponseNoData(ctx)
 }
 
+// ChangePassword godoc
+// @Summary Change the logged-in user's password
+// @description.markdown change_password
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body user.UserChangePasswordRequest true "Current + new password"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} shared.BadRequestError
+// @Failure 401 {object} shared.UnauthorizedError
+// @Router /users/password [put]
 func (controller Controller) ChangePassword(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
@@ -129,6 +173,19 @@ func (controller Controller) ChangePassword(ctx fiber.Ctx) error {
 	return shared.SendSuccessResponseNoData(ctx)
 }
 
+// RequestEmailChange godoc
+// @Summary Request an email change and send OTP to the new address
+// @description.markdown request_email_change
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body user.UserChangeEmailRequestRequest true "New email"
+// @Success 200 {object} user.UserChangeEmailRequestResponse
+// @Failure 400 {object} shared.BadRequestError
+// @Failure 409 {object} shared.ConflictError
+// @Failure 401 {object} shared.UnauthorizedError
+// @Router /users/email/change/request [post]
 func (controller Controller) RequestEmailChange(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
@@ -159,6 +216,18 @@ func (controller Controller) RequestEmailChange(ctx fiber.Ctx) error {
 	return shared.SendSuccessResponseWithData(ctx, response)
 }
 
+// ConfirmEmailChange godoc
+// @Summary Confirm the pending email change with an OTP
+// @description.markdown confirm_email_change
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body user.UserChangeEmailConfirmRequest true "OTP code"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} shared.BadRequestError
+// @Failure 401 {object} shared.UnauthorizedError
+// @Router /users/email/change/confirm [post]
 func (controller Controller) ConfirmEmailChange(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
@@ -188,6 +257,17 @@ func (controller Controller) ConfirmEmailChange(ctx fiber.Ctx) error {
 	return shared.SendSuccessResponseNoData(ctx)
 }
 
+// UpdateNotificationPreferences godoc
+// @Summary Update the logged-in user's push notification preferences
+// @description.markdown update_notification_preferences
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body user.UpdateNotificationPreferencesRequest true "Notification preference flags"
+// @Success 200 {object} map[string]string
+// @Failure 401 {object} shared.UnauthorizedError
+// @Router /users/me/notification-preferences [put]
 func (controller Controller) UpdateNotificationPreferences(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
