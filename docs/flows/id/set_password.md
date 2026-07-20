@@ -73,7 +73,7 @@ sequenceDiagram
 | `users`          | id           | INSERT | UUID user baru                                        |
 | `users`          | email        | INSERT | Email dari session signup                             |
 | `users`          | password     | INSERT | bcrypt hash dari password                             |
-| `users`          | settings     | INSERT | Default `{}`                                          |
+| `users`          | settings     | INSERT | Default `{"notif_like":true,"notif_comment":true,"notif_reply":true}` |
 | `users`          | created_at   | INSERT | UTC now                                               |
 | `users`          | updated_at   | INSERT | UTC now                                               |
 | `users`          | created_by   | INSERT | userId (self)                                         |
@@ -150,4 +150,4 @@ User sudah hit `start_signup` dan `verify_otp` sehingga step session = `otp_veri
 
 ## Update
 
-Dokumentasi ini diupdate tanggal 23 Mei 2026.
+Dokumentasi ini diupdate tanggal 20 Juli 2026.

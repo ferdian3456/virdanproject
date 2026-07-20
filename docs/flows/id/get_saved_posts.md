@@ -110,8 +110,7 @@ Query parameter:
     }
   ],
   "page": {
-    "nextCursor": "base64-cursor-or-null",
-    "limit": 10
+    "nextCursor": "base64-cursor-or-null"
   }
 }
 ```
@@ -143,4 +142,4 @@ Standard auth errors.
 
 ## Update
 
-Dokumentasi ini diupdate tanggal 2 Juni 2026.
+Dokumentasi ini diupdate tanggal 20 Juli 2026.

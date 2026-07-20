@@ -52,11 +52,13 @@ User sudah login (punya access token valid).
 
 Body (JSON):
 
-| Field          | Tipe | Wajib | Aturan          |
-| -------------- | ---- | ----- | --------------- |
-| `notifLike`    | bool | ya    | true/false       |
-| `notifComment` | bool | ya    | true/false       |
-| `notifReply`   | bool | ya    | true/false       |
+Tidak ada validasi field-level di service (tidak ada pengecekan `shared.NewValidator()`) — field yang tidak dikirim di body JSON otomatis default ke `false`, bukan memicu 400.
+
+| Field          | Tipe | Wajib | Aturan                              |
+| -------------- | ---- | ----- | ------------------------------------ |
+| `notifLike`    | bool | tidak | true/false, default false bila tidak dikirim |
+| `notifComment` | bool | tidak | true/false, default false bila tidak dikirim |
+| `notifReply`   | bool | tidak | true/false, default false bila tidak dikirim |
 
 ---
 
@@ -76,9 +78,9 @@ Body (JSON):
 
 ### 400 Bad Request
 
-| `error_message`     | Penyebab        |
-| ------------------- | --------------- |
-| Body tidak valid    | Payload salah    |
+| `error_message`                        | Penyebab                                             |
+| --------------------------------------- | ----------------------------------------------------- |
+| `The request is invalid or malformed`  | Body JSON malformed (misalnya sebuah field bukan boolean) |
 
 ### 401 Unauthorized
 
@@ -88,4 +90,4 @@ Standard auth errors.
 
 ## Update
 
-Dokumentasi ini diupdate tanggal 3 Juni 2026.
+Dokumentasi ini diupdate tanggal 20 Juli 2026.

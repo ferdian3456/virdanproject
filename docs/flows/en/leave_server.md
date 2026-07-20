@@ -1,6 +1,6 @@
 ## Overview
 
-This API is used to leave a server. The owner cannot leave — they must delete the server or transfer ownership first. The `server_members` row is hard-deleted, but `server_member_profiles` is retained (historical snapshot).
+This API is used to leave a server. If the owner leaves while other members still exist, the request is rejected (409) — they must transfer ownership or delete the server first. However, if the owner is the sole remaining member, leaving hard-deletes the entire server (FK CASCADE cleans up related rows) and returns 200. For a non-owner member, the `server_members` row is hard-deleted, but `server_member_profiles` is retained (historical snapshot).
 
 ---
 
@@ -28,7 +28,14 @@ sequenceDiagram
     end
     BE->>Postgres: COUNT servers WHERE id = $1 AND owner_id = $2
     alt User is the owner
-        BE-->>Client: 409 Owner cannot leave. Delete server or transfer ownership.
+        BE->>Postgres: COUNT server_members WHERE server_id = $1
+        alt Other members still exist
+            BE-->>Client: 409 Owner cannot leave while other members exist. Transfer ownership or delete the server.
+        else Sole member (owner only)
+            BE->>Postgres: DELETE FROM servers WHERE id = $1
+            note over Postgres: FK CASCADE deletes roles, members, invites, profiles, posts, comments, likes
+            BE-->>Client: 200 {status: "OK"}
+        end
     end
     BE->>Postgres: DELETE FROM server_members WHERE server_id = $1 AND user_id = $2
     BE-->>Client: 200 {status: "OK"}
@@ -48,15 +55,17 @@ Does not use Redis.
 | ---------------- | ------------------ | ------ | ------------------------------------------- |
 | `server_members` | (count)            | SELECT | Check whether the user is a member          |
 | `servers`        | owner_id           | SELECT | Check whether the user is the owner         |
-| `server_members` | server_id, user_id | DELETE | Hard-delete membership                      |
+| `server_members` | (count)            | SELECT | If owner: count total members in the server |
+| `servers`        | id                 | DELETE | If owner is the sole member: hard-delete the whole server (FK CASCADE) |
+| `server_members` | server_id, user_id | DELETE | If not owner (or owner not sole member, rejected instead): hard-delete membership |
 
-Note: the row in `server_member_profiles` is not deleted along with it — the snapshot is kept for history (see the `get_profile_history` endpoint).
+Note: the row in `server_member_profiles` is not deleted along with a plain membership departure — the snapshot is kept for history (see the `get_profile_history` endpoint). This does not apply when the sole owner leaves, since the whole server (and its profiles) is deleted in that case.
 
 ---
 
 ## Prerequisites
 
-User is a member of the server (not the owner).
+User is a member of the server. If the user is the owner, they may only leave if they are the sole remaining member (which deletes the server); otherwise they must transfer ownership or delete the server first.
 
 ---
 
@@ -82,6 +91,8 @@ No body.
 }
 ```
 
+Returned both for a regular member leaving (membership row deleted) and for a sole owner leaving (the whole server is deleted).
+
 ### 400 Bad Request
 
 | `error_message`                  | Cause        |
@@ -96,9 +107,9 @@ No body.
 
 ### 409 Conflict
 
-| `error_message`                                              | Cause              |
-| ------------------------------------------------------------ | ------------------ |
-| `Owner cannot leave. Delete server or transfer ownership.`   | User is the owner  |
+| `error_message`                                                                         | Cause                                             |
+| ---------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `Owner cannot leave while other members exist. Transfer ownership or delete the server.` | User is the owner and other members still exist   |
 
 ### 401 Unauthorized
 
@@ -108,4 +119,4 @@ Standard auth errors.
 
 ## Update
 
-This documentation was last updated on 23 May 2026.
+This documentation was last updated on 20 July 2026.

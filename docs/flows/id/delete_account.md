@@ -1,13 +1,13 @@
 ## Overview
 
-API ini digunakan untuk soft-delete akun user yang sedang login. Backend akan:
-1. Hard-delete semua server yang dimiliki user (FK CASCADE membersihkan roles/members/profiles/posts/comments/likes/invites di server tsb).
-2. Hard-delete semua server_members user di server lain.
-3. Soft-delete row users (set `deleted_at`).
-4. Revoke semua refresh token user.
+API ini digunakan untuk menghapus permanen akun user yang sedang login. Backend akan:
+1. Cek user masih ada (belum di-delete sebelumnya).
+2. Cek user tidak memiliki server apapun (`servers.owner_id` punya FK `ON DELETE RESTRICT` ke `users`) — kalau user masih memiliki server, penghapusan ditolak dengan 409 supaya user bisa transfer ownership atau leave dulu.
+3. Hard-delete post dan comment milik user (`server_posts.author_id` / `server_post_comments.author_id` adalah `ON DELETE RESTRICT`, jadi harus dihapus dulu sebelum row user itu sendiri bisa dihapus).
+4. Hard-delete row `users` itu sendiri. Semua row lain yang mereferensikan user (`refresh_tokens`, `server_members`, `server_member_profiles`, `server_post_likes`, `server_post_saves`, `device_tokens`, `notifications`, `dm_conversations`, dll.) otomatis dibersihkan oleh FK `ON DELETE CASCADE`.
 5. Clear access token cache di Redis.
 
-Object di MinIO sengaja dibiarkan orphan di Phase 1 (cleanup job di Phase 2). Comment/like di server lain juga retained karena FK ke users yang masih ada (soft delete).
+Object di MinIO (avatar, gambar/video post) sengaja dibiarkan orphan (cleanup ditangani terpisah, bukan oleh endpoint ini).
 
 ---
 
@@ -31,11 +31,14 @@ sequenceDiagram
     alt User tidak ada / sudah deleted
         BE-->>Client: 404 User not found or already deleted
     end
+    BE->>Postgres: SELECT COUNT(*) FROM servers WHERE owner_id = $1
+    alt User masih memiliki satu atau lebih server
+        BE-->>Client: 409 You still own one or more servers. Transfer ownership or leave them before deleting your account.
+    end
     BE->>Postgres: BEGIN
-    BE->>Postgres: DELETE FROM servers WHERE owner_id = $1 (FK CASCADE)
-    BE->>Postgres: DELETE FROM server_members WHERE user_id = $1
-    BE->>Postgres: UPDATE users SET deleted_at=now, updated_at=now, updated_by=userId WHERE id = $1
-    BE->>Postgres: UPDATE refresh_tokens SET revoked_at=now WHERE user_id = $1 AND revoked_at IS NULL
+    BE->>Postgres: DELETE FROM server_posts WHERE author_id = $1
+    BE->>Postgres: DELETE FROM server_post_comments WHERE author_id = $1
+    BE->>Postgres: DELETE FROM users WHERE id = $1 (hard delete, dependents dibersihkan via FK CASCADE)
     BE->>Redis: DEL auth:accessToken:(userId)
     BE->>Postgres: COMMIT
     BE-->>Client: 200 {status: "OK"}
@@ -53,25 +56,21 @@ sequenceDiagram
 
 ## Notes Postgres/DB
 
-| Tabel             | Kolom        | Aksi   | Keterangan                                                                  |
-| ----------------- | ------------ | ------ | --------------------------------------------------------------------------- |
-| `users`           | id           | SELECT | Cek user aktif (`deleted_at IS NULL`)                                       |
-| `servers`         | owner_id     | DELETE | Hard-delete semua server milik user (FK CASCADE membersihkan tabel terkait) |
-| `server_members`  | user_id      | DELETE | Hard-delete membership user di server lain                                  |
-| `users`           | deleted_at   | UPDATE | Soft-delete timestamp                                                       |
-| `users`           | updated_at   | UPDATE | UTC now                                                                     |
-| `users`           | updated_by   | UPDATE | userId (self)                                                               |
-| `refresh_tokens`  | revoked_at   | UPDATE | Revoke semua refresh token                                                  |
-| `refresh_tokens`  | updated_at   | UPDATE | UTC now                                                                     |
-| `refresh_tokens`  | updated_by   | UPDATE | userId                                                                      |
+| Tabel                   | Kolom     | Aksi   | Keterangan                                                                  |
+| ----------------------- | --------- | ------ | ---------------------------------------------------------------------------- |
+| `users`                 | id        | SELECT | Cek user aktif (`deleted_at IS NULL`)                                       |
+| `servers`               | owner_id  | SELECT | Hitung jumlah server milik user (harus 0 supaya bisa lanjut)                |
+| `server_posts`          | author_id | DELETE | Hard-delete post milik user (wajib: FK-nya `ON DELETE RESTRICT`)            |
+| `server_post_comments`  | author_id | DELETE | Hard-delete comment milik user (wajib: FK-nya `ON DELETE RESTRICT`)         |
+| `users`                 | id        | DELETE | Hard-delete row user itu sendiri                                            |
 
-Tabel `server_member_profiles` di-retain (snapshot historical) karena FK CASCADE dari `servers` sudah handle row terkait server yang dihapus, sedangkan di server lain row tetap (no cascade dari `users` karena soft-delete).
+Menghapus row `users` akan cascade (`ON DELETE CASCADE`) ke `refresh_tokens`, `server_members`, `server_member_profiles`, `server_post_likes`, `server_post_saves`, `device_tokens`, `notifications`, dan `dm_conversations`/`dm_messages`, antara lain — semua ini tidak dihapus lewat query eksplisit oleh endpoint ini.
 
 ---
 
 ## Prerequisites
 
-User sudah login dan punya access token valid.
+User sudah login dan punya access token valid. User tidak boleh sedang memiliki server apapun.
 
 ---
 
@@ -102,11 +101,17 @@ Endpoint tidak menerima body. Otentikasi via header.
 ### 404 Not Found
 
 | `error_message`                       | Penyebab                                |
-| ------------------------------------- | --------------------------------------- |
-| `User not found or already deleted`   | User sudah di-soft-delete sebelumnya     |
+| ------------------------------------- | ---------------------------------------- |
+| `User not found or already deleted`   | User sudah dihapus sebelumnya            |
+
+### 409 Conflict
+
+| `error_message`                                                                                          | Penyebab                                |
+| ----------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `You still own one or more servers. Transfer ownership or leave them before deleting your account.`     | `CountServersOwnedByUser` mengembalikan > 0 |
 
 ---
 
 ## Update
 
-Dokumentasi ini diupdate tanggal 23 Mei 2026.
+Dokumentasi ini diupdate tanggal 20 Juli 2026.

@@ -1,6 +1,6 @@
 ## Overview
 
-This API is used to create a comment on a post. You can also reply to another comment by sending `parentId` (the UUID of the parent comment). The user must be a server member.
+This API is used to create a comment on a post. You can also reply to another comment by sending `parentId` (the UUID of the parent comment). The user must be a server member. On success, a push notification is sent to the relevant recipient — the post author for a top-level comment, or the parent comment's author for a reply — but only if that recipient is a different user than the commenter (no self-notification).
 
 ---
 
@@ -15,6 +15,7 @@ sequenceDiagram
     actor Client
     participant BE
     participant Postgres
+    participant Notification
 
     Client->>BE: POST /api/posts/(postId)/comments {content, parentId?}
     BE->>BE: Middleware extract userId
@@ -37,6 +38,20 @@ sequenceDiagram
         end
     end
     BE->>Postgres: INSERT INTO server_post_comments
+    BE->>Postgres: Resolve actor's server_member_profiles.id
+    alt actor profile resolved
+        alt parentId is nil (top-level comment)
+            BE->>Postgres: SELECT author_id FROM server_posts WHERE id = postId
+            alt Post author != actor userId
+                BE->>Notification: Notify([{type: "comment", recipient: postAuthorId, actor: userId, postId, serverId}])
+            end
+        else parentId provided (reply)
+            BE->>Postgres: SELECT author_id FROM server_post_comments WHERE id = parentId
+            alt Parent comment author != actor userId
+                BE->>Notification: Notify([{type: "reply", recipient: parentAuthorId, actor: userId, postId, commentId, serverId}])
+            end
+        end
+    end
     BE->>Postgres: SELECT comment detail (author identity)
     BE-->>Client: 200 ServerCommentResponse
 ```
@@ -57,7 +72,12 @@ Does not use Redis.
 | `server_members`         | (count)                                      | SELECT | Check membership                         |
 | `server_post_comments`   | (count)                                      | SELECT | Check parent valid (if parentId provided) |
 | `server_post_comments`   | id, post_id, author_id, parent_id, content   | INSERT | New comment                              |
+| `server_member_profiles` | (profile id)                                 | SELECT | Resolve actor's profile id for the notification |
+| `server_posts`           | author_id                                    | SELECT | Resolve post author (top-level comment notification only) |
+| `server_post_comments`   | author_id                                    | SELECT | Resolve parent comment author (reply notification only) |
 | `server_member_profiles` | nickname, username, avatar_image_id          | SELECT | Author identity in the server            |
+
+Note: the notification is skipped whenever the recipient (post author or parent comment author) is the same user as the commenter.
 
 ---
 
@@ -99,7 +119,7 @@ Body JSON:
     "nickname": "GamerX",
     "username": "gamerx",
     "avatarUrl": "http://.../webp",
-    "status": "ACTIVE"
+    "status": "active"
   },
   "isOwner": true,
   "createdAt": "2026-05-23T10:00:00Z",
@@ -137,4 +157,4 @@ Standard auth errors.
 
 ## Update
 
-This documentation was last updated on 23 May 2026.
+This documentation was last updated on 20 July 2026.

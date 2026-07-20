@@ -66,6 +66,13 @@ Requester adalah member server.
 { "count": 3 }
 ```
 
+### 400 Bad Request
+
+| `error_message`                 | Penyebab                          |
+| -------------------------------- | ---------------------------------- |
+| `serverId is required`          | Segmen path serverId kosong        |
+| `serverId is not a valid UUID`  | serverId bukan format UUID         |
+
 ### 403 Forbidden
 
 | `error_message`                       | Penyebab               |
@@ -81,3 +88,4 @@ Standard auth errors.
 ## Update
 
 Dokumentasi ini dibuat tanggal 1 Juni 2026 (notifikasi per-server).
+Diupdate tanggal 20 Juli 2026 (menambahkan tabel error validasi 400 Bad Request).

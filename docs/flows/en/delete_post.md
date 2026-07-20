@@ -1,6 +1,6 @@
 ## Overview
 
-This API is used to hard-delete a post. Only the author is allowed. FK CASCADE deletes the related comments + likes. The image in MinIO is intentionally left orphan (cleanup job Phase 2).
+This API is used to hard-delete a post. The post's author can always delete it. If the requester is not the author, the server owner may delete any post, and a server admin may delete any post except one authored by the owner or another admin; any other member gets `403 You are not the author of this post`. FK CASCADE deletes the related comments + likes. The image/video in MinIO is intentionally left orphan (cleanup job Phase 2).
 
 ---
 
@@ -26,9 +26,19 @@ sequenceDiagram
     alt Not a member
         BE-->>Client: 403 You are not a member of this server
     end
-    BE->>Postgres: Check post ownership
+    BE->>Postgres: Check post ownership (author_id = userId)
     alt Not the author
-        BE-->>Client: 403 You are not the author of this post
+        BE->>Postgres: SELECT deleter's role in server
+        alt Deleter role = owner
+            note over BE: Allowed, continue
+        else Deleter role = admin
+            BE->>Postgres: SELECT post author_id, then author's role in server
+            alt Author role is owner or admin
+                BE-->>Client: 403 Admins cannot delete posts by the owner or other admins
+            end
+        else Deleter role = member (default)
+            BE-->>Client: 403 You are not the author of this post
+        end
     end
     BE->>Postgres: DELETE FROM server_posts WHERE id = $1
     note over Postgres: FK CASCADE → server_post_comments, server_post_likes
@@ -49,13 +59,16 @@ Does not use Redis.
 | ---------------- | ------------------ | ------ | -------------------------------------------- |
 | `server_members` | (count)            | SELECT | Check membership                              |
 | `server_posts`   | author_id          | SELECT | Check ownership                               |
+| `server_members` | role_name          | SELECT | Deleter's role (only if not the author)       |
+| `server_posts`   | author_id          | SELECT | Post author (only if deleter is an admin)     |
+| `server_members` | role_name          | SELECT | Post author's role (only if deleter is an admin) |
 | `server_posts`   | id                 | DELETE | Hard-delete (FK CASCADE → comments & likes)   |
 
 ---
 
 ## Prerequisites
 
-User is a member of the server and the author of the post.
+User is a member of the server. Either the post author, the server owner, or a server admin deleting a post not authored by the owner/another admin.
 
 ---
 
@@ -94,7 +107,8 @@ No body.
 | `error_message`                          | Cause                   |
 | ---------------------------------------- | ----------------------- |
 | `You are not a member of this server`    | Not a member             |
-| `You are not the author of this post`    | Not the author           |
+| `You are not the author of this post`    | Not the author, and not the server owner/admin |
+| `Admins cannot delete posts by the owner or other admins` | Deleter is an admin but the post's author is the owner or another admin |
 
 ### 401 Unauthorized
 
@@ -104,4 +118,4 @@ Standard auth errors.
 
 ## Update
 
-This documentation was last updated on 23 May 2026.
+This documentation was last updated on 20 July 2026.

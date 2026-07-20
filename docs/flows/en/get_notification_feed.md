@@ -59,8 +59,8 @@ The requester is a member of the server.
 | Field      | Type   | Required | Rules            |
 | ---------- | ------ | -------- | ---------------- |
 | `serverId` | string | yes      | Required, UUID   |
-| `limit`    | int    | no       | 0-20, default 10 |
-| `cursor`   | string | no       | Base64 `{createdAt, id}` |
+| `limit`    | int    | no       | Defaults to 10 if omitted, non-numeric, or <= 0; clamped down to 20 if greater than 20 |
+| `cursor`   | string | no       | Base64 `{createdAt, id}`, must decode successfully or a 400 is returned |
 
 ---
 
@@ -74,6 +74,14 @@ The requester is a member of the server.
   "page": { "nextCursor": "base64-or-empty" }
 }
 ```
+
+### 400 Bad Request
+
+| `error_message`                 | Cause                                       |
+| -------------------------------- | --------------------------------------------- |
+| `serverId is required`          | serverId path segment empty                  |
+| `serverId is not a valid UUID`  | serverId is not in UUID format                |
+| `Invalid cursor`                | `cursor` query param fails to base64/JSON decode |
 
 ### 403 Forbidden
 
@@ -90,3 +98,4 @@ Standard auth errors.
 ## Update
 
 Created on 1 June 2026 (per-server notifications).
+Updated on 20 July 2026 (added the 400 Bad Request validation error table and clarified `limit`/`cursor` behavior).

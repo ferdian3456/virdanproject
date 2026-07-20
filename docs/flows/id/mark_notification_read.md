@@ -18,7 +18,7 @@ sequenceDiagram
 
     Client->>BE: POST /api/servers/(serverId)/notifications/(id)/read
     BE->>BE: Middleware extract userId
-    BE->>BE: Validasi serverId & id (UUID)
+    BE->>BE: Validasi serverId (required, UUID) & id (format UUID bila tidak kosong; tidak wajib)
     BE->>Postgres: Cek requester membership
     alt Bukan member
         BE-->>Client: 403 You are not a member of this server
@@ -54,8 +54,8 @@ Requester adalah member server, notifikasi milik requester.
 
 | Field      | Tipe   | Wajib | Aturan         |
 | ---------- | ------ | ----- | -------------- |
-| `serverId` | string | ya    | Required, UUID |
-| `id`       | string | ya    | Required, UUID |
+| `serverId` | string | ya    | Required, harus UUID valid |
+| `id`       | string | tidak | Tidak ditegakkan sebagai required oleh validator (hanya dicek dengan `.UUID()`, yang no-op kalau nilainya kosong); harus UUID valid bila diisi |
 
 ---
 
@@ -69,7 +69,11 @@ Requester adalah member server, notifikasi milik requester.
 
 ### 400 Bad Request
 
-UUID invalid (serverId / id).
+| `error_message`                 | Penyebab                                              |
+| -------------------------------- | -------------------------------------------------------- |
+| `serverId is required`          | Segmen path serverId kosong                             |
+| `serverId is not a valid UUID`  | serverId bukan format UUID                              |
+| `id is not a valid UUID`        | id (notification id) diisi tapi bukan format UUID       |
 
 ### 403 Forbidden
 
@@ -86,3 +90,4 @@ Standard auth errors.
 ## Update
 
 Dokumentasi ini dibuat tanggal 1 Juni 2026 (notifikasi per-server).
+Diupdate tanggal 20 Juli 2026 (memperbaiki aturan validasi `id` dan melengkapi tabel 400 Bad Request).

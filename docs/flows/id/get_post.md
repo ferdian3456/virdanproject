@@ -84,21 +84,25 @@ Tidak ada body.
   "serverId": "server-uuid",
   "caption": "Hello!",
   "imageUrl": "http://.../webp",
+  "mediaType": "image",
   "author": {
     "userId": "user-uuid",
     "nickname": "GamerX",
     "username": "gamerx",
     "avatarUrl": "http://.../webp",
-    "status": "ACTIVE"
+    "status": "active"
   },
   "likeCount": 12,
   "commentCount": 3,
   "userLiked": true,
+  "userSaved": false,
   "isOwner": false,
   "createdAt": "2026-05-23T10:00:00Z",
   "updatedAt": "2026-05-23T10:00:00Z"
 }
 ```
+
+Catatan: `videoUrl`, `thumbnailUrl`, `mediaWidth`, `mediaHeight`, dan `mirrored` juga muncul kalau media post-nya adalah video.
 
 ### 400 Bad Request
 
@@ -126,4 +130,4 @@ Standard auth errors.
 
 ## Update
 
-Dokumentasi ini diupdate tanggal 23 Mei 2026.
+Dokumentasi ini diupdate tanggal 20 Juli 2026.

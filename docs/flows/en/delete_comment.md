@@ -1,6 +1,6 @@
 ## Overview
 
-This API is used to hard-delete a comment. Only the comment author is allowed. FK CASCADE deletes the reply (child comment) if any.
+This API is used to hard-delete a comment. The comment author can always delete it; a server owner or admin may also delete any comment in the server. Any other member gets `403 You are not the author of this comment`. FK CASCADE deletes the reply (child comment) if any.
 
 ---
 
@@ -32,7 +32,10 @@ sequenceDiagram
     end
     BE->>Postgres: Check comment ownership (author_id = userId)
     alt Not the author
-        BE-->>Client: 403 You are not the author of this comment
+        BE->>Postgres: SELECT requester's role in server
+        alt Role is not owner or admin
+            BE-->>Client: 403 You are not the author of this comment
+        end
     end
     BE->>Postgres: SELECT 1 FROM server_post_comments WHERE id = commentId AND post_id = postId
     alt Comment not found / different post
@@ -58,6 +61,7 @@ Does not use Redis.
 | `server_posts`         | server_id          | SELECT | Fetch server_id for membership check         |
 | `server_members`       | (count)            | SELECT | Check membership                              |
 | `server_post_comments` | author_id          | SELECT | Check ownership                               |
+| `server_members`       | role_name          | SELECT | Requester's role (only if not the comment author) |
 | `server_post_comments` | id, post_id        | SELECT | Check comment exists & belong to post           |
 | `server_post_comments` | id                 | DELETE | Hard-delete (FK CASCADE → reply)               |
 
@@ -65,7 +69,7 @@ Does not use Redis.
 
 ## Prerequisites
 
-User is a member of the server and the author of the comment.
+User is a member of the server, and either the comment author, the server owner, or a server admin.
 
 ---
 
@@ -104,7 +108,7 @@ No body.
 | `error_message`                              | Cause                   |
 | -------------------------------------------- | ----------------------- |
 | `You are not a member of this server`        | Not a member             |
-| `You are not the author of this comment`     | Not the comment author   |
+| `You are not the author of this comment`     | Not the comment author, and not the server owner/admin |
 
 ### 404 Not Found
 
@@ -121,4 +125,4 @@ Standard auth errors.
 
 ## Update
 
-This documentation was last updated on 23 May 2026.
+This documentation was last updated on 20 July 2026.

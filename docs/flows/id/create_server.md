@@ -39,7 +39,7 @@ sequenceDiagram
         BE->>Postgres: INSERT INTO server_avatar_images
     end
     BE->>Postgres: INSERT INTO servers
-    BE->>Postgres: INSERT INTO server_roles (Owner, Member)
+    BE->>Postgres: INSERT INTO server_roles (Owner, Admin, Member)
     BE->>Postgres: INSERT INTO server_members (owner sebagai Owner)
     BE->>Postgres: INSERT INTO server_member_profiles (snapshot copy-on-join)
     alt Ada serverAvatar
@@ -65,7 +65,7 @@ Tidak pakai Redis (selain middleware auth check).
 | `profile_avatar_images`   | (full)                                          | INSERT | Bila ada upload profileAvatar (copy-on-join)         |
 | `server_avatar_images`    | (full)                                          | INSERT | Bila ada upload serverAvatar                          |
 | `servers`                 | id, owner_id, name, short_name, ...             | INSERT | Server baru                                          |
-| `server_roles`            | id, server_id, name, permissions                | INSERT | Role Owner (`{"all":true}`) + Member (`{}`)         |
+| `server_roles`            | id, server_id, name, permissions                | INSERT | Role Owner (`{"all":true}`) + Admin (`{}`) + Member (`{}`) |
 | `server_members`          | id, server_id, user_id, server_role_id, joined_at | INSERT | Owner sebagai member dengan role Owner               |
 | `server_member_profiles`  | id, server_id, user_id, nickname, username, bio | INSERT | Snapshot profile per server (copy-on-join Opsi B)    |
 
@@ -179,4 +179,4 @@ Catatan: pada response create server ini, field `settings`, `categoryName`, `ban
 
 ## Update
 
-Dokumentasi ini diupdate tanggal 23 Mei 2026.
+Dokumentasi ini diupdate tanggal 20 Juli 2026.

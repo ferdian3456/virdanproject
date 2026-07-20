@@ -42,6 +42,7 @@ sequenceDiagram
     BE->>BE: Generate 6-digit OTP + SHA256
     BE->>SMTP: Send OTP to the user's CURRENT email (not newEmail)
     SMTP-->>Client: OTP email arrives
+    BE->>Redis: DEL email_change:(userId)
     BE->>Redis: HSET email_change:(userId) {newEmail, otpHash, attempts: "0"}
     BE->>Redis: EXPIRE email_change:(userId) 10 minutes
     BE-->>Client: 200 {otpExpiresAt}
@@ -126,4 +127,4 @@ The user is already logged in with a valid access token.
 
 ## Update
 
-This documentation was last updated on 23 May 2026.
+This documentation was last updated on 20 July 2026.

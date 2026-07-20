@@ -32,7 +32,7 @@ sequenceDiagram
     alt File not found
         BE-->>Client: 400 Banner image is required
     end
-    BE->>BE: ValidateImage (max 5MB, jpg/png/gif/webp), convert WebP 512x512
+    BE->>BE: ValidateImage (max 5MB, jpg/png/gif/webp), convert to WebP resized to fit within 1920x1080 (no crop)
     BE->>Postgres: BEGIN
     BE->>Postgres: SELECT old banner_image_id
     BE->>Postgres: INSERT INTO server_banner_images
@@ -87,7 +87,7 @@ Format: `multipart/form-data`.
 | Field        | Type   | Required | Rules                                   |
 | ------------ | ------ | -------- | --------------------------------------- |
 | `id` (path)  | string | yes      | Required, UUID                           |
-| `banner`     | file   | yes      | Image (jpg/jpeg/png/gif/webp), max 5MB  |
+| `banner`     | file   | yes      | Image (jpg/jpeg/png/gif/webp), max 5MB, resized to fit within 1920x1080 (no crop) |
 
 ---
 
@@ -126,4 +126,4 @@ Standard auth errors.
 
 ## Update
 
-This documentation was last updated on 23 May 2026.
+This documentation was last updated on 20 July 2026.

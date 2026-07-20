@@ -42,6 +42,7 @@ sequenceDiagram
     BE->>BE: Generate OTP 6 digit + SHA256
     BE->>SMTP: Kirim OTP ke CURRENT email user (bukan newEmail)
     SMTP-->>Client: Email OTP sampai
+    BE->>Redis: DEL email_change:(userId)
     BE->>Redis: HSET email_change:(userId) {newEmail, otpHash, attempts: "0"}
     BE->>Redis: EXPIRE email_change:(userId) 10 menit
     BE-->>Client: 200 {otpExpiresAt}
@@ -59,6 +60,8 @@ sequenceDiagram
    - `newEmail`
    - `otpHash` (SHA256)
    - `attempts` = "0"
+
+   `DEL` dijalankan dulu sebelum `HSET`/`EXPIRE` (lewat pipeline di `SetEmailChangeSession`) supaya session lama benar-benar bersih sebelum ditulis ulang.
 
 ---
 
@@ -126,4 +129,4 @@ User sudah login dengan access token valid.
 
 ## Update
 
-Dokumentasi ini diupdate tanggal 23 Mei 2026.
+Dokumentasi ini diupdate tanggal 20 Juli 2026.

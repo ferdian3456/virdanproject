@@ -73,7 +73,7 @@ sequenceDiagram
 | `users`          | id           | INSERT | New user UUID                                         |
 | `users`          | email        | INSERT | Email from the signup session                        |
 | `users`          | password     | INSERT | bcrypt hash of the password                          |
-| `users`          | settings     | INSERT | Default `{}`                                         |
+| `users`          | settings     | INSERT | Default `{"notif_like":true,"notif_comment":true,"notif_reply":true}` |
 | `users`          | created_at   | INSERT | UTC now                                              |
 | `users`          | updated_at   | INSERT | UTC now                                              |
 | `users`          | created_by   | INSERT | userId (self)                                        |
@@ -150,4 +150,4 @@ The user has already hit `start_signup` and `verify_otp` so that the session ste
 
 ## Update
 
-This documentation was last updated on 23 May 2026.
+This documentation was last updated on 20 July 2026.
