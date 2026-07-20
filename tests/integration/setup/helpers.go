@@ -202,7 +202,7 @@ func GetOTPFromMailhog(t *testing.T, mailhogURL, email string) string {
 	for i := 0; i < maxAttempts; i++ {
 		t.Logf("Attempt %d: Fetching messages from MailHog", i+1)
 
-		resp, err := http.Get(apiURL)
+		resp, err := http.Get(apiURL) // #nosec G107 -- apiURL points at the test-only MailHog container, not user input
 		require.NoError(t, err, "failed to fetch messages from MailHog")
 		defer func() { _ = resp.Body.Close() }()
 
@@ -291,7 +291,7 @@ func GenerateRandomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	b := make([]byte, length)
 	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+		b[i] = charset[rand.Intn(len(charset))] // #nosec G404 -- non-secret random suffix for test fixture uniqueness
 	}
 	return string(b)
 }

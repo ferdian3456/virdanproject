@@ -142,7 +142,7 @@ jobs:
       # those vulns have "Fixed in: N/A". Scanning the test path would
       # always-red the gate without any actionable fix.
       - name: Run govulncheck
-        run: govulncheck ./cmd/... ./internal/...
+        run: govulncheck ./cmd/... ./services/... ./shared/...
 
   virus_scan:
     name: Virus Scan
