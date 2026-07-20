@@ -1,3 +1,11 @@
+// @title Virdan API
+// @version 1.0
+// @description Backend API for Virdan, a community-based social platform.
+// @BasePath /api
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and the access token, e.g. "Bearer eyJhbGciOi..."
 package main
 
 import (
