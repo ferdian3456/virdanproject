@@ -189,7 +189,8 @@ func TestWebhook_Idempotent(t *testing.T) {
 	send()
 
 	var count int
-	require.NoError(t, db.QueryRow(t.Context(), `SELECT COUNT(*) FROM xendit_webhook_events WHERE event_id = $1`, paymentID).Scan(&count))
+	eventID := "payment.capture:" + paymentID
+	require.NoError(t, db.QueryRow(t.Context(), `SELECT COUNT(*) FROM xendit_webhook_events WHERE event_id = $1`, eventID).Scan(&count))
 	require.Equal(t, 1, count, "duplicate webhook must not insert twice")
 	setup.LogTestPass(t, "TestWebhook_Idempotent")
 }
