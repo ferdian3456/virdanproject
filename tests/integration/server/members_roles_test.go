@@ -316,10 +316,13 @@ func TestAssignMemberRole_NotOwner(t *testing.T) {
 
 	memberToken := setup.CreateTestUser(t, app, infra.MailhogURL, "assign-notowner-member@example.com", "password123")
 	setup.JoinTestServer(t, app, memberToken, serverID, "PlainMember", "plainmember", "")
-	memberID := setup.GetUserId(t, app, memberToken)
+
+	targetToken := setup.CreateTestUser(t, app, infra.MailhogURL, "assign-notowner-target@example.com", "password123")
+	setup.JoinTestServer(t, app, targetToken, serverID, "TargetMember", "targetmember", "")
+	targetID := setup.GetUserId(t, app, targetToken)
 
 	roleBody := []byte(`{"role":"Admin"}`)
-	req := setup.CreateAuthRequest(http.MethodPut, fmt.Sprintf("/api/servers/%s/members/%s/role", serverID, memberID), roleBody, memberToken)
+	req := setup.CreateAuthRequest(http.MethodPut, fmt.Sprintf("/api/servers/%s/members/%s/role", serverID, targetID), roleBody, memberToken)
 	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "assign role request should complete")
 	require.Equal(t, http.StatusForbidden, resp.StatusCode, "only owner can assign roles")
@@ -380,9 +383,9 @@ func TestTransferOwnership_NotOwner(t *testing.T) {
 
 	memberToken := setup.CreateTestUser(t, app, infra.MailhogURL, "transfer-notowner-member@example.com", "password123")
 	setup.JoinTestServer(t, app, memberToken, serverID, "NotOwnerMember", "notownermember", "")
-	memberID := setup.GetUserId(t, app, memberToken)
+	ownerID := setup.GetUserId(t, app, ownerToken)
 
-	transferBody := []byte(fmt.Sprintf(`{"newOwnerId":%q}`, memberID))
+	transferBody := []byte(fmt.Sprintf(`{"newOwnerId":%q}`, ownerID))
 	req := setup.CreateAuthRequest(http.MethodPut, fmt.Sprintf("/api/servers/%s/ownership", serverID), transferBody, memberToken)
 	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "transfer ownership request should complete")

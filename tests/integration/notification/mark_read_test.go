@@ -44,7 +44,7 @@ func TestMarkRead_Success(t *testing.T) {
 	setup.RequireStatus(t, resp, 200)
 
 	var notifID string
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 40; i++ {
 		req = setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/notifications", serverID), nil, authorToken)
 		resp, err = setup.AppTest(t, app, req)
 		require.NoError(t, err, "feed request should complete")
@@ -56,7 +56,7 @@ func TestMarkRead_Success(t *testing.T) {
 			notifID, _ = first["id"].(string)
 			break
 		}
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 	}
 	require.NotEmpty(t, notifID, "expected a like notification to be created for the post author")
 

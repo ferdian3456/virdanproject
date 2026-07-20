@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ferdian3456/virdanproject/tests/integration/setup"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -190,6 +191,17 @@ func TestListConversations_Success(t *testing.T) {
 	req := setup.CreateAuthRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/conversations", serverID), body, aToken)
 	resp, err := setup.AppTest(t, app, req)
 	require.NoError(t, err, "get-or-create conversation should succeed")
+	convResult := setup.RequireJSONResponse(t, resp, 200)
+	convID, ok := convResult["id"].(string)
+	require.True(t, ok, "conversation id should be a string")
+
+	// ListConversations only surfaces conversations that have at least one
+	// message (last_message_at IS NOT NULL), so an empty conversation from
+	// GetOrCreateConversation alone would not appear yet.
+	msgBody := []byte(fmt.Sprintf(`{"content":"hi","clientMessageId":%q}`, uuid.New().String()))
+	req = setup.CreateAuthRequest(http.MethodPost, fmt.Sprintf("/api/conversations/%s/messages", convID), msgBody, aToken)
+	resp, err = setup.AppTest(t, app, req)
+	require.NoError(t, err, "send message should succeed")
 	setup.RequireStatus(t, resp, 200)
 
 	req = setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/conversations", serverID), nil, aToken)
