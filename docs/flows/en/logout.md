@@ -17,7 +17,7 @@ sequenceDiagram
     participant Postgres
     participant Redis
 
-    Client->>BE: POST /api/users/logout (Bearer token)
+    Client->>BE: POST /api/auth/logout (Bearer token)
     BE->>BE: Middleware extract userId from JWT
     BE->>Redis: GET auth:accessToken:(userId)
     alt Token invalid
@@ -25,6 +25,7 @@ sequenceDiagram
     end
     BE->>Postgres: UPDATE refresh_tokens SET revoked_at=now, updated_at=now, updated_by=userId WHERE user_id = $1 AND revoked_at IS NULL
     BE->>Redis: DEL auth:accessToken:(userId)
+    BE->>BE: Close any existing WebSocket connections for this user (Hub.CloseUser)
     BE-->>Client: 200 {status: "OK"}
 ```
 
@@ -84,4 +85,4 @@ This endpoint does not accept a body. Authentication is via the `Authorization: 
 
 ## Update
 
-This documentation was last updated on 23 May 2026.
+This documentation was last updated on 20 July 2026.

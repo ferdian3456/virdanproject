@@ -1,6 +1,6 @@
 ## Overview
 
-API ini digunakan untuk leave server. Owner tidak boleh leave — harus delete server atau transfer ownership dulu. Row `server_members` di-hard-delete, tapi `server_member_profiles` retained (historical snapshot).
+API ini digunakan untuk leave server. Kalau owner leave sementara member lain masih ada, request ditolak (409) — owner harus transfer ownership atau delete server dulu. Tapi kalau owner adalah satu-satunya member yang tersisa, leave justru hard-delete seluruh server (FK CASCADE bersihin roles/members/invites/profiles/posts/comments/likes) dan return 200. Untuk member biasa (bukan owner), row `server_members` di-hard-delete, tapi `server_member_profiles` tetap disimpan (historical snapshot).
 
 ---
 
@@ -28,7 +28,14 @@ sequenceDiagram
     end
     BE->>Postgres: COUNT servers WHERE id = $1 AND owner_id = $2
     alt User adalah owner
-        BE-->>Client: 409 Owner cannot leave. Delete server or transfer ownership.
+        BE->>Postgres: COUNT server_members WHERE server_id = $1
+        alt Masih ada member lain
+            BE-->>Client: 409 Owner cannot leave while other members exist. Transfer ownership or delete the server.
+        else Satu-satunya member (cuma owner)
+            BE->>Postgres: DELETE FROM servers WHERE id = $1
+            note over Postgres: FK CASCADE menghapus roles, members, invites, profiles, posts, comments, likes
+            BE-->>Client: 200 {status: "OK"}
+        end
     end
     BE->>Postgres: DELETE FROM server_members WHERE server_id = $1 AND user_id = $2
     BE-->>Client: 200 {status: "OK"}
@@ -44,19 +51,21 @@ Tidak pakai Redis.
 
 ## Notes Postgres/DB
 
-| Tabel            | Kolom              | Aksi   | Keterangan                                  |
-| ---------------- | ------------------ | ------ | ------------------------------------------- |
-| `server_members` | (count)            | SELECT | Cek apakah user member                       |
-| `servers`        | owner_id           | SELECT | Cek apakah user adalah owner                 |
-| `server_members` | server_id, user_id | DELETE | Hard-delete membership                       |
+| Tabel             | Kolom              | Aksi   | Keterangan                                           |
+| ----------------- | ------------------ | ------ | ----------------------------------------------------- |
+| `server_members`  | (count)            | SELECT | Cek apakah user member                                 |
+| `servers`         | owner_id           | SELECT | Cek apakah user adalah owner                           |
+| `server_members`  | (count)            | SELECT | Kalau owner: hitung total member di server tersebut    |
+| `servers`         | id                 | DELETE | Kalau owner satu-satunya member: hard-delete seluruh server (FK CASCADE) |
+| `server_members`  | server_id, user_id | DELETE | Kalau bukan owner (atau owner bukan satu-satunya member, malah ditolak): hard-delete membership |
 
-Catatan: row di `server_member_profiles` tidak ikut dihapus — snapshot disimpan untuk history (lihat endpoint `get_profile_history`).
+Catatan: row di `server_member_profiles` tidak ikut dihapus saat member biasa leave — snapshot disimpan untuk history (lihat endpoint `get_profile_history`). Ini tidak berlaku kalau owner tunggal yang leave, karena seluruh server (beserta profile-nya) ikut dihapus.
 
 ---
 
 ## Prerequisites
 
-User adalah member server (bukan owner).
+User adalah member server. Kalau user adalah owner, dia cuma boleh leave kalau dia satu-satunya member yang tersisa (yang otomatis menghapus server); selain itu dia harus transfer ownership atau delete server dulu.
 
 ---
 
@@ -82,6 +91,8 @@ Tidak ada body.
 }
 ```
 
+Di-return baik untuk member biasa yang leave (row membership dihapus) maupun untuk owner tunggal yang leave (seluruh server dihapus).
+
 ### 400 Bad Request
 
 | `error_message`                  | Penyebab     |
@@ -96,9 +107,9 @@ Tidak ada body.
 
 ### 409 Conflict
 
-| `error_message`                                              | Penyebab           |
-| ------------------------------------------------------------ | ------------------ |
-| `Owner cannot leave. Delete server or transfer ownership.`   | User adalah owner   |
+| `error_message`                                                                          | Penyebab                                              |
+| ------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| `Owner cannot leave while other members exist. Transfer ownership or delete the server.` | User adalah owner dan masih ada member lain             |
 
 ### 401 Unauthorized
 
@@ -108,4 +119,4 @@ Standard auth errors.
 
 ## Update
 
-Dokumentasi ini diupdate tanggal 23 Mei 2026.
+Dokumentasi ini diupdate tanggal 20 Juli 2026.

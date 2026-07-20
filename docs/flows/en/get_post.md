@@ -84,21 +84,25 @@ No body.
   "serverId": "server-uuid",
   "caption": "Hello!",
   "imageUrl": "http://.../webp",
+  "mediaType": "image",
   "author": {
     "userId": "user-uuid",
     "nickname": "GamerX",
     "username": "gamerx",
     "avatarUrl": "http://.../webp",
-    "status": "ACTIVE"
+    "status": "active"
   },
   "likeCount": 12,
   "commentCount": 3,
   "userLiked": true,
+  "userSaved": false,
   "isOwner": false,
   "createdAt": "2026-05-23T10:00:00Z",
   "updatedAt": "2026-05-23T10:00:00Z"
 }
 ```
+
+Note: `videoUrl`, `thumbnailUrl`, `mediaWidth`, `mediaHeight`, and `mirrored` are also present when the post's media is a video.
 
 ### 400 Bad Request
 
@@ -126,4 +130,4 @@ Standard auth errors.
 
 ## Update
 
-This documentation was last updated on 23 May 2026.
+This documentation was last updated on 20 July 2026.

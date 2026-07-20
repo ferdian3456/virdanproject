@@ -59,8 +59,8 @@ Requester adalah member server.
 | Field      | Tipe   | Wajib | Aturan          |
 | ---------- | ------ | ----- | --------------- |
 | `serverId` | string | ya    | Required, UUID  |
-| `limit`    | int    | tidak | 0-20, default 10 |
-| `cursor`   | string | tidak | Base64 `{createdAt, id}` |
+| `limit`    | int    | tidak | Default 10 bila tidak dikirim, bukan angka, atau <= 0; dipangkas (clamp) ke 20 bila lebih dari 20 |
+| `cursor`   | string | tidak | Base64 `{createdAt, id}`, harus berhasil di-decode atau 400 dikembalikan |
 
 ---
 
@@ -74,6 +74,14 @@ Requester adalah member server.
   "page": { "nextCursor": "base64-or-empty" }
 }
 ```
+
+### 400 Bad Request
+
+| `error_message`                 | Penyebab                                         |
+| -------------------------------- | --------------------------------------------------- |
+| `serverId is required`          | Segmen path serverId kosong                        |
+| `serverId is not a valid UUID`  | serverId bukan format UUID                         |
+| `Invalid cursor`                | Query param `cursor` gagal di-decode base64/JSON   |
 
 ### 403 Forbidden
 
@@ -90,3 +98,4 @@ Standard auth errors.
 ## Update
 
 Dokumentasi ini dibuat tanggal 1 Juni 2026 (notifikasi per-server).
+Diupdate tanggal 20 Juli 2026 (menambahkan tabel error validasi 400 Bad Request dan memperjelas perilaku `limit`/`cursor`).

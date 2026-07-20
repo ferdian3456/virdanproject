@@ -1,6 +1,6 @@
 ## Overview
 
-This API is used to like a post. Idempotent — if the user has already liked it before, the second request does not error (uses `ON CONFLICT (post_id, user_id) DO NOTHING`). Returns the latest likeCount + `userLiked: true`.
+This API is used to like a post. Idempotent — if the user has already liked it before, the second request does not error (uses `ON CONFLICT (post_id, user_id) DO NOTHING`). Returns the latest likeCount + `userLiked: true`. If a new like row was actually inserted (not a duplicate) and the post author is a different user than the actor, a `"like"` push notification is sent to the post author.
 
 ---
 
@@ -15,6 +15,7 @@ sequenceDiagram
     actor Client
     participant BE
     participant Postgres
+    participant Notification
 
     Client->>BE: POST /api/posts/(postId)/likes
     BE->>BE: Middleware extract userId
@@ -31,6 +32,13 @@ sequenceDiagram
         BE-->>Client: 403 You are not a member of this server
     end
     BE->>Postgres: INSERT INTO server_post_likes ... ON CONFLICT (post_id, user_id) DO NOTHING
+    alt Row was actually inserted (new like)
+        BE->>Postgres: SELECT author_id FROM server_posts WHERE id = postId
+        alt Post author != actor userId
+            BE->>Postgres: Resolve actor's server_member_profiles.id
+            BE->>Notification: Notify([{type: "like", recipient: postAuthorId, actor: userId, postId, serverId}])
+        end
+    end
     BE->>Postgres: COUNT likes WHERE post_id = $1
     BE-->>Client: 200 {postId, userLiked: true, likeCount}
 ```
@@ -50,7 +58,11 @@ Does not use Redis.
 | `server_posts`       | server_id                              | SELECT | Fetch server_id for the membership check            |
 | `server_members`     | (count)                                | SELECT | Check membership                                    |
 | `server_post_likes`  | id, post_id, user_id, created_at, ... | INSERT | Idempotent with `ON CONFLICT (post_id, user_id) DO NOTHING` |
+| `server_posts`       | author_id                              | SELECT | Resolve post author (skipped if the like was a duplicate) |
+| `server_member_profiles` | (profile id)                       | SELECT | Resolve actor's profile id for the notification (skipped if author == actor) |
 | `server_post_likes`  | (count)                                | SELECT | New likeCount                                       |
+
+Note: the `like` notification is only sent when a **new** like row was inserted (not on a duplicate/idempotent like) and only when the post author is a **different** user than the actor (no self-notification).
 
 ---
 
@@ -116,4 +128,4 @@ Standard auth errors.
 
 ## Update
 
-This documentation was last updated on 23 May 2026.
+This documentation was last updated on 20 July 2026.

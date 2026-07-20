@@ -34,6 +34,7 @@ sequenceDiagram
     BE->>BE: Generate access token (JWT, 15m) + refresh token (UUID, 7d)
     BE->>Postgres: INSERT INTO refresh_tokens (no tx)
     BE->>Redis: SET auth:accessToken:(userId) = hash(accessToken), EX 15m
+    BE->>BE: Close any existing WebSocket connections for this user (Hub.CloseUser)
     BE-->>Client: 200 TokenResponse
 ```
 
@@ -121,4 +122,4 @@ The email is automatically lowercased after validation.
 
 ## Update
 
-This documentation was last updated on 23 May 2026.
+This documentation was last updated on 20 July 2026.

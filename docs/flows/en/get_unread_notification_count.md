@@ -66,6 +66,13 @@ The requester is a member of the server.
 { "count": 3 }
 ```
 
+### 400 Bad Request
+
+| `error_message`                 | Cause                            |
+| -------------------------------- | --------------------------------- |
+| `serverId is required`          | serverId path segment empty      |
+| `serverId is not a valid UUID`  | serverId is not in UUID format   |
+
 ### 403 Forbidden
 
 | `error_message`                       | Cause                  |
@@ -81,3 +88,4 @@ Standard auth errors.
 ## Update
 
 Created on 1 June 2026 (per-server notifications).
+Updated on 20 July 2026 (added the 400 Bad Request validation error table).

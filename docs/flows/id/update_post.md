@@ -88,15 +88,19 @@ Body JSON:
   "serverId": "server-uuid",
   "caption": "Caption baru",
   "imageUrl": "http://.../webp",
-  "author": { "userId": "...", "nickname": "...", "username": "...", "avatarUrl": null, "status": "ACTIVE" },
+  "mediaType": "image",
+  "author": { "userId": "...", "nickname": "...", "username": "...", "avatarUrl": null, "status": "active" },
   "likeCount": 5,
   "commentCount": 2,
   "userLiked": false,
+  "userSaved": false,
   "isOwner": true,
   "createdAt": "2026-05-23T08:00:00Z",
   "updatedAt": "2026-05-23T10:00:00Z"
 }
 ```
+
+Catatan: post detail juga menyertakan `videoUrl`, `thumbnailUrl`, `mediaWidth`, `mediaHeight`, dan `mirrored` kalau media post-nya adalah video (lihat `create_post.md`).
 
 ### 400 Bad Request
 
@@ -122,4 +126,4 @@ Standard auth errors.
 
 ## Update
 
-Dokumentasi ini diupdate tanggal 23 Mei 2026.
+Dokumentasi ini diupdate tanggal 20 Juli 2026.

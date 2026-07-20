@@ -39,7 +39,7 @@ sequenceDiagram
         BE->>Postgres: INSERT INTO server_avatar_images
     end
     BE->>Postgres: INSERT INTO servers
-    BE->>Postgres: INSERT INTO server_roles (Owner, Member)
+    BE->>Postgres: INSERT INTO server_roles (Owner, Admin, Member)
     BE->>Postgres: INSERT INTO server_members (owner as Owner)
     BE->>Postgres: INSERT INTO server_member_profiles (snapshot copy-on-join)
     alt serverAvatar present
@@ -65,7 +65,7 @@ Does not use Redis (other than the auth-check middleware).
 | `profile_avatar_images`   | (full)                                          | INSERT | If profileAvatar is uploaded (copy-on-join)          |
 | `server_avatar_images`    | (full)                                          | INSERT | If serverAvatar is uploaded                           |
 | `servers`                 | id, owner_id, name, short_name, ...             | INSERT | New server                                           |
-| `server_roles`            | id, server_id, name, permissions                | INSERT | Owner role (`{"all":true}`) + Member (`{}`)         |
+| `server_roles`            | id, server_id, name, permissions                | INSERT | Owner role (`{"all":true}`) + Admin (`{}`) + Member (`{}`) |
 | `server_members`          | id, server_id, user_id, server_role_id, joined_at | INSERT | Owner as a member with the Owner role               |
 | `server_member_profiles`  | id, server_id, user_id, nickname, username, bio | INSERT | Per-server profile snapshot (copy-on-join Option B)  |
 
@@ -179,4 +179,4 @@ Note: in this create server response, the fields `settings`, `categoryName`, `ba
 
 ## Update
 
-This documentation was last updated on 23 May 2026.
+This documentation was last updated on 20 July 2026.

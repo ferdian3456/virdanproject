@@ -99,7 +99,7 @@ Query parameters:
         "nickname": "GamerX",
         "username": "gamerx",
         "avatarUrl": "http://.../webp",
-        "status": "ACTIVE"
+        "status": "active"
       },
       "isOwner": false,
       "createdAt": "2026-05-23T10:00:00Z",
@@ -141,4 +141,4 @@ Standard auth errors.
 
 ## Update
 
-This documentation was last updated on 23 May 2026.
+This documentation was last updated on 20 July 2026.

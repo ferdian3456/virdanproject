@@ -22,7 +22,7 @@ sequenceDiagram
     alt Body invalid
         BE-->>Client: 400 Bad Request
     end
-    BE->>Postgres: UPDATE users.settings (notification prefs) WHERE id = userId
+    BE->>Postgres: UPDATE users SET settings = settings || jsonb_build_object('notif_like', $1, 'notif_comment', $2, 'notif_reply', $3), updated_at = $4, updated_by = $5 WHERE id = $6 AND deleted_at IS NULL
     BE-->>Client: 200 {status: OK}
 ```
 
@@ -36,9 +36,11 @@ Does not use Redis.
 
 ## Notes Postgres/DB
 
-| Table   | Column                         | Action | Notes                                       |
-| ------- | ------------------------------ | ------ | ------------------------------------------- |
-| `users` | settings (notification prefs)  | UPDATE | Persist the user's per-type push toggles    |
+| Table   | Column                         | Action | Notes                                                          |
+| ------- | ------------------------------ | ------ | ---------------------------------------------------------------- |
+| `users` | settings (notif_like, notif_comment, notif_reply keys) | UPDATE | Merged into the existing JSONB via `settings \|\| jsonb_build_object(...)` |
+| `users` | updated_at                     | UPDATE | `time.Now()` (not explicitly UTC-normalized, unlike other endpoints) |
+| `users` | updated_by                     | UPDATE | userId (self)                                                  |
 
 ---
 
@@ -52,11 +54,13 @@ User is logged in (valid access token).
 
 Body (JSON):
 
-| Field          | Type | Required | Rules      |
-| -------------- | ---- | -------- | ---------- |
-| `notifLike`    | bool | yes      | true/false |
-| `notifComment` | bool | yes      | true/false |
-| `notifReply`   | bool | yes      | true/false |
+There is no field-level validation in the service (no `shared.NewValidator()` checks) — a field omitted from the JSON body simply defaults to `false` rather than triggering a 400.
+
+| Field          | Type | Required | Rules                              |
+| -------------- | ---- | -------- | ----------------------------------- |
+| `notifLike`    | bool | no       | true/false, defaults to false if omitted |
+| `notifComment` | bool | no       | true/false, defaults to false if omitted |
+| `notifReply`   | bool | no       | true/false, defaults to false if omitted |
 
 ---
 
@@ -76,9 +80,9 @@ Body (JSON):
 
 ### 400 Bad Request
 
-| `error_message`   | Cause            |
-| ----------------- | ---------------- |
-| Invalid body      | Malformed payload |
+| `error_message`                            | Cause             |
+| ------------------------------------------- | ----------------- |
+| `The request is invalid or malformed`      | Malformed JSON body (e.g. a field is not a boolean) |
 
 ### 401 Unauthorized
 
@@ -88,4 +92,4 @@ Standard auth errors.
 
 ## Update
 
-This documentation was last updated on 3 June 2026.
+This documentation was last updated on 20 July 2026.

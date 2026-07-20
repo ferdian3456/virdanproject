@@ -1,13 +1,13 @@
 ## Overview
 
-This API is used to soft-delete the currently logged-in user's account. The backend will:
-1. Hard-delete all servers owned by the user (FK CASCADE cleans up roles/members/profiles/posts/comments/likes/invites in those servers).
-2. Hard-delete all of the user's server_members in other servers.
-3. Soft-delete the users row (set `deleted_at`).
-4. Revoke all of the user's refresh tokens.
+This API is used to permanently delete the currently logged-in user's account. The backend will:
+1. Check that the user still exists (not previously deleted).
+2. Check that the user does not own any servers (`servers.owner_id` has an `ON DELETE RESTRICT` FK to `users`) — if they still own a server, the deletion is rejected with a 409 so the user can transfer ownership or leave first.
+3. Hard-delete the user's posts and comments (`server_posts.author_id` / `server_post_comments.author_id` are `ON DELETE RESTRICT`, so these must be removed before the user row itself can be deleted).
+4. Hard-delete the `users` row itself. All other rows that reference the user (`refresh_tokens`, `server_members`, `server_member_profiles`, `server_post_likes`, `server_post_saves`, `device_tokens`, `notifications`, `dm_conversations`, etc.) are cleaned up automatically by `ON DELETE CASCADE` FKs.
 5. Clear the access token cache in Redis.
 
-Objects in MinIO are intentionally left orphaned in Phase 1 (cleanup job in Phase 2). Comments/likes in other servers are also retained because the FK to the users row still exists (soft delete).
+Objects in MinIO (avatars, post images/videos) are intentionally left orphaned (cleanup handled separately, not by this endpoint).
 
 ---
 
@@ -31,11 +31,14 @@ sequenceDiagram
     alt User not found / already deleted
         BE-->>Client: 404 User not found or already deleted
     end
+    BE->>Postgres: SELECT COUNT(*) FROM servers WHERE owner_id = $1
+    alt User still owns one or more servers
+        BE-->>Client: 409 You still own one or more servers. Transfer ownership or leave them before deleting your account.
+    end
     BE->>Postgres: BEGIN
-    BE->>Postgres: DELETE FROM servers WHERE owner_id = $1 (FK CASCADE)
-    BE->>Postgres: DELETE FROM server_members WHERE user_id = $1
-    BE->>Postgres: UPDATE users SET deleted_at=now, updated_at=now, updated_by=userId WHERE id = $1
-    BE->>Postgres: UPDATE refresh_tokens SET revoked_at=now WHERE user_id = $1 AND revoked_at IS NULL
+    BE->>Postgres: DELETE FROM server_posts WHERE author_id = $1
+    BE->>Postgres: DELETE FROM server_post_comments WHERE author_id = $1
+    BE->>Postgres: DELETE FROM users WHERE id = $1 (hard delete, dependents cleaned up via FK CASCADE)
     BE->>Redis: DEL auth:accessToken:(userId)
     BE->>Postgres: COMMIT
     BE-->>Client: 200 {status: "OK"}
@@ -53,25 +56,21 @@ sequenceDiagram
 
 ## Notes Postgres/DB
 
-| Table             | Column       | Action | Notes                                                                       |
-| ----------------- | ------------ | ------ | --------------------------------------------------------------------------- |
-| `users`           | id           | SELECT | Check active user (`deleted_at IS NULL`)                                    |
-| `servers`         | owner_id     | DELETE | Hard-delete all servers owned by the user (FK CASCADE cleans up related tables) |
-| `server_members`  | user_id      | DELETE | Hard-delete the user's membership in other servers                          |
-| `users`           | deleted_at   | UPDATE | Soft-delete timestamp                                                       |
-| `users`           | updated_at   | UPDATE | UTC now                                                                     |
-| `users`           | updated_by   | UPDATE | userId (self)                                                               |
-| `refresh_tokens`  | revoked_at   | UPDATE | Revoke all refresh tokens                                                   |
-| `refresh_tokens`  | updated_at   | UPDATE | UTC now                                                                     |
-| `refresh_tokens`  | updated_by   | UPDATE | userId                                                                      |
+| Table                   | Column    | Action | Notes                                                                     |
+| ----------------------- | --------- | ------ | -------------------------------------------------------------------------- |
+| `users`                 | id        | SELECT | Check active user (`deleted_at IS NULL`)                                  |
+| `servers`               | owner_id  | SELECT | Count servers owned by the user (must be 0 to proceed)                   |
+| `server_posts`          | author_id | DELETE | Hard-delete the user's posts (required: FK is `ON DELETE RESTRICT`)       |
+| `server_post_comments`  | author_id | DELETE | Hard-delete the user's comments (required: FK is `ON DELETE RESTRICT`)   |
+| `users`                 | id        | DELETE | Hard-delete the user row itself                                          |
 
-The `server_member_profiles` table is retained (historical snapshot) because the FK CASCADE from `servers` already handles rows related to the deleted servers, while in other servers the rows remain (no cascade from `users` because of soft-delete).
+Deleting the `users` row cascades (`ON DELETE CASCADE`) to `refresh_tokens`, `server_members`, `server_member_profiles`, `server_post_likes`, `server_post_saves`, `device_tokens`, `notifications`, and `dm_conversations`/`dm_messages`, among others — these are not deleted with explicit queries by this endpoint.
 
 ---
 
 ## Prerequisites
 
-User is already logged in and has a valid access token.
+User is already logged in and has a valid access token. The user must not currently own any servers.
 
 ---
 
@@ -103,10 +102,16 @@ The endpoint does not accept a body. Authentication via header.
 
 | `error_message`                       | Cause                                   |
 | ------------------------------------- | --------------------------------------- |
-| `User not found or already deleted`   | User was already soft-deleted previously  |
+| `User not found or already deleted`   | User was already deleted previously  |
+
+### 409 Conflict
+
+| `error_message`                                                                                      | Cause                                  |
+| ------------------------------------------------------------------------------------------------------ | --------------------------------------- |
+| `You still own one or more servers. Transfer ownership or leave them before deleting your account.`     | `CountServersOwnedByUser` returns > 0   |
 
 ---
 
 ## Update
 
-This documentation was last updated on 23 May 2026.
+This documentation was last updated on 20 July 2026.

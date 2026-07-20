@@ -88,15 +88,19 @@ Body JSON:
   "serverId": "server-uuid",
   "caption": "Caption baru",
   "imageUrl": "http://.../webp",
-  "author": { "userId": "...", "nickname": "...", "username": "...", "avatarUrl": null, "status": "ACTIVE" },
+  "mediaType": "image",
+  "author": { "userId": "...", "nickname": "...", "username": "...", "avatarUrl": null, "status": "active" },
   "likeCount": 5,
   "commentCount": 2,
   "userLiked": false,
+  "userSaved": false,
   "isOwner": true,
   "createdAt": "2026-05-23T08:00:00Z",
   "updatedAt": "2026-05-23T10:00:00Z"
 }
 ```
+
+Note: the post detail also includes `videoUrl`, `thumbnailUrl`, `mediaWidth`, `mediaHeight`, and `mirrored` when the post's media is a video (see `create_post.md`).
 
 ### 400 Bad Request
 
@@ -122,4 +126,4 @@ Standard auth errors.
 
 ## Update
 
-This documentation was last updated on 23 May 2026.
+This documentation was last updated on 20 July 2026.

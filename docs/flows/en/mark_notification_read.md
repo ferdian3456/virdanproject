@@ -18,7 +18,10 @@ sequenceDiagram
 
     Client->>BE: POST /api/servers/(serverId)/notifications/(id)/read
     BE->>BE: Middleware extract userId
-    BE->>BE: Validate serverId & id (UUID)
+    BE->>BE: Validate serverId (required, UUID) & id (UUID format if non-empty; not required)
+    alt Validation Error
+        BE-->>Client: 400 e.g.: serverId is not a valid UUID
+    end
     BE->>Postgres: Check requester membership
     alt Not a member
         BE-->>Client: 403 You are not a member of this server
@@ -54,8 +57,8 @@ The requester is a member of the server; the notification belongs to the request
 
 | Field      | Type   | Required | Rules          |
 | ---------- | ------ | -------- | -------------- |
-| `serverId` | string | yes      | Required, UUID |
-| `id`       | string | yes      | Required, UUID |
+| `serverId` | string | yes      | Required, must be a valid UUID |
+| `id`       | string | no       | Not enforced as required by the validator (only checked with `.UUID()`, which no-ops on an empty value); must be a valid UUID if non-empty |
 
 ---
 
@@ -69,7 +72,11 @@ The requester is a member of the server; the notification belongs to the request
 
 ### 400 Bad Request
 
-Invalid UUID (serverId / id).
+| `error_message`                 | Cause                                       |
+| -------------------------------- | --------------------------------------------- |
+| `serverId is required`          | serverId path segment empty                  |
+| `serverId is not a valid UUID`  | serverId is not in UUID format                |
+| `id is not a valid UUID`        | id (notification id) is present but not in UUID format |
 
 ### 403 Forbidden
 
@@ -86,3 +93,4 @@ Standard auth errors.
 ## Update
 
 Created on 1 June 2026 (per-server notifications).
+Updated on 20 July 2026 (corrected `id` validation rule and expanded the 400 Bad Request table).

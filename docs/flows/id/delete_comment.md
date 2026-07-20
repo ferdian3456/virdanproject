@@ -1,6 +1,6 @@
 ## Overview
 
-API ini digunakan untuk hard-delete comment. Hanya author comment yang boleh. FK CASCADE menghapus reply (anak comment) bila ada.
+API ini digunakan untuk hard-delete comment. Author comment selalu bisa menghapus comment-nya sendiri; server owner atau admin juga boleh menghapus comment apapun di server tersebut. Member lain akan dapat `403 You are not the author of this comment`. FK CASCADE menghapus reply (anak comment) bila ada.
 
 ---
 
@@ -32,7 +32,10 @@ sequenceDiagram
     end
     BE->>Postgres: Cek comment ownership (author_id = userId)
     alt Bukan author
-        BE-->>Client: 403 You are not the author of this comment
+        BE->>Postgres: SELECT role requester di server
+        alt Role bukan owner atau admin
+            BE-->>Client: 403 You are not the author of this comment
+        end
     end
     BE->>Postgres: SELECT 1 FROM server_post_comments WHERE id = commentId AND post_id = postId
     alt Comment tidak ada / beda post
@@ -58,6 +61,7 @@ Tidak pakai Redis.
 | `server_posts`         | server_id          | SELECT | Ambil server_id buat membership check        |
 | `server_members`       | (count)            | SELECT | Cek membership                                |
 | `server_post_comments` | author_id          | SELECT | Cek ownership                                 |
+| `server_members`       | role_name          | SELECT | Role requester (hanya kalau bukan author comment) |
 | `server_post_comments` | id, post_id        | SELECT | Cek comment exists & belong to post           |
 | `server_post_comments` | id                 | DELETE | Hard-delete (FK CASCADE → reply)               |
 
@@ -65,7 +69,7 @@ Tidak pakai Redis.
 
 ## Prerequisites
 
-User adalah member server dan author comment.
+User adalah member server, dan salah satu dari: author comment, server owner, atau admin server.
 
 ---
 
@@ -104,7 +108,7 @@ Tidak ada body.
 | `error_message`                              | Penyebab                |
 | -------------------------------------------- | ----------------------- |
 | `You are not a member of this server`        | Bukan member             |
-| `You are not the author of this comment`     | Bukan author comment     |
+| `You are not the author of this comment`     | Bukan author comment, dan bukan server owner/admin |
 
 ### 404 Not Found
 
@@ -121,4 +125,4 @@ Standard auth errors.
 
 ## Update
 
-Dokumentasi ini diupdate tanggal 23 Mei 2026.
+Dokumentasi ini diupdate tanggal 20 Juli 2026.

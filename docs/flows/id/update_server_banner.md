@@ -32,7 +32,7 @@ sequenceDiagram
     alt File tidak ada
         BE-->>Client: 400 Banner image is required
     end
-    BE->>BE: ValidateImage (max 5MB, jpg/png/gif/webp), convert WebP 512x512
+    BE->>BE: ValidateImage (max 5MB, jpg/png/gif/webp), convert ke WebP di-resize supaya fit dalam 1920x1080 (tanpa crop)
     BE->>Postgres: BEGIN
     BE->>Postgres: SELECT old banner_image_id
     BE->>Postgres: INSERT INTO server_banner_images
@@ -87,7 +87,7 @@ Format: `multipart/form-data`.
 | Field        | Tipe   | Wajib | Aturan                                  |
 | ------------ | ------ | ----- | --------------------------------------- |
 | `id` (path)  | string | ya    | Required, UUID                           |
-| `banner`     | file   | ya    | Image (jpg/jpeg/png/gif/webp), max 5MB  |
+| `banner`     | file   | ya    | Image (jpg/jpeg/png/gif/webp), max 5MB, di-resize supaya fit dalam 1920x1080 (tanpa crop) |
 
 ---
 
@@ -126,4 +126,4 @@ Standard auth errors.
 
 ## Update
 
-Dokumentasi ini diupdate tanggal 23 Mei 2026.
+Dokumentasi ini diupdate tanggal 20 Juli 2026.
