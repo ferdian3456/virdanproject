@@ -257,6 +257,12 @@ func ObservabilityMiddleware(koanfInstance *koanf.Koanf, meterProvider metric.Me
 			zap.Int64("http.request.duration_ms", duration.Milliseconds()),
 		)
 
+		logger.Debug("Request/response body",
+			zap.String("http.request_id", requestID),
+			zap.ByteString("http.request.body", c.Request().Body()),
+			zap.ByteString("http.response.body", c.Response().Body()),
+		)
+
 		span.End()
 		propagator.Inject(ctx, propagation.HeaderCarrier(c.GetRespHeaders()))
 

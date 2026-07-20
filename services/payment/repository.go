@@ -266,6 +266,45 @@ func (repository *Repository) ListOrdersByUser(ctx context.Context, userId strin
 	return items, nil
 }
 
+func (repository *Repository) GetOrderDetailByIdForUser(ctx context.Context, orderId, userId string) (PlusOrderDetailResponse, error) {
+	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
+	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.GetOrderDetailByIdForUser")
+	var err error
+	defer func() {
+		if err != nil {
+			shared.RecordErrorTelemetry(ctx, span, err)
+		}
+		span.End()
+	}()
+
+	span.SetAttributes(
+		attribute.String("db.system", "postgres"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("order.id", orderId),
+	)
+
+	query := `
+		SELECT o.id, o.server_id, s.name, o.reference_id, o.base_idr, o.tax_idr, o.total_idr, o.status, o.paid_at, o.plus_expires_at, o.created_at
+		FROM server_plus_orders o
+		INNER JOIN servers s ON s.id = o.server_id
+		WHERE o.id = $1 AND o.user_id = $2`
+
+	var detail PlusOrderDetailResponse
+	err = repository.DB.QueryRow(ctx, query, orderId, userId).Scan(
+		&detail.Id, &detail.ServerId, &detail.ServerName, &detail.ReferenceId,
+		&detail.BaseIdr, &detail.TaxIdr, &detail.TotalIdr, &detail.Status,
+		&detail.PaidAt, &detail.PlusExpiresAt, &detail.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			err = &shared.NotFoundError{Code: shared.ERR_NOT_FOUND_CODE, Message: "Order not found", Param: "orderId"}
+			return detail, err
+		}
+		shared.GetLoggerWithTraceContext(ctx, repository.Log).Error("GetOrderDetailByIdForUser failed", zap.Error(err))
+		return detail, err
+	}
+	return detail, nil
+}
+
 func (repository *Repository) InsertWebhookEventIdempotent(ctx context.Context, event XenditWebhookEvent) (inserted bool, err error) {
 	serviceName := repository.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName+"-repository").Start(ctx, "repository.InsertWebhookEventIdempotent")

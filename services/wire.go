@@ -62,7 +62,7 @@ func Wire(d Deps) *Registry {
 	notificationSvc := notification.NewService(notificationRepo, serverRepo, d.FCM, d.DB, d.Log, d.Config)
 	notificationCtrl := notification.NewController(notificationSvc, d.Log, d.Config)
 
-	xenditClient := shared.NewXenditClient(d.Config, d.Log)
+	xenditClient := payment.NewXenditClient(d.Config, d.Log)
 	paymentRepo := payment.NewRepository(d.Log, d.Config, d.DB)
 	paymentSvc := payment.NewService(paymentRepo, serverRepo, xenditClient, d.DB, d.Log, d.Config)
 	paymentCtrl := payment.NewController(paymentSvc, d.Log, d.Config)

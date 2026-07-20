@@ -225,6 +225,78 @@ func TestCheckout_RejectWhenActive(t *testing.T) {
 	setup.LogTestPass(t, "TestCheckout_RejectWhenActive")
 }
 
+func TestOrderDetail_Success(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+	t.Parallel()
+	setup.LogTestStart(t, "TestOrderDetail_Success")
+	app, db, _, _ := setup.SetupParallelTest(t)
+	defer db.Close()
+	globalInfra := setup.GetGlobalInfra()
+
+	token := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "plusdetail@example.com", "password123")
+	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, token, "Plus Detail", "plusdetail", 1, false)
+	userID := setup.GetUserId(t, app, token)
+
+	orderID := uuid.New().String()
+	referenceID := "virdan-plus-" + orderID
+	now := time.Now().UTC()
+	expires := now.AddDate(0, 0, 30)
+	_, execErr := db.Exec(t.Context(),
+		`INSERT INTO server_plus_orders
+		 (id, server_id, user_id, reference_id, xendit_payment_id, base_idr, tax_idr, total_idr, status, paid_at, plus_expires_at, created_at, updated_at, created_by, updated_by)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'PAID',$9,$10,$9,$9,$3,$3)`,
+		orderID, serverID, userID, referenceID, "py-"+setup.GenerateRandomString(8), 50000, 5500, 55500, now, expires)
+	require.NoError(t, execErr)
+
+	req := setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/me/plus-orders/%s", orderID), nil, token)
+	resp, err := setup.TestRequestWithLogging(t, app, req)
+	require.NoError(t, err)
+	setup.RequireStatus(t, resp, 200)
+
+	result := setup.ParseJSONResponse(t, resp)
+	require.Equal(t, orderID, result["id"])
+	require.Equal(t, serverID, result["serverId"])
+	require.Equal(t, referenceID, result["referenceId"])
+	require.EqualValues(t, 50000, result["baseIdr"])
+	require.EqualValues(t, 5500, result["taxIdr"])
+	require.EqualValues(t, 55500, result["totalIdr"])
+	require.Equal(t, "PAID", result["status"])
+	setup.LogTestPass(t, "TestOrderDetail_Success")
+}
+
+func TestOrderDetail_NotOwner(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+	t.Parallel()
+	setup.LogTestStart(t, "TestOrderDetail_NotOwner")
+	app, db, _, _ := setup.SetupParallelTest(t)
+	defer db.Close()
+	globalInfra := setup.GetGlobalInfra()
+
+	owner := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "plusdetailowner@example.com", "password123")
+	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, owner, "Plus Detail Owner", "pldetown", 1, false)
+	ownerID := setup.GetUserId(t, app, owner)
+	outsider := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "plusdetailoutsider@example.com", "password123")
+
+	orderID := uuid.New().String()
+	now := time.Now().UTC()
+	_, execErr := db.Exec(t.Context(),
+		`INSERT INTO server_plus_orders
+		 (id, server_id, user_id, reference_id, base_idr, tax_idr, total_idr, status, created_at, updated_at, created_by, updated_by)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,'PENDING',$8,$8,$3,$3)`,
+		orderID, serverID, ownerID, "virdan-plus-"+orderID, 50000, 5500, 55500, now)
+	require.NoError(t, execErr)
+
+	req := setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/me/plus-orders/%s", orderID), nil, outsider)
+	resp, err := setup.TestRequestWithLogging(t, app, req)
+	require.NoError(t, err)
+	setup.RequireStatus(t, resp, 404)
+	setup.LogTestPass(t, "TestOrderDetail_NotOwner")
+}
+
 func TestCreatePost_WithActivePlus_Succeeds(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")

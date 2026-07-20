@@ -70,6 +70,20 @@ type PlusOrderHistoryResponse struct {
 	Page Page                   `json:"page"`
 }
 
+type PlusOrderDetailResponse struct {
+	Id            string     `json:"id"`
+	ServerId      string     `json:"serverId"`
+	ServerName    string     `json:"serverName"`
+	ReferenceId   string     `json:"referenceId"`
+	BaseIdr       int64      `json:"baseIdr"`
+	TaxIdr        int64      `json:"taxIdr"`
+	TotalIdr      int64      `json:"totalIdr"`
+	Status        string     `json:"status"`
+	PaidAt        *time.Time `json:"paidAt"`
+	PlusExpiresAt *time.Time `json:"plusExpiresAt"`
+	CreatedAt     time.Time  `json:"createdAt"`
+}
+
 type PlusOrderCursor struct {
 	CreatedAt time.Time `json:"createdAt"`
 	Id        string    `json:"id"`

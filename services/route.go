@@ -131,6 +131,7 @@ func RegisterRoutes(app fiber.Router, r *Registry, d Deps) {
 
 	meGroup := api.Group("/me", r.AuthMiddleware.ProtectedRoute())
 	meGroup.Get("/plus-orders", r.Payment.ListMyOrders)
+	meGroup.Get("/plus-orders/:orderId", r.Payment.GetOrderDetail)
 
 	webhookGroup := api.Group("/webhooks")
 	webhookGroup.Post("/xendit", r.Payment.HandleWebhook)

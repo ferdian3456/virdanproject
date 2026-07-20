@@ -21,13 +21,13 @@ import (
 type Service struct {
 	Repo         *Repository
 	ServerRepo   *server.Repository
-	XenditClient *shared.XenditClient
+	XenditClient *XenditClient
 	DB           *pgxpool.Pool
 	Log          *zap.Logger
 	Config       *koanf.Koanf
 }
 
-func NewService(repo *Repository, serverRepo *server.Repository, xenditClient *shared.XenditClient, db *pgxpool.Pool, log *zap.Logger, config *koanf.Koanf) *Service {
+func NewService(repo *Repository, serverRepo *server.Repository, xenditClient *XenditClient, db *pgxpool.Pool, log *zap.Logger, config *koanf.Koanf) *Service {
 	return &Service{
 		Repo:         repo,
 		ServerRepo:   serverRepo,
@@ -219,6 +219,35 @@ func (service *Service) ListMyOrders(ctx fiber.Ctx, userId, cursorStr string, li
 	return response, nil
 }
 
+func (service *Service) GetOrderDetail(ctx fiber.Ctx, userId, orderId string) (PlusOrderDetailResponse, error) {
+	ctxContext := ctx.Context()
+	serviceName := service.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-service").Start(ctxContext, "service.GetPlusOrderDetail")
+	var err error
+	defer func() {
+		if err != nil {
+			shared.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	var response PlusOrderDetailResponse
+
+	v := shared.NewValidator()
+	v.UUID("orderId", orderId).Required()
+	if err = v.Validate(); err != nil {
+		return response, err
+	}
+
+	span.SetAttributes(attribute.String("user.id", userId), attribute.String("order.id", orderId))
+
+	response, err = service.Repo.GetOrderDetailByIdForUser(ctxContext, orderId, userId)
+	if err != nil {
+		return response, err
+	}
+	return response, nil
+}
+
 func (service *Service) HandleWebhook(ctx context.Context, callbackToken string, rawPayload []byte) error {
 	serviceName := service.Config.String("OTEL_SERVICE_NAME")
 	ctx, span := otel.Tracer(serviceName+"-service").Start(ctx, "service.HandlePlusWebhook")
@@ -249,8 +278,8 @@ func (service *Service) HandleWebhook(ctx context.Context, callbackToken string,
 		return err
 	}
 
-	eventId := envelope.Data.PaymentId
-	if eventId == "" {
+	eventId := envelope.Event + ":" + envelope.Data.PaymentId
+	if envelope.Data.PaymentId == "" {
 		eventId = envelope.Event + "-" + envelope.Data.ReferenceId
 	}
 

@@ -101,6 +101,30 @@ func (controller *Controller) ListMyOrders(ctx fiber.Ctx) error {
 	return shared.SendSuccessResponseWithData(ctx, response)
 }
 
+func (controller *Controller) GetOrderDetail(ctx fiber.Ctx) error {
+	ctxContext := ctx.Context()
+	serviceName := controller.Config.String("OTEL_SERVICE_NAME")
+	ctxContext, span := otel.Tracer(serviceName+"-controller").Start(ctxContext, "controller.GetPlusOrderDetail")
+	ctx.SetContext(ctxContext)
+	var err error
+	defer func() {
+		if err != nil {
+			shared.RecordErrorTelemetry(ctxContext, span, err)
+		}
+		span.End()
+	}()
+
+	userId := ctx.Locals("userId").(string)
+	orderId := ctx.Params("orderId")
+
+	var response PlusOrderDetailResponse
+	response, err = controller.Service.GetOrderDetail(ctx, userId, orderId)
+	if err != nil {
+		return shared.SendError(ctx, err)
+	}
+	return shared.SendSuccessResponseWithData(ctx, response)
+}
+
 func (controller *Controller) HandleWebhook(ctx fiber.Ctx) error {
 	ctxContext := ctx.Context()
 	serviceName := controller.Config.String("OTEL_SERVICE_NAME")

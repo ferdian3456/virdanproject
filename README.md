@@ -86,6 +86,50 @@ atlas.hcl                  # Atlas migration environment config
 Makefile                   # CI, test, migration, and deploy targets
 ```
 
+## Running Locally
+
+Infra (Postgres, Redis, MinIO, observability stack) runs in Docker; the app binary runs on the
+host for fast iteration.
+
+```bash
+cd deployments/docker-compose/local
+docker compose up -d
+go run ./cmd            # from repo root
+```
+
+To run the app itself in a container instead (full containerized stack, rebuild required per
+code change):
+
+```bash
+cd deployments/docker-compose/local
+docker compose -f docker-compose.yml -f docker-compose.app.yml up -d --build
+```
+
+Default ports: Postgres `5435`, Redis `6379`, MinIO `9000`/`9001` (console), app `8081` (when
+containerized), Grafana `3001`, Prometheus `9090`, Tempo `3200`, Loki `3102`.
+
+## Running in Production
+
+Single compose stack (app, infra, observability, nginx, Cloudflare tunnel) — no separate app
+override, everything is containerized.
+
+```bash
+cd deployments/docker-compose/prod
+cp .env.example .env   # fill in POSTGRES_*, MINIO_*, GRAFANA_ADMIN_PASSWORD, CLOUDFLARE_TUNNEL_TOKEN
+docker compose up -d --build
+```
+
+Notes:
+- `nginx` is the only container exposing a host port (`80`); the app itself is not published
+  directly and is reached via nginx / the Cloudflare tunnel.
+- `cloudflared` requires `CLOUDFLARE_TUNNEL_TOKEN` and handles external ingress — no ports opened
+  for it directly.
+- Postgres is bound to `127.0.0.1:5432` (host-local access only, e.g. for migrations/backups).
+- Each service has a memory limit (`deploy.resources.limits`); check `docker compose logs <service>`
+  if a container gets OOM-killed.
+- `cadvisor` runs privileged (needed for container-level metrics) — expected in this stack, not a
+  misconfiguration.
+
 ## Request Flow
 
 ```
