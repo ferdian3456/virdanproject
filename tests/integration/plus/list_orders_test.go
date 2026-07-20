@@ -90,7 +90,7 @@ func TestListMyOrders_OnlyOwnOrders(t *testing.T) {
 	globalInfra := setup.GetGlobalInfra()
 
 	ownerToken := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "listordersowner@example.com", "password123")
-	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, ownerToken, "List Orders Owner Server", "listordersown", 1, false)
+	serverID := setup.CreateTestServer(t, app, globalInfra.RedisURL, ownerToken, "List Orders Owner Server", "listordo", 1, false)
 	ownerID := setup.GetUserId(t, app, ownerToken)
 
 	otherToken := setup.CreateTestUser(t, app, globalInfra.MailhogURL, "listordersother@example.com", "password123")

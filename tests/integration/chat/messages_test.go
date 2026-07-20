@@ -213,7 +213,7 @@ func TestListMessages_NotParticipant(t *testing.T) {
 
 	infra := setup.GetGlobalInfra()
 	aToken := setup.CreateTestUser(t, app, infra.MailhogURL, "dm-listmsg-np-a@example.com", "password123")
-	serverID := setup.CreateTestServer(t, app, infra.RedisURL, aToken, "DM ListMsg NP Server", "dmlistmsgnp", 1, false)
+	serverID := setup.CreateTestServer(t, app, infra.RedisURL, aToken, "DM ListMsg NP Server", "dmlistmnp", 1, false)
 
 	bToken := setup.CreateTestUser(t, app, infra.MailhogURL, "dm-listmsg-np-b@example.com", "password123")
 	setup.JoinTestServer(t, app, bToken, serverID, "ListMsgNPPeer", "dmlistmsgnpp", "")
@@ -278,7 +278,7 @@ func TestMarkRead_NotParticipant(t *testing.T) {
 
 	infra := setup.GetGlobalInfra()
 	aToken := setup.CreateTestUser(t, app, infra.MailhogURL, "dm-markread-np-a@example.com", "password123")
-	serverID := setup.CreateTestServer(t, app, infra.RedisURL, aToken, "DM MarkRead NP Server", "dmmarkreadnp", 1, false)
+	serverID := setup.CreateTestServer(t, app, infra.RedisURL, aToken, "DM MarkRead NP Server", "dmmarknp", 1, false)
 
 	bToken := setup.CreateTestUser(t, app, infra.MailhogURL, "dm-markread-np-b@example.com", "password123")
 	setup.JoinTestServer(t, app, bToken, serverID, "MarkReadNPPeer", "dmmarkreadnpp", "")

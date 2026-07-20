@@ -22,7 +22,7 @@ func TestMarkRead_Success(t *testing.T) {
 
 	infra := setup.GetGlobalInfra()
 	authorToken := setup.CreateTestUser(t, app, infra.MailhogURL, "markread-author@example.com", "password123")
-	serverID := setup.CreateTestServer(t, app, infra.RedisURL, authorToken, "MarkRead Server", "markreadsrv", 1, false)
+	serverID := setup.CreateTestServer(t, app, infra.RedisURL, authorToken, "MarkRead Server", "markread1", 1, false)
 
 	likerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "markread-liker@example.com", "password123")
 	setup.JoinTestServer(t, app, likerToken, serverID, "Liker", "markreadliker", "")
@@ -91,7 +91,7 @@ func TestMarkRead_NotMember(t *testing.T) {
 
 	infra := setup.GetGlobalInfra()
 	ownerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "markread-guard-owner@example.com", "password123")
-	serverID := setup.CreateTestServer(t, app, infra.RedisURL, ownerToken, "MarkRead Guard Server", "markreadguard", 1, false)
+	serverID := setup.CreateTestServer(t, app, infra.RedisURL, ownerToken, "MarkRead Guard Server", "markreadg", 1, false)
 	strangerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "markread-guard-stranger@example.com", "password123")
 
 	req := setup.CreateAuthRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/notifications/%s/read", serverID, "00000000-0000-0000-0000-000000000000"), nil, strangerToken)
@@ -113,7 +113,7 @@ func TestMarkRead_InvalidNotificationId(t *testing.T) {
 
 	infra := setup.GetGlobalInfra()
 	token := setup.CreateTestUser(t, app, infra.MailhogURL, "markread-invalid@example.com", "password123")
-	serverID := setup.CreateTestServer(t, app, infra.RedisURL, token, "MarkRead Invalid Server", "markreadinv", 1, false)
+	serverID := setup.CreateTestServer(t, app, infra.RedisURL, token, "MarkRead Invalid Server", "markreadi", 1, false)
 
 	req := setup.CreateAuthRequest(http.MethodPost, fmt.Sprintf("/api/servers/%s/notifications/not-a-uuid/read", serverID), nil, token)
 	resp, err := setup.AppTest(t, app, req)

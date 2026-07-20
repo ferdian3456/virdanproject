@@ -119,7 +119,7 @@ func TestGetMyRoleInServer_NotMember(t *testing.T) {
 
 	infra := setup.GetGlobalInfra()
 	ownerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "myrole-guard-owner@example.com", "password123")
-	serverID := setup.CreateTestServer(t, app, infra.RedisURL, ownerToken, "MyRole Guard Server", "myroleguard", 1, false)
+	serverID := setup.CreateTestServer(t, app, infra.RedisURL, ownerToken, "MyRole Guard Server", "myroleg", 1, false)
 	strangerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "myrole-stranger@example.com", "password123")
 
 	req := setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/members/me", serverID), nil, strangerToken)
@@ -312,7 +312,7 @@ func TestAssignMemberRole_NotOwner(t *testing.T) {
 
 	infra := setup.GetGlobalInfra()
 	ownerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "assign-notowner-owner@example.com", "password123")
-	serverID := setup.CreateTestServer(t, app, infra.RedisURL, ownerToken, "Assign NotOwner Server", "assignnotowner", 1, false)
+	serverID := setup.CreateTestServer(t, app, infra.RedisURL, ownerToken, "Assign NotOwner Server", "assignno", 1, false)
 
 	memberToken := setup.CreateTestUser(t, app, infra.MailhogURL, "assign-notowner-member@example.com", "password123")
 	setup.JoinTestServer(t, app, memberToken, serverID, "PlainMember", "plainmember", "")
@@ -338,7 +338,7 @@ func TestTransferOwnership_Success(t *testing.T) {
 
 	infra := setup.GetGlobalInfra()
 	ownerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "transfer-owner@example.com", "password123")
-	serverID := setup.CreateTestServer(t, app, infra.RedisURL, ownerToken, "Transfer Server", "transfersrv", 1, false)
+	serverID := setup.CreateTestServer(t, app, infra.RedisURL, ownerToken, "Transfer Server", "transfer1", 1, false)
 
 	memberToken := setup.CreateTestUser(t, app, infra.MailhogURL, "transfer-member@example.com", "password123")
 	setup.JoinTestServer(t, app, memberToken, serverID, "NewOwner", "newowner", "")
@@ -376,7 +376,7 @@ func TestTransferOwnership_NotOwner(t *testing.T) {
 
 	infra := setup.GetGlobalInfra()
 	ownerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "transfer-notowner-owner@example.com", "password123")
-	serverID := setup.CreateTestServer(t, app, infra.RedisURL, ownerToken, "Transfer NotOwner Server", "transnotown", 1, false)
+	serverID := setup.CreateTestServer(t, app, infra.RedisURL, ownerToken, "Transfer NotOwner Server", "transnoto", 1, false)
 
 	memberToken := setup.CreateTestUser(t, app, infra.MailhogURL, "transfer-notowner-member@example.com", "password123")
 	setup.JoinTestServer(t, app, memberToken, serverID, "NotOwnerMember", "notownermember", "")
@@ -402,7 +402,7 @@ func TestTransferOwnership_TargetNotMember(t *testing.T) {
 
 	infra := setup.GetGlobalInfra()
 	ownerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "transfer-notmember-owner@example.com", "password123")
-	serverID := setup.CreateTestServer(t, app, infra.RedisURL, ownerToken, "Transfer NotMember Server", "transnotmem", 1, false)
+	serverID := setup.CreateTestServer(t, app, infra.RedisURL, ownerToken, "Transfer NotMember Server", "transnotm", 1, false)
 
 	strangerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "transfer-notmember-stranger@example.com", "password123")
 	strangerID := setup.GetUserId(t, app, strangerToken)

@@ -214,7 +214,7 @@ func TestListConversations_NotMember(t *testing.T) {
 
 	infra := setup.GetGlobalInfra()
 	ownerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "dm-listconv-guard-owner@example.com", "password123")
-	serverID := setup.CreateTestServer(t, app, infra.RedisURL, ownerToken, "DM ListConv Guard Server", "dmlistconvg", 1, false)
+	serverID := setup.CreateTestServer(t, app, infra.RedisURL, ownerToken, "DM ListConv Guard Server", "dmlistcvg", 1, false)
 	strangerToken := setup.CreateTestUser(t, app, infra.MailhogURL, "dm-listconv-guard-stranger@example.com", "password123")
 
 	req := setup.CreateAuthRequest(http.MethodGet, fmt.Sprintf("/api/servers/%s/conversations", serverID), nil, strangerToken)
