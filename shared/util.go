@@ -187,7 +187,7 @@ func ReadMultipartBody(ctx fiber.Ctx) error {
 
 var (
 	BearerPrefix            = "Bearer "
-	TokenIssuer             = "github.com/ferdian3456/virdanproject"
+	TokenIssuer             = "github.com/ferdian3456/virdanproject" // #nosec G101 -- JWT issuer string, not a credential
 	AccessTokenDuration     = 15 * time.Minute
 	RefreshTokenDuration    = 7 * 24 * time.Hour
 	ErrInvalidSigningMethod = errors.New("invalid token signing method")

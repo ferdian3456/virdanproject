@@ -69,7 +69,7 @@ func NewFCMClient(ctx context.Context, config *koanf.Koanf, log *zap.Logger) *me
 		log.Fatal("Failed to decode base64 firebase service account because it's not valid base64-encoded", zap.Error(err))
 	}
 
-	app, err := firebase.NewApp(ctx, nil, option.WithCredentialsJSON(creds))
+	app, err := firebase.NewApp(ctx, nil, option.WithAuthCredentialsJSON(option.ServiceAccount, creds))
 	if err != nil {
 		log.Fatal("Failed to initialize firebase app", zap.Error(err))
 	}
