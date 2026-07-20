@@ -58,7 +58,11 @@ Tidak pakai Redis.
 | `server_posts`       | server_id                              | SELECT | Ambil server_id buat membership check                |
 | `server_members`     | (count)                                | SELECT | Cek membership                                      |
 | `server_post_likes`  | id, post_id, user_id, created_at, ... | INSERT | Idempotent dengan `ON CONFLICT (post_id, user_id) DO NOTHING` |
+| `server_posts`       | author_id                              | SELECT | Resolve author post (di-skip kalau like-nya duplikat) |
+| `server_member_profiles` | (profile id)                       | SELECT | Resolve profile id actor untuk notifikasi (di-skip kalau author == actor) |
 | `server_post_likes`  | (count)                                | SELECT | likeCount baru                                       |
+
+Catatan: notifikasi `like` hanya dikirim kalau ada row like **baru** yang di-insert (bukan like duplikat/idempotent) dan hanya kalau author post adalah user yang **berbeda** dari actor (tidak ada self-notification).
 
 ---
 
@@ -124,4 +128,4 @@ Standard auth errors.
 
 ## Update
 
-Dokumentasi ini diupdate tanggal 23 Mei 2026.
+Dokumentasi ini diupdate tanggal 20 Juli 2026.

@@ -1,6 +1,6 @@
 ## Overview
 
-API ini digunakan untuk membuat comment pada post. Bisa juga reply comment lain dengan kirim `parentId` (UUID comment parent). User harus member server.
+API ini digunakan untuk membuat comment pada post. Bisa juga reply comment lain dengan kirim `parentId` (UUID comment parent). User harus member server. Kalau sukses, push notification dikirim ke recipient yang relevan — author post untuk comment top-level, atau author dari parent comment untuk reply — tapi hanya kalau recipient tersebut adalah user yang berbeda dari yang komentar (tidak ada self-notification).
 
 ---
 
@@ -15,6 +15,7 @@ sequenceDiagram
     actor Client
     participant BE
     participant Postgres
+    participant Notification
 
     Client->>BE: POST /api/posts/(postId)/comments {content, parentId?}
     BE->>BE: Middleware extract userId
@@ -37,6 +38,20 @@ sequenceDiagram
         end
     end
     BE->>Postgres: INSERT INTO server_post_comments
+    BE->>Postgres: Resolve server_member_profiles.id milik actor
+    alt profile actor berhasil di-resolve
+        alt parentId nil (comment top-level)
+            BE->>Postgres: SELECT author_id FROM server_posts WHERE id = postId
+            alt Author post != userId actor
+                BE->>Notification: Notify([{type: "comment", recipient: postAuthorId, actor: userId, postId, serverId}])
+            end
+        else parentId dikirim (reply)
+            BE->>Postgres: SELECT author_id FROM server_post_comments WHERE id = parentId
+            alt Author parent comment != userId actor
+                BE->>Notification: Notify([{type: "reply", recipient: parentAuthorId, actor: userId, postId, commentId, serverId}])
+            end
+        end
+    end
     BE->>Postgres: SELECT comment detail (author identity)
     BE-->>Client: 200 ServerCommentResponse
 ```
@@ -57,7 +72,12 @@ Tidak pakai Redis.
 | `server_members`         | (count)                                      | SELECT | Cek membership                           |
 | `server_post_comments`   | (count)                                      | SELECT | Cek parent valid (kalau parentId dikirim) |
 | `server_post_comments`   | id, post_id, author_id, parent_id, content   | INSERT | Comment baru                              |
+| `server_member_profiles` | (profile id)                                 | SELECT | Resolve profile id actor untuk notifikasi |
+| `server_posts`           | author_id                                    | SELECT | Resolve author post (hanya untuk notifikasi comment top-level) |
+| `server_post_comments`   | author_id                                    | SELECT | Resolve author parent comment (hanya untuk notifikasi reply) |
 | `server_member_profiles` | nickname, username, avatar_image_id          | SELECT | Author identity di server                 |
+
+Catatan: notifikasi di-skip kalau recipient (author post atau author parent comment) adalah user yang sama dengan yang komentar.
 
 ---
 
@@ -99,7 +119,7 @@ Body JSON:
     "nickname": "GamerX",
     "username": "gamerx",
     "avatarUrl": "http://.../webp",
-    "status": "ACTIVE"
+    "status": "active"
   },
   "isOwner": true,
   "createdAt": "2026-05-23T10:00:00Z",
@@ -137,4 +157,4 @@ Standard auth errors.
 
 ## Update
 
-Dokumentasi ini diupdate tanggal 23 Mei 2026.
+Dokumentasi ini diupdate tanggal 20 Juli 2026.
