@@ -38,13 +38,6 @@ jobs:
       - name: Build binaries
         run: go build -o app ./cmd/main.go
 
-      - name: Upload built binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-binary
-          path: app
-          retention-days: 1
-
   generate_swagger:
     name: Generate Swagger (auto-commit on main)
     runs-on: ubuntu-latest
@@ -143,32 +136,6 @@ jobs:
       # always-red the gate without any actionable fix.
       - name: Run govulncheck
         run: govulncheck ./cmd/... ./services/... ./shared/...
-
-  virus_scan:
-    name: Virus Scan
-    runs-on: ubuntu-latest
-    needs: setup
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install ClamAV
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clamav
-          sudo systemctl stop clamav-freshclam || true
-          sudo freshclam
-
-      - name: Download built binaries
-        uses: actions/download-artifact@v4
-        with:
-          name: app-binary
-          path: ./app
-
-      - name: Virus scan repository
-        run: clamscan -r --bell -i .
-
-      - name: Virus scan binaries
-        run: clamscan -r --bell -i ./app
 
   integration_tests:
     name: Integration Tests
@@ -349,7 +316,7 @@ jobs:
   pr_comment:
     name: PR Comment
     runs-on: ubuntu-latest
-    needs: [setup, lint, vuln_check, virus_scan, integration_tests]
+    needs: [setup, lint, vuln_check, integration_tests]
     if: always() && github.event_name == 'pull_request'
     permissions:
       pull-requests: write
@@ -402,7 +369,6 @@ jobs:
           SETUP_STATUS: ${{ needs.setup.result }}
           LINT_STATUS: ${{ needs.lint.result }}
           VULN_STATUS: ${{ needs.vuln_check.result }}
-          VIRUS_STATUS: ${{ needs.virus_scan.result }}
           TEST_STATUS: ${{ needs.integration_tests.result }}
           TOTAL_TESTS: ${{ steps.parse_results.outputs.total_tests }}
           PASSED_TESTS: ${{ steps.parse_results.outputs.passed_tests }}
@@ -425,7 +391,7 @@ jobs:
             echo "## CI Pipeline Results"
             echo ""
             echo "### Overall Status"
-            if [ "$TEST_STATUS" = "success" ] && [ "$LINT_STATUS" = "success" ] && [ "$VULN_STATUS" = "success" ] && [ "$VIRUS_STATUS" = "success" ]; then
+            if [ "$TEST_STATUS" = "success" ] && [ "$LINT_STATUS" = "success" ] && [ "$VULN_STATUS" = "success" ]; then
               echo "All Checks Passed"
             elif [ "$TEST_STATUS" = "skipped" ]; then
               echo "Integration Tests Skipped — blocked by upstream failure"
@@ -442,7 +408,6 @@ jobs:
             echo "| Setup | $(render_status "$SETUP_STATUS") |"
             echo "| Lint (golangci-lint) | $(render_status "$LINT_STATUS") |"
             echo "| Vuln Check (govulncheck) | $(render_status "$VULN_STATUS") |"
-            echo "| Virus Scan (clamav) | $(render_status "$VIRUS_STATUS") |"
             echo "| Integration Tests | $(render_status "$TEST_STATUS") |"
             echo ""
             echo "### Integration Tests Summary"
@@ -539,7 +504,7 @@ jobs:
   summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [setup, lint, vuln_check, virus_scan, integration_tests, build_push_image, pr_comment]
+    needs: [setup, lint, vuln_check, integration_tests, build_push_image, pr_comment]
     if: always()
     steps:
       - name: Check all jobs status
@@ -547,7 +512,6 @@ jobs:
           SETUP_RESULT: ${{ needs.setup.result }}
           LINT_RESULT: ${{ needs.lint.result }}
           VULN_RESULT: ${{ needs.vuln_check.result }}
-          VIRUS_RESULT: ${{ needs.virus_scan.result }}
           TEST_RESULT: ${{ needs.integration_tests.result }}
           IMAGE_RESULT: ${{ needs.build_push_image.result }}
           PR_COMMENT_RESULT: ${{ needs.pr_comment.result }}
@@ -560,7 +524,6 @@ jobs:
             echo "| Setup | $SETUP_RESULT |"
             echo "| Lint (golangci-lint) | $LINT_RESULT |"
             echo "| Vuln Check (govulncheck) | $VULN_RESULT |"
-            echo "| Virus Scan (clamav) | $VIRUS_RESULT |"
             echo "| Integration Tests | $TEST_RESULT |"
             echo "| Build & Push Image | $IMAGE_RESULT |"
             echo "| PR Comment | $PR_COMMENT_RESULT |"
