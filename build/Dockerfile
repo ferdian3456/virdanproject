@@ -1,11 +1,3 @@
-# =============================================================================
-# PRODUCTION-OPTIMIZED: Alpine + libvips
-# Objective: Maximum reliability, minimal size, production-proven
-# =============================================================================
-
-# =============================================================================
-# BUILD STAGE
-# =============================================================================
 FROM golang:1.26-alpine AS builder
 
 # CGO required for libvips
@@ -49,9 +41,6 @@ RUN go build \
 RUN ldd /build/main | grep -E 'vips|not found' && \
     echo "Build verification passed"
 
-# =============================================================================
-# RUNTIME STAGE - Minimal Alpine
-# =============================================================================
 FROM alpine:3.21
 
 # Install ONLY runtime libraries (not dev packages)
@@ -99,8 +88,3 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD ["/app/main", "--healthcheck"]
 
 CMD ["/app/main"]
-
-# Metadata
-LABEL maintainer="virdan-team" \
-    version="${BUILD_VERSION}" \
-    description="Production Go app with libvips support"
