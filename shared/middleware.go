@@ -257,10 +257,21 @@ func ObservabilityMiddleware(koanfInstance *koanf.Koanf, meterProvider metric.Me
 			zap.Int64("http.request.duration_ms", duration.Milliseconds()),
 		)
 
+		// ponytail: binary bodies (e.g. multipart file uploads) aren't valid UTF-8 and
+		// crash the OTLP gRPC log exporter's protobuf string marshaling, so skip them.
+		reqBody := "<binary omitted>"
+		if isTextContentType(c.Get("Content-Type")) {
+			reqBody = string(c.Request().Body())
+		}
+		respBody := "<binary omitted>"
+		if isTextContentType(string(c.Response().Header.ContentType())) {
+			respBody = string(c.Response().Body())
+		}
+
 		logger.Debug("Request/response body",
 			zap.String("http.request_id", requestID),
-			zap.ByteString("http.request.body", c.Request().Body()),
-			zap.ByteString("http.response.body", c.Response().Body()),
+			zap.String("http.request.body", reqBody),
+			zap.String("http.response.body", respBody),
 		)
 
 		span.End()
@@ -268,6 +279,14 @@ func ObservabilityMiddleware(koanfInstance *koanf.Koanf, meterProvider metric.Me
 
 		return err
 	}
+}
+
+func isTextContentType(contentType string) bool {
+	ct := strings.ToLower(contentType)
+	return strings.HasPrefix(ct, "text/") ||
+		strings.Contains(ct, "json") ||
+		strings.Contains(ct, "xml") ||
+		strings.HasPrefix(ct, "application/x-www-form-urlencoded")
 }
 
 func WebSocketUpgradeOnly(ctx fiber.Ctx) error {

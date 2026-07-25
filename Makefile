@@ -6,6 +6,11 @@ endif
 # Database Migrations (Atlas) — edit db/schema.sql, then `make migrate-diff name=xyz`
 ATLAS_ENV := local
 
+.PHONY: run
+run:
+	docker compose -f deployments/docker-compose/local/docker-compose.yml up -d
+	go run ./cmd/main.go
+
 .PHONY: migrate-diff
 migrate-diff:
 	@atlas migrate diff $(name) --env $(ATLAS_ENV)

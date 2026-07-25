@@ -181,7 +181,10 @@ func (service *Service) CreatePost(ctx fiber.Ctx, serverId string, userId string
 			return ServerPostResponse{}, err
 		}
 
-		tmpDir := "/app/tmp"
+		tmpDir := service.Config.String("VIDEO_TMP_DIR")
+		if tmpDir == "" {
+			tmpDir = os.TempDir()
+		}
 		tmpPath, tmpFile, saveErr := shared.SaveMultipartToTemp(videoHeader, tmpDir, "vid-"+postId)
 		if saveErr != nil {
 			err = saveErr
