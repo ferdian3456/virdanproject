@@ -313,6 +313,28 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build_push_image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v4.1.3
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: 100.95.62.4
+          username: astrid
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/astrid/virdan/virdanproject
+            docker compose -f docker-compose.full.yml pull app
+            docker compose -f docker-compose.full.yml up -d app
+
   pr_comment:
     name: PR Comment
     runs-on: ubuntu-latest
@@ -504,7 +526,7 @@ jobs:
   summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [setup, lint, vuln_check, integration_tests, build_push_image, pr_comment]
+    needs: [setup, lint, vuln_check, integration_tests, build_push_image, deploy, pr_comment]
     if: always()
     steps:
       - name: Check all jobs status
@@ -514,6 +536,7 @@ jobs:
           VULN_RESULT: ${{ needs.vuln_check.result }}
           TEST_RESULT: ${{ needs.integration_tests.result }}
           IMAGE_RESULT: ${{ needs.build_push_image.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
           PR_COMMENT_RESULT: ${{ needs.pr_comment.result }}
         run: |
           {
@@ -526,6 +549,7 @@ jobs:
             echo "| Vuln Check (govulncheck) | $VULN_RESULT |"
             echo "| Integration Tests | $TEST_RESULT |"
             echo "| Build & Push Image | $IMAGE_RESULT |"
+            echo "| Deploy to Production | $DEPLOY_RESULT |"
             echo "| PR Comment | $PR_COMMENT_RESULT |"
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"

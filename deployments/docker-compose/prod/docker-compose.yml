@@ -35,9 +35,7 @@ services:
           memory: 64M
 
   app:
-    build:
-      context: ../../..
-      dockerfile: build/Dockerfile
+    image: ghcr.io/ferdian3456/virdanproject:latest
     container_name: virdanproject-app
     env_file:
       - .env
