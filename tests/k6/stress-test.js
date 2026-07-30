@@ -20,6 +20,11 @@
 // transfer ownership, delete server, delete account) are intentionally left
 // out of the load generator since they would destroy the shared fixture the
 // rest of the run depends on.
+//
+// Every request is tagged with its route (e.g. "GET /servers/:serverId/posts")
+// via the `name` tag, so `k6 run --out json=results.json` (or the summary
+// with a tag-aware reporter) can break p95/rps/error-rate down per endpoint
+// instead of only in aggregate.
 
 import http from 'k6/http';
 import encoding from 'k6/encoding';
@@ -68,6 +73,67 @@ const errorRate = new Rate('virdan_errors');
 const authDuration = new Trend('virdan_auth_duration');
 const readDuration = new Trend('virdan_read_duration');
 const writeDuration = new Trend('virdan_write_duration');
+
+// Every distinct `name` tag used on an http.* call below. Registering a
+// (no-op) threshold per name+metric is what makes k6 compute and expose a
+// submetric per endpoint — otherwise http_req_duration/http_reqs/
+// http_req_failed only ever report one aggregate number for the whole run.
+// handleSummary() below turns those submetrics into a per-endpoint table.
+const ENDPOINT_NAMES = [
+  'POST /auth/login',
+  'POST /auth/refresh',
+  'POST /auth/logout',
+  'GET /health',
+  'GET /users/me',
+  'PUT /users/me/notification-preferences',
+  'GET /servers/categories',
+  'POST /servers/create',
+  'GET /servers',
+  'GET /servers/me',
+  'GET /servers/:id',
+  'POST /servers/:serverId/join',
+  'POST /servers/:serverId/invites',
+  'GET /servers/invites/:inviteCode',
+  'GET /servers/:serverId/members',
+  'GET /servers/:serverId/members/me',
+  'GET /servers/:serverId/members/dm',
+  'GET /servers/:serverId/profile/me',
+  'GET /profiles/history',
+  'GET /servers/:serverId/posts',
+  'POST /servers/:serverId/posts',
+  'GET /servers/:serverId/posts/me',
+  'GET /servers/:serverId/posts/saved',
+  'GET /servers/:serverId/posts/search',
+  'PUT /servers/:serverId/posts/:postId',
+  'DELETE /servers/:serverId/posts/:postId',
+  'GET /posts/:postId',
+  'GET /posts/:postId/comments',
+  'POST /posts/:postId/comments',
+  'DELETE /posts/:postId/comments/:commentId',
+  'POST /posts/:postId/likes',
+  'DELETE /posts/:postId/likes',
+  'POST /posts/:postId/saves',
+  'DELETE /posts/:postId/saves',
+  'GET /servers/:serverId/notifications',
+  'GET /servers/:serverId/notifications/unread-count',
+  'POST /servers/:serverId/notifications/:id/read',
+  'POST /devices',
+  'DELETE /devices',
+  'GET /servers/:serverId/conversations',
+  'POST /servers/:serverId/conversations',
+  'GET /conversations/:conversationId/messages',
+  'POST /conversations/:conversationId/messages',
+  'POST /conversations/:conversationId/read',
+  'GET /servers/:serverId/plus',
+  'GET /me/plus-orders',
+];
+
+const endpointThresholds = {};
+for (const n of ENDPOINT_NAMES) {
+  endpointThresholds[`http_req_duration{name:${n}}`] = ['max>=0']; // no-op, just forces the submetric to exist
+  endpointThresholds[`http_reqs{name:${n}}`] = ['count>=0'];
+  endpointThresholds[`http_req_failed{name:${n}}`] = ['rate>=0'];
+}
 
 export const options = {
   scenarios: {
@@ -150,20 +216,126 @@ export const options = {
   thresholds: {
     virdan_errors: ['rate<0.05'],
     http_req_duration: ['p(95)<2000'],
+    ...endpointThresholds,
   },
   summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
 };
 
 // ---------------------------------------------------------------------------
+// handleSummary(): render a per-endpoint p95/rps/error-rate table at the end
+// of the run (in addition to k6's normal aggregate summary), and dump the
+// same data as JSON for tooling. No external jslib import — keeps the
+// script runnable offline.
+// ---------------------------------------------------------------------------
+
+export function handleSummary(data) {
+  const testDurationS = data.state.testRunDurationMs / 1000;
+  const rows = [];
+
+  for (const name of ENDPOINT_NAMES) {
+    const durKey = `http_req_duration{name:${name}}`;
+    const reqsKey = `http_reqs{name:${name}}`;
+    const failKey = `http_req_failed{name:${name}}`;
+
+    const durMetric = data.metrics[durKey];
+    const reqsMetric = data.metrics[reqsKey];
+    const failMetric = data.metrics[failKey];
+    if (!durMetric || !reqsMetric || (reqsMetric.values && reqsMetric.values.count === 0)) continue;
+
+    const d = durMetric.values;
+    const count = reqsMetric.values.count;
+    rows.push({
+      name,
+      count,
+      rps: count / testDurationS,
+      avg: d.avg,
+      p90: d['p(90)'],
+      p95: d['p(95)'],
+      p99: d['p(99)'],
+      max: d.max,
+      failRate: failMetric ? failMetric.values.rate * 100 : 0,
+    });
+  }
+
+  rows.sort((a, b) => b.count - a.count);
+
+  const pad = (s, n) => String(s).padEnd(n);
+  const padL = (s, n) => String(s).padStart(n);
+  const fmt = (n) => (n === undefined || n === null ? '-' : n.toFixed(1));
+
+  let table =
+    '\n' +
+    'PER-ENDPOINT RESULTS'.padEnd(46) +
+    padL('reqs', 8) +
+    padL('rps', 9) +
+    padL('avg(ms)', 10) +
+    padL('p90(ms)', 10) +
+    padL('p95(ms)', 10) +
+    padL('p99(ms)', 10) +
+    padL('max(ms)', 10) +
+    padL('fail%', 8) +
+    '\n' +
+    '-'.repeat(46 + 8 + 9 + 10 * 4 + 8) +
+    '\n';
+
+  for (const r of rows) {
+    table +=
+      pad(r.name, 46) +
+      padL(r.count, 8) +
+      padL(r.rps.toFixed(1), 9) +
+      padL(fmt(r.avg), 10) +
+      padL(fmt(r.p90), 10) +
+      padL(fmt(r.p95), 10) +
+      padL(fmt(r.p99), 10) +
+      padL(fmt(r.max), 10) +
+      padL(r.failRate.toFixed(2), 8) +
+      '\n';
+  }
+
+  const overall = data.metrics.http_req_duration
+    ? {
+        totalRequests: data.metrics.http_reqs.values.count,
+        overallRps: data.metrics.http_reqs.values.rate,
+        p95: data.metrics.http_req_duration.values['p(95)'],
+        failRatePct: data.metrics.http_req_failed ? data.metrics.http_req_failed.values.rate * 100 : null,
+        testDurationS,
+      }
+    : null;
+
+  const jsonReport = JSON.stringify({ overall, endpoints: rows }, null, 2);
+
+  let header = '';
+  if (overall) {
+    header =
+      `\nOVERALL: ${overall.totalRequests} requests over ${overall.testDurationS.toFixed(1)}s ` +
+      `(${overall.overallRps.toFixed(1)} req/s), p95=${overall.p95.toFixed(1)}ms, ` +
+      `fail rate=${(overall.failRatePct || 0).toFixed(2)}%\n`;
+  }
+
+  // NOTE: returning `stdout` here replaces k6's own default summary, so this
+  // custom report (overall header + per-endpoint table) is the entire
+  // end-of-run output — that's intentional, it's what was hard to get out of
+  // the default aggregate-only summary in the first place.
+  return {
+    stdout: header + table + '\n',
+    'k6-per-endpoint-results.json': jsonReport,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function authedJSON(token) {
-  return { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } };
+// Every params helper takes a `name` tag identifying the route (method +
+// path template) so per-endpoint metrics (p95, rps, error rate) can be
+// pulled out of `k6 run --out json=results.json` afterwards, e.g.:
+//   jq -s 'group_by(.data.tags.name) | ...' results.json
+function authedJSON(token, name) {
+  return { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, tags: { name } };
 }
 
-function authedOnly(token) {
-  return { headers: { Authorization: `Bearer ${token}` } };
+function authedOnly(token, name) {
+  return { headers: { Authorization: `Bearer ${token}` }, tags: { name } };
 }
 
 function recordErr(ok) {
@@ -193,7 +365,7 @@ function loginUser(index) {
   const res = http.post(
     `${BASE_URL}/auth/login`,
     JSON.stringify({ email, password: SEED_PASSWORD }),
-    { headers: { 'Content-Type': 'application/json' }, tags: { name: 'auth_login' } }
+    { headers: { 'Content-Type': 'application/json' }, tags: { name: 'POST /auth/login' } }
   );
   authDuration.add(res.timings.duration);
   const ok = check(res, { 'login: 200': (r) => r.status === 200 });
@@ -208,7 +380,7 @@ function loginUser(index) {
 // ---------------------------------------------------------------------------
 
 export function setup() {
-  const health = http.get(`${BASE_URL}/health`);
+  const health = http.get(`${BASE_URL}/health`, { tags: { name: 'GET /health' } });
   if (health.status !== 200) {
     fail(`API is not healthy at ${BASE_URL}/health (status ${health.status}). Aborting.`);
   }
@@ -231,7 +403,7 @@ export function setup() {
   }
 
   // Resolve a real category id.
-  const catRes = http.get(`${BASE_URL}/servers/categories`, authedOnly(users[0].token));
+  const catRes = http.get(`${BASE_URL}/servers/categories`, authedOnly(users[0].token, 'GET /servers/categories'));
   const categories = catRes.status === 200 ? catRes.json('data') : [];
   const categoryId = categories.length > 0 ? categories[0].id : 1;
 
@@ -246,12 +418,13 @@ export function setup() {
       categoryId: String(categoryId),
       isPrivate: 'false',
       nickname: 'K6 Owner',
-      username: `k6owner${Date.now()}`,
+      // username is capped at 22 chars server-side; keep well under that.
+      username: `k6own${randInt(999999)}`,
       // Presence of a file field is what makes k6 encode this request as
       // multipart/form-data (required by the API) instead of urlencoded.
       serverAvatar: http.file(PIXEL_PNG, 'avatar.png', 'image/png'),
     },
-    authedOnly(owner.token)
+    authedOnly(owner.token, 'POST /servers/create')
   );
   if (serverRes.status !== 200) {
     fail(`Failed to create fixture server: ${serverRes.status} ${serverRes.body}`);
@@ -266,13 +439,14 @@ export function setup() {
       `${BASE_URL}/servers/${serverId}/join`,
       {
         nickname: `Member ${i}`,
-        username: `k6member${i}${Date.now()}`,
+        // username is capped at 22 chars server-side; keep well under that.
+        username: `k6m${i}${randInt(999999)}`,
         // JoinServer has no optional file field of its own; attach a throwaway
         // one so k6 encodes the request as multipart/form-data, which the
         // handler requires (it ignores unknown form fields).
         _multipart: http.file(PIXEL_PNG, 'x.png', 'image/png'),
       },
-      authedOnly(u.token)
+      authedOnly(u.token, 'POST /servers/:serverId/join')
     );
     if (joinRes.status === 200) members.push(u);
   }
@@ -281,7 +455,7 @@ export function setup() {
   const inviteRes = http.post(
     `${BASE_URL}/servers/${serverId}/invites`,
     JSON.stringify({ maxUses: 0 }),
-    authedJSON(owner.token)
+    authedJSON(owner.token, 'POST /servers/:serverId/invites')
   );
   const inviteCode = inviteRes.status === 200 ? inviteRes.json('inviteCode') || inviteRes.json('code') : null;
 
@@ -294,7 +468,7 @@ export function setup() {
         caption: `Fixture post #${i} for k6 stress testing`,
         image: http.file(PIXEL_PNG, `fixture-${i}.png`, 'image/png'),
       },
-      authedOnly(author.token)
+      authedOnly(author.token, 'POST /servers/:serverId/posts')
     );
     if (postRes.status === 200) postIds.push(postRes.json('id'));
   }
@@ -302,13 +476,13 @@ export function setup() {
   // Seed a DM conversation between the first two members for chatFlow.
   let conversationId = null;
   if (members.length >= 2) {
-    const meRes = http.get(`${BASE_URL}/users/me`, authedOnly(members[1].token));
+    const meRes = http.get(`${BASE_URL}/users/me`, authedOnly(members[1].token, 'GET /users/me'));
     const peerUserId = meRes.status === 200 ? meRes.json('id') || meRes.json('userId') : null;
     if (peerUserId) {
       const convRes = http.post(
         `${BASE_URL}/servers/${serverId}/conversations`,
         JSON.stringify({ peerUserId }),
-        authedJSON(members[0].token)
+        authedJSON(members[0].token, 'POST /servers/:serverId/conversations')
       );
       if (convRes.status === 200) conversationId = convRes.json('id');
     }
@@ -332,82 +506,82 @@ export function setup() {
 // Read-heavy browsing across nearly every GET endpoint.
 export function browseFlow(data) {
   const user = pick(data.members);
-  const h = authedOnly(user.token);
+  const token = user.token;
 
   group('browse', () => {
-    let r = http.get(`${BASE_URL}/users/me`, h);
+    let r = http.get(`${BASE_URL}/users/me`, authedOnly(token, 'GET /users/me'));
     recordErr(check(r, { 'me: 200': (x) => x.status === 200 }));
     readDuration.add(r.timings.duration);
 
-    r = http.get(`${BASE_URL}/servers/categories`, h);
+    r = http.get(`${BASE_URL}/servers/categories`, authedOnly(token, 'GET /servers/categories'));
     recordErr(check(r, { 'categories: 200': (x) => x.status === 200 }));
 
-    r = http.get(`${BASE_URL}/servers?limit=20`, h);
+    r = http.get(`${BASE_URL}/servers?limit=20`, authedOnly(token, 'GET /servers'));
     recordErr(check(r, { 'discovery: 200': (x) => x.status === 200 }));
 
-    r = http.get(`${BASE_URL}/servers/me`, h);
+    r = http.get(`${BASE_URL}/servers/me`, authedOnly(token, 'GET /servers/me'));
     recordErr(check(r, { 'my servers: 200': (x) => x.status === 200 }));
 
-    r = http.get(`${BASE_URL}/servers/${data.serverId}`, h);
+    r = http.get(`${BASE_URL}/servers/${data.serverId}`, authedOnly(token, 'GET /servers/:id'));
     recordErr(check(r, { 'server by id: 200': (x) => x.status === 200 }));
 
-    r = http.get(`${BASE_URL}/servers/${data.serverId}/members?limit=20`, h);
+    r = http.get(`${BASE_URL}/servers/${data.serverId}/members?limit=20`, authedOnly(token, 'GET /servers/:serverId/members'));
     recordErr(check(r, { 'members: 200': (x) => x.status === 200 }));
 
-    r = http.get(`${BASE_URL}/servers/${data.serverId}/members/me`, h);
+    r = http.get(`${BASE_URL}/servers/${data.serverId}/members/me`, authedOnly(token, 'GET /servers/:serverId/members/me'));
     recordErr(check(r, { 'my role: 200': (x) => x.status === 200 }));
 
-    r = http.get(`${BASE_URL}/servers/${data.serverId}/profile/me`, h);
+    r = http.get(`${BASE_URL}/servers/${data.serverId}/profile/me`, authedOnly(token, 'GET /servers/:serverId/profile/me'));
     recordErr(check(r, { 'my profile: 200': (x) => x.status === 200 }));
 
-    r = http.get(`${BASE_URL}/profiles/history`, h);
+    r = http.get(`${BASE_URL}/profiles/history`, authedOnly(token, 'GET /profiles/history'));
     recordErr(check(r, { 'profile history: 200': (x) => x.status === 200 }));
 
-    r = http.get(`${BASE_URL}/servers/${data.serverId}/posts?limit=10`, h);
+    r = http.get(`${BASE_URL}/servers/${data.serverId}/posts?limit=10`, authedOnly(token, 'GET /servers/:serverId/posts'));
     recordErr(check(r, { 'server posts: 200': (x) => x.status === 200 }));
     readDuration.add(r.timings.duration);
 
-    r = http.get(`${BASE_URL}/servers/${data.serverId}/posts/me?limit=10`, h);
+    r = http.get(`${BASE_URL}/servers/${data.serverId}/posts/me?limit=10`, authedOnly(token, 'GET /servers/:serverId/posts/me'));
     recordErr(check(r, { 'my posts: 200': (x) => x.status === 200 }));
 
-    r = http.get(`${BASE_URL}/servers/${data.serverId}/posts/saved?limit=10`, h);
+    r = http.get(`${BASE_URL}/servers/${data.serverId}/posts/saved?limit=10`, authedOnly(token, 'GET /servers/:serverId/posts/saved'));
     recordErr(check(r, { 'saved posts: 200': (x) => x.status === 200 }));
 
     r = http.get(
       `${BASE_URL}/servers/${data.serverId}/posts/search?q=k6`,
-      h
+      authedOnly(token, 'GET /servers/:serverId/posts/search')
     );
     recordErr(check(r, { 'search posts: 200': (x) => x.status === 200 }));
 
     if (data.postIds.length > 0) {
       const postId = pick(data.postIds);
-      r = http.get(`${BASE_URL}/posts/${postId}`, h);
+      r = http.get(`${BASE_URL}/posts/${postId}`, authedOnly(token, 'GET /posts/:postId'));
       recordErr(check(r, { 'get post: 200': (x) => x.status === 200 }));
 
-      r = http.get(`${BASE_URL}/posts/${postId}/comments?limit=10`, h);
+      r = http.get(`${BASE_URL}/posts/${postId}/comments?limit=10`, authedOnly(token, 'GET /posts/:postId/comments'));
       recordErr(check(r, { 'get comments: 200': (x) => x.status === 200 }));
     }
 
-    r = http.get(`${BASE_URL}/servers/${data.serverId}/notifications?limit=10`, h);
+    r = http.get(`${BASE_URL}/servers/${data.serverId}/notifications?limit=10`, authedOnly(token, 'GET /servers/:serverId/notifications'));
     recordErr(check(r, { 'notif feed: 200': (x) => x.status === 200 }));
 
-    r = http.get(`${BASE_URL}/servers/${data.serverId}/notifications/unread-count`, h);
+    r = http.get(`${BASE_URL}/servers/${data.serverId}/notifications/unread-count`, authedOnly(token, 'GET /servers/:serverId/notifications/unread-count'));
     recordErr(check(r, { 'unread count: 200': (x) => x.status === 200 }));
 
-    r = http.get(`${BASE_URL}/servers/${data.serverId}/plus`, h);
+    r = http.get(`${BASE_URL}/servers/${data.serverId}/plus`, authedOnly(token, 'GET /servers/:serverId/plus'));
     recordErr(check(r, { 'plus status: 200': (x) => x.status === 200 }));
 
-    r = http.get(`${BASE_URL}/me/plus-orders?limit=10`, h);
+    r = http.get(`${BASE_URL}/me/plus-orders?limit=10`, authedOnly(token, 'GET /me/plus-orders'));
     recordErr(check(r, { 'plus orders: 200': (x) => x.status === 200 }));
 
-    r = http.get(`${BASE_URL}/servers/${data.serverId}/members/dm?limit=10`, h);
+    r = http.get(`${BASE_URL}/servers/${data.serverId}/members/dm?limit=10`, authedOnly(token, 'GET /servers/:serverId/members/dm'));
     recordErr(check(r, { 'dm members: 200': (x) => x.status === 200 }));
 
-    r = http.get(`${BASE_URL}/servers/${data.serverId}/conversations?limit=10`, h);
+    r = http.get(`${BASE_URL}/servers/${data.serverId}/conversations?limit=10`, authedOnly(token, 'GET /servers/:serverId/conversations'));
     recordErr(check(r, { 'conversations: 200': (x) => x.status === 200 }));
 
     if (data.inviteCode) {
-      r = http.get(`${BASE_URL}/servers/invites/${data.inviteCode}`, h);
+      r = http.get(`${BASE_URL}/servers/invites/${data.inviteCode}`, authedOnly(token, 'GET /servers/invites/:inviteCode'));
       recordErr(check(r, { 'invite info: 200': (x) => x.status === 200 }));
     }
   });
@@ -419,7 +593,7 @@ export function browseFlow(data) {
 // write endpoint plus the multipart image upload path.
 export function contentFlow(data) {
   const author = pick(data.members);
-  const h = authedOnly(author.token);
+  const token = author.token;
 
   group('content_lifecycle', () => {
     let r = http.post(
@@ -428,7 +602,7 @@ export function contentFlow(data) {
         caption: `k6 lifecycle post ${Date.now()}-${randInt(100000)}`,
         image: http.file(PIXEL_PNG, `k6-${Date.now()}.png`, 'image/png'),
       },
-      h
+      authedOnly(token, 'POST /servers/:serverId/posts')
     );
     writeDuration.add(r.timings.duration);
     const created = check(r, { 'create post: 200': (x) => x.status === 200 });
@@ -439,39 +613,47 @@ export function contentFlow(data) {
     r = http.put(
       `${BASE_URL}/servers/${data.serverId}/posts/${postId}`,
       JSON.stringify({ caption: `edited by k6 ${Date.now()}` }),
-      { headers: { Authorization: `Bearer ${author.token}`, 'Content-Type': 'application/json' } }
+      authedJSON(token, 'PUT /servers/:serverId/posts/:postId')
     );
     recordErr(check(r, { 'update post: 200': (x) => x.status === 200 }));
 
-    r = http.post(`${BASE_URL}/posts/${postId}/likes`, null, h);
+    r = http.post(`${BASE_URL}/posts/${postId}/likes`, null, authedOnly(token, 'POST /posts/:postId/likes'));
     recordErr(check(r, { 'like post: 2xx/409': (x) => x.status < 500 }));
 
-    r = http.post(`${BASE_URL}/posts/${postId}/saves`, null, h);
+    r = http.post(`${BASE_URL}/posts/${postId}/saves`, null, authedOnly(token, 'POST /posts/:postId/saves'));
     recordErr(check(r, { 'save post: 2xx/409': (x) => x.status < 500 }));
 
     r = http.post(
       `${BASE_URL}/posts/${postId}/comments`,
       JSON.stringify({ content: `nice post! from k6 ${randInt(100000)}` }),
-      { headers: { Authorization: `Bearer ${author.token}`, 'Content-Type': 'application/json' } }
+      authedJSON(token, 'POST /posts/:postId/comments')
     );
     recordErr(check(r, { 'create comment: 200': (x) => x.status === 200 }));
     const commentId = r.status === 200 ? r.json('id') : null;
 
-    r = http.get(`${BASE_URL}/posts/${postId}/comments?limit=10`, h);
+    r = http.get(`${BASE_URL}/posts/${postId}/comments?limit=10`, authedOnly(token, 'GET /posts/:postId/comments'));
     recordErr(check(r, { 'list comments: 200': (x) => x.status === 200 }));
 
-    r = http.del(`${BASE_URL}/posts/${postId}/likes`, null, h);
+    r = http.del(`${BASE_URL}/posts/${postId}/likes`, null, authedOnly(token, 'DELETE /posts/:postId/likes'));
     recordErr(check(r, { 'unlike post: 2xx/404': (x) => x.status < 500 }));
 
-    r = http.del(`${BASE_URL}/posts/${postId}/saves`, null, h);
+    r = http.del(`${BASE_URL}/posts/${postId}/saves`, null, authedOnly(token, 'DELETE /posts/:postId/saves'));
     recordErr(check(r, { 'unsave post: 2xx/404': (x) => x.status < 500 }));
 
     if (commentId) {
-      r = http.del(`${BASE_URL}/posts/${postId}/comments/${commentId}`, null, h);
+      r = http.del(
+        `${BASE_URL}/posts/${postId}/comments/${commentId}`,
+        null,
+        authedOnly(token, 'DELETE /posts/:postId/comments/:commentId')
+      );
       recordErr(check(r, { 'delete comment: 2xx': (x) => x.status < 500 }));
     }
 
-    r = http.del(`${BASE_URL}/servers/${data.serverId}/posts/${postId}`, null, h);
+    r = http.del(
+      `${BASE_URL}/servers/${data.serverId}/posts/${postId}`,
+      null,
+      authedOnly(token, 'DELETE /servers/:serverId/posts/:postId')
+    );
     recordErr(check(r, { 'delete post: 2xx': (x) => x.status < 500 }));
     writeDuration.add(r.timings.duration);
   });
@@ -484,28 +666,28 @@ export function socialFlow(data) {
   if (data.postIds.length === 0) return;
   const user = pick(data.members);
   const postId = pick(data.postIds);
-  const h = authedOnly(user.token);
+  const token = user.token;
 
   group('social_actions', () => {
-    let r = http.post(`${BASE_URL}/posts/${postId}/likes`, null, h);
+    let r = http.post(`${BASE_URL}/posts/${postId}/likes`, null, authedOnly(token, 'POST /posts/:postId/likes'));
     recordErr(check(r, { 'like: 2xx/409': (x) => x.status < 500 }));
 
-    r = http.post(`${BASE_URL}/posts/${postId}/saves`, null, h);
+    r = http.post(`${BASE_URL}/posts/${postId}/saves`, null, authedOnly(token, 'POST /posts/:postId/saves'));
     recordErr(check(r, { 'save: 2xx/409': (x) => x.status < 500 }));
 
     r = http.post(
       `${BASE_URL}/posts/${postId}/comments`,
       JSON.stringify({ content: `+1 from k6 ${randInt(100000)}` }),
-      { headers: { Authorization: `Bearer ${user.token}`, 'Content-Type': 'application/json' } }
+      authedJSON(token, 'POST /posts/:postId/comments')
     );
     recordErr(check(r, { 'comment: 200': (x) => x.status === 200 }));
 
     if (Math.random() < 0.5) {
-      r = http.del(`${BASE_URL}/posts/${postId}/likes`, null, h);
+      r = http.del(`${BASE_URL}/posts/${postId}/likes`, null, authedOnly(token, 'DELETE /posts/:postId/likes'));
       recordErr(check(r, { 'unlike: 2xx/404': (x) => x.status < 500 }));
     }
     if (Math.random() < 0.5) {
-      r = http.del(`${BASE_URL}/posts/${postId}/saves`, null, h);
+      r = http.del(`${BASE_URL}/posts/${postId}/saves`, null, authedOnly(token, 'DELETE /posts/:postId/saves'));
       recordErr(check(r, { 'unsave: 2xx/404': (x) => x.status < 500 }));
     }
   });
@@ -521,14 +703,14 @@ export function chatFlow(data) {
   if (peer.index === sender.index) peer = data.members[(data.members.indexOf(peer) + 1) % data.members.length];
 
   group('chat', () => {
-    const meRes = http.get(`${BASE_URL}/users/me`, authedOnly(peer.token));
+    const meRes = http.get(`${BASE_URL}/users/me`, authedOnly(peer.token, 'GET /users/me'));
     const peerUserId = meRes.status === 200 ? meRes.json('id') || meRes.json('userId') : null;
     if (!peerUserId) return;
 
     let r = http.post(
       `${BASE_URL}/servers/${data.serverId}/conversations`,
       JSON.stringify({ peerUserId }),
-      authedJSON(sender.token)
+      authedJSON(sender.token, 'POST /servers/:serverId/conversations')
     );
     recordErr(check(r, { 'get/create conversation: 200': (x) => x.status === 200 }));
     if (r.status !== 200) return;
@@ -537,14 +719,21 @@ export function chatFlow(data) {
     r = http.post(
       `${BASE_URL}/conversations/${conversationId}/messages`,
       JSON.stringify({ content: `hey from k6 ${Date.now()}`, clientMessageId: uuidv4() }),
-      authedJSON(sender.token)
+      authedJSON(sender.token, 'POST /conversations/:conversationId/messages')
     );
     recordErr(check(r, { 'send message: 200': (x) => x.status === 200 }));
 
-    r = http.get(`${BASE_URL}/conversations/${conversationId}/messages?limit=20`, authedOnly(sender.token));
+    r = http.get(
+      `${BASE_URL}/conversations/${conversationId}/messages?limit=20`,
+      authedOnly(sender.token, 'GET /conversations/:conversationId/messages')
+    );
     recordErr(check(r, { 'list messages: 200': (x) => x.status === 200 }));
 
-    r = http.post(`${BASE_URL}/conversations/${conversationId}/read`, JSON.stringify({}), authedJSON(peer.token));
+    r = http.post(
+      `${BASE_URL}/conversations/${conversationId}/read`,
+      JSON.stringify({}),
+      authedJSON(peer.token, 'POST /conversations/:conversationId/read')
+    );
     recordErr(check(r, { 'mark read: 2xx': (x) => x.status < 500 }));
   });
 
@@ -554,37 +743,44 @@ export function chatFlow(data) {
 // Device registration + notification preferences + feed interactions.
 export function notifFlow(data) {
   const user = pick(data.members);
-  const h = authedOnly(user.token);
-  const token = `k6-device-${__VU}-${__ITER}-${Date.now()}`;
+  const token = user.token;
+  const deviceToken = `k6-device-${__VU}-${__ITER}-${Date.now()}`;
 
   group('notifications', () => {
     let r = http.post(
       `${BASE_URL}/devices`,
-      JSON.stringify({ token, platform: 'android' }),
-      authedJSON(user.token)
+      JSON.stringify({ token: deviceToken, platform: 'android' }),
+      authedJSON(token, 'POST /devices')
     );
     recordErr(check(r, { 'register device: 2xx': (x) => x.status < 500 }));
 
     r = http.put(
       `${BASE_URL}/users/me/notification-preferences`,
       JSON.stringify({ notifLike: true, notifComment: true, notifReply: true }),
-      authedJSON(user.token)
+      authedJSON(token, 'PUT /users/me/notification-preferences')
     );
     recordErr(check(r, { 'update notif prefs: 200': (x) => x.status === 200 }));
 
-    r = http.get(`${BASE_URL}/servers/${data.serverId}/notifications?limit=10`, h);
+    r = http.get(
+      `${BASE_URL}/servers/${data.serverId}/notifications?limit=10`,
+      authedOnly(token, 'GET /servers/:serverId/notifications')
+    );
     recordErr(check(r, { 'notif feed: 200': (x) => x.status === 200 }));
     const items = r.status === 200 ? r.json('data') || [] : [];
     if (items.length > 0) {
       const notifId = items[0].id;
-      r = http.post(`${BASE_URL}/servers/${data.serverId}/notifications/${notifId}/read`, null, h);
+      r = http.post(
+        `${BASE_URL}/servers/${data.serverId}/notifications/${notifId}/read`,
+        null,
+        authedOnly(token, 'POST /servers/:serverId/notifications/:id/read')
+      );
       recordErr(check(r, { 'mark notif read: 2xx': (x) => x.status < 500 }));
     }
 
     r = http.del(
       `${BASE_URL}/devices`,
-      JSON.stringify({ token }),
-      authedJSON(user.token)
+      JSON.stringify({ token: deviceToken }),
+      authedJSON(token, 'DELETE /devices')
     );
     recordErr(check(r, { 'unregister device: 2xx': (x) => x.status < 500 }));
   });
@@ -606,7 +802,7 @@ export function authFlow() {
     let r = http.post(
       `${BASE_URL}/auth/refresh`,
       JSON.stringify({ refreshToken: user.refreshToken }),
-      { headers: { 'Content-Type': 'application/json' }, tags: { name: 'auth_refresh' } }
+      { headers: { 'Content-Type': 'application/json' }, tags: { name: 'POST /auth/refresh' } }
     );
     authDuration.add(r.timings.duration);
     const refreshed = check(r, { 'refresh: 200': (x) => x.status === 200 });
@@ -615,7 +811,7 @@ export function authFlow() {
 
     r = http.post(`${BASE_URL}/auth/logout`, null, {
       headers: { Authorization: `Bearer ${accessToken}` },
-      tags: { name: 'auth_logout' },
+      tags: { name: 'POST /auth/logout' },
     });
     recordErr(check(r, { 'logout: 2xx': (x) => x.status < 500 }));
   });
@@ -624,7 +820,7 @@ export function authFlow() {
 }
 
 export function healthFlow() {
-  const r = http.get(`${BASE_URL}/health`, { tags: { name: 'health' } });
+  const r = http.get(`${BASE_URL}/health`, { tags: { name: 'GET /health' } });
   recordErr(check(r, { 'health: 200': (x) => x.status === 200 }));
 }
 
@@ -638,7 +834,11 @@ export function teardown(data) {
   if (__ENV.CLEANUP !== '1') return;
   const owner = data.members[0];
   for (const postId of data.postIds) {
-    http.del(`${BASE_URL}/servers/${data.serverId}/posts/${postId}`, null, authedOnly(owner.token));
+    http.del(
+      `${BASE_URL}/servers/${data.serverId}/posts/${postId}`,
+      null,
+      authedOnly(owner.token, 'DELETE /servers/:serverId/posts/:postId')
+    );
   }
-  http.del(`${BASE_URL}/servers/${data.serverId}`, null, authedOnly(owner.token));
+  http.del(`${BASE_URL}/servers/${data.serverId}`, null, authedOnly(owner.token, 'DELETE /servers/:id'));
 }

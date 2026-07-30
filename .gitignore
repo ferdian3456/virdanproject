@@ -6,3 +6,6 @@
 
 # Firebase
 firebase-service-account.json
+
+# k6 stress test output
+k6-per-endpoint-results.json
