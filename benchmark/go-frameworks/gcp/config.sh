@@ -5,5 +5,5 @@ ZONE=${ZONE:-us-central1-a}
 BUCKET=${BUCKET:-$PROJECT-results}
 SUT_VM=${SUT_VM:-bench-sut}
 LOADGEN_VM=${LOADGEN_VM:-bench-loadgen}
-SUT_MACHINE=${SUT_MACHINE:-c2d-highcpu-4}
-LOADGEN_MACHINE=${LOADGEN_MACHINE:-c2d-highcpu-16}
+SUT_MACHINE=${SUT_MACHINE:-n2-highcpu-4}
+LOADGEN_MACHINE=${LOADGEN_MACHINE:-n2-highcpu-16}

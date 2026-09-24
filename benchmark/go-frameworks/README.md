@@ -32,7 +32,7 @@ No middleware (logging, recovery) is enabled in any framework. Ports are 8081 (s
 
 ## Test design
 
-- **Infrastructure:** one `c2d-highcpu-4` VM runs the servers and one `c2d-highcpu-16` VM generates load, both in `us-central1-a` and connected over the internal network. The load generator has four times the CPU of the server VM so that it does not become the bottleneck.
+- **Infrastructure:** one `n2-highcpu-4` VM runs the servers and one `n2-highcpu-16` VM generates load (C2D was out of stock in every us-central1 zone when this was written), both in `us-central1-a` and connected over the internal network. The load generator has four times the CPU of the server VM so that it does not become the bottleneck.
 - **Isolation:** all six servers run at the same time on the server VM, but only one receives load at any moment. Idle Go servers consume negligible CPU. This keeps the hardware identical for every framework.
 - **Steps:** for each framework the target rate increases through `RATES` (default 10k, 20k, 40k, 60k, 80k, 100k, 125k, 150k and 200k RPS). Each step lasts 40 seconds. wrk2 uses the first ~10 seconds for calibration, so about 30 seconds are recorded.
 - **Stop condition:** the ramp stops for a framework at the first step where p99 exceeds `P99_SLO_MS` (default 50 ms), the achieved rate is below 95% of the target, or more than 1% of requests fail.
