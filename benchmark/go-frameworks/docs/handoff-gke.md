@@ -40,7 +40,7 @@ The following decisions were made by the user and should not be reopened:
 | APIs enabled | compute, storage, billingbudgets, container, artifactregistry, cloudbuild. |
 | Artifact Registry | Docker repository `bench` in `us-central1` (`us-central1-docker.pkg.dev/go-bench-15205/bench`). It is empty. |
 | GCS bucket | `gs://go-bench-15205-results` (about 297 MB of earlier VM runs). It can be deleted at the end. |
-| GKE cluster `bench` | **Zonal in `us-central1-a`. It must be deleted and recreated elsewhere.** It has one `e2-standard-4` node in `default-pool` (label `node=system`) and a pool `apps` (2× `n2-standard-4`) stuck in PROVISIONING because of `ZONE_RESOURCE_POOL_EXHAUSTED`. The `clients` pool was never created. Managed Service for Prometheus is enabled. |
+| GKE cluster `bench` | **Zonal in `us-central1-a`. It must be deleted and recreated elsewhere.** Final state of the previous session: `default-pool` 1× `e2-standard-4` (label `node=system`), `apps` pool in **ERROR** with only 1 of 2 `n2-standard-4` nodes (`ZONE_RESOURCE_POOL_EXHAUSTED`), and `clients` 1× `n2-highcpu-16` running. That is about 24 vCPU billing while idle. Managed Service for Prometheus is enabled. |
 | Quota | `CPUS_ALL_REGIONS` = 32. The regional quota for us-central1 includes N2 200, C2D 100, C3 24 and N2D 16. |
 
 ## 3. Known issues and environment quirks
