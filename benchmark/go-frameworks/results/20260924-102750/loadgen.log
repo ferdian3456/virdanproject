@@ -1,0 +1,2201 @@
+dpkg-preconfigure: unable to re-open stdin: No such file or directory
+Selecting previously unselected package perl-modules-5.36.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 58476 files and directories currently installed.)
+Preparing to unpack .../00-perl-modules-5.36_5.36.0-7+deb12u3_all.deb ...
+Unpacking perl-modules-5.36 (5.36.0-7+deb12u3) ...
+Selecting previously unselected package libgdbm-compat4:amd64.
+Preparing to unpack .../01-libgdbm-compat4_1.23-3_amd64.deb ...
+Unpacking libgdbm-compat4:amd64 (1.23-3) ...
+Selecting previously unselected package libperl5.36:amd64.
+Preparing to unpack .../02-libperl5.36_5.36.0-7+deb12u3_amd64.deb ...
+Unpacking libperl5.36:amd64 (5.36.0-7+deb12u3) ...
+Selecting previously unselected package perl.
+Preparing to unpack .../03-perl_5.36.0-7+deb12u3_amd64.deb ...
+Unpacking perl (5.36.0-7+deb12u3) ...
+Selecting previously unselected package liblocale-gettext-perl.
+Preparing to unpack .../04-liblocale-gettext-perl_1.07-5_amd64.deb ...
+Unpacking liblocale-gettext-perl (1.07-5) ...
+Selecting previously unselected package bzip2.
+Preparing to unpack .../05-bzip2_1.0.8-5+b1_amd64.deb ...
+Unpacking bzip2 (1.0.8-5+b1) ...
+Selecting previously unselected package binutils-common:amd64.
+Preparing to unpack .../06-binutils-common_2.40-2_amd64.deb ...
+Unpacking binutils-common:amd64 (2.40-2) ...
+Selecting previously unselected package libbinutils:amd64.
+Preparing to unpack .../07-libbinutils_2.40-2_amd64.deb ...
+Unpacking libbinutils:amd64 (2.40-2) ...
+Selecting previously unselected package libctf-nobfd0:amd64.
+Preparing to unpack .../08-libctf-nobfd0_2.40-2_amd64.deb ...
+Unpacking libctf-nobfd0:amd64 (2.40-2) ...
+Selecting previously unselected package libctf0:amd64.
+Preparing to unpack .../09-libctf0_2.40-2_amd64.deb ...
+Unpacking libctf0:amd64 (2.40-2) ...
+Selecting previously unselected package libgprofng0:amd64.
+Preparing to unpack .../10-libgprofng0_2.40-2_amd64.deb ...
+Unpacking libgprofng0:amd64 (2.40-2) ...
+Selecting previously unselected package libjansson4:amd64.
+Preparing to unpack .../11-libjansson4_2.14-2_amd64.deb ...
+Unpacking libjansson4:amd64 (2.14-2) ...
+Selecting previously unselected package binutils-x86-64-linux-gnu.
+Preparing to unpack .../12-binutils-x86-64-linux-gnu_2.40-2_amd64.deb ...
+Unpacking binutils-x86-64-linux-gnu (2.40-2) ...
+Selecting previously unselected package binutils.
+Preparing to unpack .../13-binutils_2.40-2_amd64.deb ...
+Unpacking binutils (2.40-2) ...
+Selecting previously unselected package libc-dev-bin.
+Preparing to unpack .../14-libc-dev-bin_2.36-9+deb12u14_amd64.deb ...
+Unpacking libc-dev-bin (2.36-9+deb12u14) ...
+Selecting previously unselected package linux-libc-dev:amd64.
+Preparing to unpack .../15-linux-libc-dev_6.1.187-1_amd64.deb ...
+Unpacking linux-libc-dev:amd64 (6.1.187-1) ...
+Selecting previously unselected package libcrypt-dev:amd64.
+Preparing to unpack .../16-libcrypt-dev_1%3a4.4.33-2_amd64.deb ...
+Unpacking libcrypt-dev:amd64 (1:4.4.33-2) ...
+Selecting previously unselected package libtirpc-dev:amd64.
+Preparing to unpack .../17-libtirpc-dev_1.3.3+ds-1_amd64.deb ...
+Unpacking libtirpc-dev:amd64 (1.3.3+ds-1) ...
+Selecting previously unselected package libnsl-dev:amd64.
+Preparing to unpack .../18-libnsl-dev_1.3.0-2_amd64.deb ...
+Unpacking libnsl-dev:amd64 (1.3.0-2) ...
+Selecting previously unselected package rpcsvc-proto.
+Preparing to unpack .../19-rpcsvc-proto_1.4.3-1_amd64.deb ...
+Unpacking rpcsvc-proto (1.4.3-1) ...
+Selecting previously unselected package libc6-dev:amd64.
+Preparing to unpack .../20-libc6-dev_2.36-9+deb12u14_amd64.deb ...
+Unpacking libc6-dev:amd64 (2.36-9+deb12u14) ...
+Selecting previously unselected package libisl23:amd64.
+Preparing to unpack .../21-libisl23_0.25-1.1_amd64.deb ...
+Unpacking libisl23:amd64 (0.25-1.1) ...
+Selecting previously unselected package libmpfr6:amd64.
+Preparing to unpack .../22-libmpfr6_4.2.0-1_amd64.deb ...
+Unpacking libmpfr6:amd64 (4.2.0-1) ...
+Selecting previously unselected package libmpc3:amd64.
+Preparing to unpack .../23-libmpc3_1.3.1-1_amd64.deb ...
+Unpacking libmpc3:amd64 (1.3.1-1) ...
+Selecting previously unselected package cpp-12.
+Preparing to unpack .../24-cpp-12_12.2.0-14+deb12u1_amd64.deb ...
+Unpacking cpp-12 (12.2.0-14+deb12u1) ...
+Selecting previously unselected package cpp.
+Preparing to unpack .../25-cpp_4%3a12.2.0-3_amd64.deb ...
+Unpacking cpp (4:12.2.0-3) ...
+Selecting previously unselected package libcc1-0:amd64.
+Preparing to unpack .../26-libcc1-0_12.2.0-14+deb12u1_amd64.deb ...
+Unpacking libcc1-0:amd64 (12.2.0-14+deb12u1) ...
+Selecting previously unselected package libgomp1:amd64.
+Preparing to unpack .../27-libgomp1_12.2.0-14+deb12u1_amd64.deb ...
+Unpacking libgomp1:amd64 (12.2.0-14+deb12u1) ...
+Selecting previously unselected package libitm1:amd64.
+Preparing to unpack .../28-libitm1_12.2.0-14+deb12u1_amd64.deb ...
+Unpacking libitm1:amd64 (12.2.0-14+deb12u1) ...
+Selecting previously unselected package libatomic1:amd64.
+Preparing to unpack .../29-libatomic1_12.2.0-14+deb12u1_amd64.deb ...
+Unpacking libatomic1:amd64 (12.2.0-14+deb12u1) ...
+Selecting previously unselected package libasan8:amd64.
+Preparing to unpack .../30-libasan8_12.2.0-14+deb12u1_amd64.deb ...
+Unpacking libasan8:amd64 (12.2.0-14+deb12u1) ...
+Selecting previously unselected package liblsan0:amd64.
+Preparing to unpack .../31-liblsan0_12.2.0-14+deb12u1_amd64.deb ...
+Unpacking liblsan0:amd64 (12.2.0-14+deb12u1) ...
+Selecting previously unselected package libtsan2:amd64.
+Preparing to unpack .../32-libtsan2_12.2.0-14+deb12u1_amd64.deb ...
+Unpacking libtsan2:amd64 (12.2.0-14+deb12u1) ...
+Selecting previously unselected package libubsan1:amd64.
+Preparing to unpack .../33-libubsan1_12.2.0-14+deb12u1_amd64.deb ...
+Unpacking libubsan1:amd64 (12.2.0-14+deb12u1) ...
+Selecting previously unselected package libquadmath0:amd64.
+Preparing to unpack .../34-libquadmath0_12.2.0-14+deb12u1_amd64.deb ...
+Unpacking libquadmath0:amd64 (12.2.0-14+deb12u1) ...
+Selecting previously unselected package libgcc-12-dev:amd64.
+Preparing to unpack .../35-libgcc-12-dev_12.2.0-14+deb12u1_amd64.deb ...
+Unpacking libgcc-12-dev:amd64 (12.2.0-14+deb12u1) ...
+Selecting previously unselected package gcc-12.
+Preparing to unpack .../36-gcc-12_12.2.0-14+deb12u1_amd64.deb ...
+Unpacking gcc-12 (12.2.0-14+deb12u1) ...
+Selecting previously unselected package gcc.
+Preparing to unpack .../37-gcc_4%3a12.2.0-3_amd64.deb ...
+Unpacking gcc (4:12.2.0-3) ...
+Selecting previously unselected package libstdc++-12-dev:amd64.
+Preparing to unpack .../38-libstdc++-12-dev_12.2.0-14+deb12u1_amd64.deb ...
+Unpacking libstdc++-12-dev:amd64 (12.2.0-14+deb12u1) ...
+Selecting previously unselected package g++-12.
+Preparing to unpack .../39-g++-12_12.2.0-14+deb12u1_amd64.deb ...
+Unpacking g++-12 (12.2.0-14+deb12u1) ...
+Selecting previously unselected package g++.
+Preparing to unpack .../40-g++_4%3a12.2.0-3_amd64.deb ...
+Unpacking g++ (4:12.2.0-3) ...
+Selecting previously unselected package make.
+Preparing to unpack .../41-make_4.3-4.1_amd64.deb ...
+Unpacking make (4.3-4.1) ...
+Selecting previously unselected package libdpkg-perl.
+Preparing to unpack .../42-libdpkg-perl_1.21.23_all.deb ...
+Unpacking libdpkg-perl (1.21.23) ...
+Selecting previously unselected package patch.
+Preparing to unpack .../43-patch_2.7.6-7_amd64.deb ...
+Unpacking patch (2.7.6-7) ...
+Selecting previously unselected package dpkg-dev.
+Preparing to unpack .../44-dpkg-dev_1.21.23_all.deb ...
+Unpacking dpkg-dev (1.21.23) ...
+Selecting previously unselected package build-essential.
+Preparing to unpack .../45-build-essential_12.9_amd64.deb ...
+Unpacking build-essential (12.9) ...
+Selecting previously unselected package libfakeroot:amd64.
+Preparing to unpack .../46-libfakeroot_1.31-1.2_amd64.deb ...
+Unpacking libfakeroot:amd64 (1.31-1.2) ...
+Selecting previously unselected package fakeroot.
+Preparing to unpack .../47-fakeroot_1.31-1.2_amd64.deb ...
+Unpacking fakeroot (1.31-1.2) ...
+Selecting previously unselected package fonts-dejavu-core.
+Preparing to unpack .../48-fonts-dejavu-core_2.37-6_all.deb ...
+Unpacking fonts-dejavu-core (2.37-6) ...
+Selecting previously unselected package fontconfig-config.
+Preparing to unpack .../49-fontconfig-config_2.14.1-4_amd64.deb ...
+Unpacking fontconfig-config (2.14.1-4) ...
+Selecting previously unselected package liberror-perl.
+Preparing to unpack .../50-liberror-perl_0.17029-2_all.deb ...
+Unpacking liberror-perl (0.17029-2) ...
+Selecting previously unselected package git-man.
+Preparing to unpack .../51-git-man_1%3a2.39.5-0+deb12u3_all.deb ...
+Unpacking git-man (1:2.39.5-0+deb12u3) ...
+Selecting previously unselected package git.
+Preparing to unpack .../52-git_1%3a2.39.5-0+deb12u3_amd64.deb ...
+Unpacking git (1:2.39.5-0+deb12u3) ...
+Selecting previously unselected package libabsl20220623:amd64.
+Preparing to unpack .../53-libabsl20220623_20220623.1-1+deb12u2_amd64.deb ...
+Unpacking libabsl20220623:amd64 (20220623.1-1+deb12u2) ...
+Selecting previously unselected package libalgorithm-diff-perl.
+Preparing to unpack .../54-libalgorithm-diff-perl_1.201-1_all.deb ...
+Unpacking libalgorithm-diff-perl (1.201-1) ...
+Selecting previously unselected package libalgorithm-diff-xs-perl:amd64.
+Preparing to unpack .../55-libalgorithm-diff-xs-perl_0.04-8+b1_amd64.deb ...
+Unpacking libalgorithm-diff-xs-perl:amd64 (0.04-8+b1) ...
+Selecting previously unselected package libalgorithm-merge-perl.
+Preparing to unpack .../56-libalgorithm-merge-perl_0.08-5_all.deb ...
+Unpacking libalgorithm-merge-perl (0.08-5) ...
+Selecting previously unselected package libaom3:amd64.
+Preparing to unpack .../57-libaom3_3.6.0-1+deb12u3_amd64.deb ...
+Unpacking libaom3:amd64 (3.6.0-1+deb12u3) ...
+Selecting previously unselected package libdav1d6:amd64.
+Preparing to unpack .../58-libdav1d6_1.0.0-2+deb12u1_amd64.deb ...
+Unpacking libdav1d6:amd64 (1.0.0-2+deb12u1) ...
+Selecting previously unselected package libgav1-1:amd64.
+Preparing to unpack .../59-libgav1-1_0.18.0-1+b1_amd64.deb ...
+Unpacking libgav1-1:amd64 (0.18.0-1+b1) ...
+Selecting previously unselected package librav1e0:amd64.
+Preparing to unpack .../60-librav1e0_0.5.1-6_amd64.deb ...
+Unpacking librav1e0:amd64 (0.5.1-6) ...
+Selecting previously unselected package libsvtav1enc1:amd64.
+Preparing to unpack .../61-libsvtav1enc1_1.4.1+dfsg-1_amd64.deb ...
+Unpacking libsvtav1enc1:amd64 (1.4.1+dfsg-1) ...
+Selecting previously unselected package libjpeg62-turbo:amd64.
+Preparing to unpack .../62-libjpeg62-turbo_1%3a2.1.5-2_amd64.deb ...
+Unpacking libjpeg62-turbo:amd64 (1:2.1.5-2) ...
+Selecting previously unselected package libyuv0:amd64.
+Preparing to unpack .../63-libyuv0_0.0~git20230123.b2528b0-1_amd64.deb ...
+Unpacking libyuv0:amd64 (0.0~git20230123.b2528b0-1) ...
+Selecting previously unselected package libavif15:amd64.
+Preparing to unpack .../64-libavif15_0.11.1-1+deb12u1_amd64.deb ...
+Unpacking libavif15:amd64 (0.11.1-1+deb12u1) ...
+Selecting previously unselected package libfontconfig1:amd64.
+Preparing to unpack .../65-libfontconfig1_2.14.1-4_amd64.deb ...
+Unpacking libfontconfig1:amd64 (2.14.1-4) ...
+Selecting previously unselected package libde265-0:amd64.
+Preparing to unpack .../66-libde265-0_1.0.11-1+deb12u3_amd64.deb ...
+Unpacking libde265-0:amd64 (1.0.11-1+deb12u3) ...
+Selecting previously unselected package libnuma1:amd64.
+Preparing to unpack .../67-libnuma1_2.0.16-1_amd64.deb ...
+Unpacking libnuma1:amd64 (2.0.16-1) ...
+Selecting previously unselected package libx265-199:amd64.
+Preparing to unpack .../68-libx265-199_3.5-2+b1_amd64.deb ...
+Unpacking libx265-199:amd64 (3.5-2+b1) ...
+Selecting previously unselected package libheif1:amd64.
+Preparing to unpack .../69-libheif1_1.15.1-1+deb12u1_amd64.deb ...
+Unpacking libheif1:amd64 (1.15.1-1+deb12u1) ...
+Selecting previously unselected package libdeflate0:amd64.
+Preparing to unpack .../70-libdeflate0_1.14-1_amd64.deb ...
+Unpacking libdeflate0:amd64 (1.14-1) ...
+Selecting previously unselected package libjbig0:amd64.
+Preparing to unpack .../71-libjbig0_2.1-6.1_amd64.deb ...
+Unpacking libjbig0:amd64 (2.1-6.1) ...
+Selecting previously unselected package liblerc4:amd64.
+Preparing to unpack .../72-liblerc4_4.0.0+ds-2_amd64.deb ...
+Unpacking liblerc4:amd64 (4.0.0+ds-2) ...
+Selecting previously unselected package libwebp7:amd64.
+Preparing to unpack .../73-libwebp7_1.2.4-0.2+deb12u1_amd64.deb ...
+Unpacking libwebp7:amd64 (1.2.4-0.2+deb12u1) ...
+Selecting previously unselected package libtiff6:amd64.
+Preparing to unpack .../74-libtiff6_4.5.0-6+deb12u4_amd64.deb ...
+Unpacking libtiff6:amd64 (4.5.0-6+deb12u4) ...
+Selecting previously unselected package libxau6:amd64.
+Preparing to unpack .../75-libxau6_1%3a1.0.9-1_amd64.deb ...
+Unpacking libxau6:amd64 (1:1.0.9-1) ...
+Selecting previously unselected package libxdmcp6:amd64.
+Preparing to unpack .../76-libxdmcp6_1%3a1.1.2-3_amd64.deb ...
+Unpacking libxdmcp6:amd64 (1:1.1.2-3) ...
+Selecting previously unselected package libxcb1:amd64.
+Preparing to unpack .../77-libxcb1_1.15-1_amd64.deb ...
+Unpacking libxcb1:amd64 (1.15-1) ...
+Selecting previously unselected package libx11-data.
+Preparing to unpack .../78-libx11-data_2%3a1.8.4-2+deb12u2_all.deb ...
+Unpacking libx11-data (2:1.8.4-2+deb12u2) ...
+Selecting previously unselected package libx11-6:amd64.
+Preparing to unpack .../79-libx11-6_2%3a1.8.4-2+deb12u2_amd64.deb ...
+Unpacking libx11-6:amd64 (2:1.8.4-2+deb12u2) ...
+Selecting previously unselected package libxpm4:amd64.
+Preparing to unpack .../80-libxpm4_1%3a3.5.12-1.1+deb12u1_amd64.deb ...
+Unpacking libxpm4:amd64 (1:3.5.12-1.1+deb12u1) ...
+Selecting previously unselected package libgd3:amd64.
+Preparing to unpack .../81-libgd3_2.3.3-9+deb12u1_amd64.deb ...
+Unpacking libgd3:amd64 (2.3.3-9+deb12u1) ...
+Selecting previously unselected package libc-devtools.
+Preparing to unpack .../82-libc-devtools_2.36-9+deb12u14_amd64.deb ...
+Unpacking libc-devtools (2.36-9+deb12u14) ...
+Selecting previously unselected package libfile-fcntllock-perl.
+Preparing to unpack .../83-libfile-fcntllock-perl_0.22-4+b1_amd64.deb ...
+Unpacking libfile-fcntllock-perl (0.22-4+b1) ...
+Selecting previously unselected package libssl-dev:amd64.
+Preparing to unpack .../84-libssl-dev_3.0.20-1~deb12u2_amd64.deb ...
+Unpacking libssl-dev:amd64 (3.0.20-1~deb12u2) ...
+Selecting previously unselected package manpages-dev.
+Preparing to unpack .../85-manpages-dev_6.03-2_all.deb ...
+Unpacking manpages-dev (6.03-2) ...
+Selecting previously unselected package zlib1g-dev:amd64.
+Preparing to unpack .../86-zlib1g-dev_1%3a1.2.13.dfsg-1_amd64.deb ...
+Unpacking zlib1g-dev:amd64 (1:1.2.13.dfsg-1) ...
+Setting up libaom3:amd64 (3.6.0-1+deb12u3) ...
+Setting up manpages-dev (6.03-2) ...
+Setting up libabsl20220623:amd64 (20220623.1-1+deb12u2) ...
+Setting up libxau6:amd64 (1:1.0.9-1) ...
+Setting up libxdmcp6:amd64 (1:1.1.2-3) ...
+Setting up libxcb1:amd64 (1.15-1) ...
+Setting up liblerc4:amd64 (4.0.0+ds-2) ...
+Setting up binutils-common:amd64 (2.40-2) ...
+Setting up libdeflate0:amd64 (1.14-1) ...
+Setting up linux-libc-dev:amd64 (6.1.187-1) ...
+Setting up libctf-nobfd0:amd64 (2.40-2) ...
+Setting up libsvtav1enc1:amd64 (1.4.1+dfsg-1) ...
+Setting up libgomp1:amd64 (12.2.0-14+deb12u1) ...
+Setting up bzip2 (1.0.8-5+b1) ...
+Setting up libjbig0:amd64 (2.1-6.1) ...
+Setting up librav1e0:amd64 (0.5.1-6) ...
+Setting up libfakeroot:amd64 (1.31-1.2) ...
+Setting up libjansson4:amd64 (2.14-2) ...
+Setting up fakeroot (1.31-1.2) ...
+update-alternatives: using /usr/bin/fakeroot-sysv to provide /usr/bin/fakeroot (fakeroot) in auto mode
+Setting up perl-modules-5.36 (5.36.0-7+deb12u3) ...
+Setting up libtirpc-dev:amd64 (1.3.3+ds-1) ...
+Setting up rpcsvc-proto (1.4.3-1) ...
+Setting up libjpeg62-turbo:amd64 (1:2.1.5-2) ...
+Setting up libx11-data (2:1.8.4-2+deb12u2) ...
+Setting up make (4.3-4.1) ...
+Setting up libmpfr6:amd64 (4.2.0-1) ...
+Setting up libquadmath0:amd64 (12.2.0-14+deb12u1) ...
+Setting up libssl-dev:amd64 (3.0.20-1~deb12u2) ...
+Setting up libmpc3:amd64 (1.3.1-1) ...
+Setting up libatomic1:amd64 (12.2.0-14+deb12u1) ...
+Setting up patch (2.7.6-7) ...
+Setting up fonts-dejavu-core (2.37-6) ...
+Setting up libgdbm-compat4:amd64 (1.23-3) ...
+Setting up libgav1-1:amd64 (0.18.0-1+b1) ...
+Setting up libdav1d6:amd64 (1.0.0-2+deb12u1) ...
+Setting up libwebp7:amd64 (1.2.4-0.2+deb12u1) ...
+Setting up libubsan1:amd64 (12.2.0-14+deb12u1) ...
+Setting up libnuma1:amd64 (2.0.16-1) ...
+Setting up libnsl-dev:amd64 (1.3.0-2) ...
+Setting up libcrypt-dev:amd64 (1:4.4.33-2) ...
+Setting up libtiff6:amd64 (4.5.0-6+deb12u4) ...
+Setting up libasan8:amd64 (12.2.0-14+deb12u1) ...
+Setting up git-man (1:2.39.5-0+deb12u3) ...
+Setting up libx11-6:amd64 (2:1.8.4-2+deb12u2) ...
+Setting up libtsan2:amd64 (12.2.0-14+deb12u1) ...
+Setting up libbinutils:amd64 (2.40-2) ...
+Setting up libisl23:amd64 (0.25-1.1) ...
+Setting up libde265-0:amd64 (1.0.11-1+deb12u3) ...
+Setting up libc-dev-bin (2.36-9+deb12u14) ...
+Setting up libyuv0:amd64 (0.0~git20230123.b2528b0-1) ...
+Setting up libcc1-0:amd64 (12.2.0-14+deb12u1) ...
+Setting up libperl5.36:amd64 (5.36.0-7+deb12u3) ...
+Setting up liblocale-gettext-perl (1.07-5) ...
+Setting up liblsan0:amd64 (12.2.0-14+deb12u1) ...
+Setting up libitm1:amd64 (12.2.0-14+deb12u1) ...
+Setting up libctf0:amd64 (2.40-2) ...
+Setting up cpp-12 (12.2.0-14+deb12u1) ...
+Setting up libxpm4:amd64 (1:3.5.12-1.1+deb12u1) ...
+Setting up libavif15:amd64 (0.11.1-1+deb12u1) ...
+Setting up fontconfig-config (2.14.1-4) ...
+Setting up perl (5.36.0-7+deb12u3) ...
+Setting up libgprofng0:amd64 (2.40-2) ...
+Setting up libgcc-12-dev:amd64 (12.2.0-14+deb12u1) ...
+Setting up libdpkg-perl (1.21.23) ...
+Setting up libx265-199:amd64 (3.5-2+b1) ...
+Setting up cpp (4:12.2.0-3) ...
+Setting up libc6-dev:amd64 (2.36-9+deb12u14) ...
+Setting up binutils-x86-64-linux-gnu (2.40-2) ...
+Setting up libstdc++-12-dev:amd64 (12.2.0-14+deb12u1) ...
+Setting up libfile-fcntllock-perl (0.22-4+b1) ...
+Setting up libalgorithm-diff-perl (1.201-1) ...
+Setting up libheif1:amd64 (1.15.1-1+deb12u1) ...
+Setting up binutils (2.40-2) ...
+Setting up dpkg-dev (1.21.23) ...
+Setting up liberror-perl (0.17029-2) ...
+Setting up gcc-12 (12.2.0-14+deb12u1) ...
+Setting up git (1:2.39.5-0+deb12u3) ...
+Setting up zlib1g-dev:amd64 (1:1.2.13.dfsg-1) ...
+Setting up libalgorithm-diff-xs-perl:amd64 (0.04-8+b1) ...
+Setting up libalgorithm-merge-perl (0.08-5) ...
+Setting up g++-12 (12.2.0-14+deb12u1) ...
+Setting up gcc (4:12.2.0-3) ...
+Setting up g++ (4:12.2.0-3) ...
+update-alternatives: using /usr/bin/g++ to provide /usr/bin/c++ (c++) in auto mode
+Setting up build-essential (12.9) ...
+Processing triggers for libc-bin (2.36-9+deb12u14) ...
+Processing triggers for man-db (2.11.2-2) ...
+Processing triggers for sgml-base (1.31) ...
+Setting up libfontconfig1:amd64 (2.14.1-4) ...
+Setting up libgd3:amd64 (2.3.3-9+deb12u1) ...
+Setting up libc-devtools (2.36-9+deb12u14) ...
+Processing triggers for libc-bin (2.36-9+deb12u14) ...
+Cloning into '/opt/wrk2'...
+make: Entering directory '/opt/wrk2'
+Building LuaJIT...
+make[1]: Entering directory '/opt/wrk2/deps/luajit/src'
+HOSTCC    host/minilua.o
+HOSTCC    host/buildvm_asm.o
+HOSTCC    host/buildvm_peobj.o
+HOSTCC    host/buildvm_lib.o
+HOSTCC    host/buildvm_fold.o
+CC        lj_gc.o
+CC        lj_char.o
+CC        lj_obj.o
+CC        lj_str.o
+CC        lj_tab.o
+CC        lj_func.o
+CC        lj_udata.o
+CC        lj_meta.o
+CC        lj_debug.o
+CC        lj_state.o
+CC        lj_vmevent.o
+CC        lj_vmmath.o
+CC        lj_strscan.o
+CC        lj_api.o
+CC        lj_lex.o
+CC        lj_parse.o
+CC        lj_bcread.o
+CC        lj_bcwrite.o
+CC        lj_load.o
+CC        lj_ir.o
+CC        lj_opt_mem.o
+CC        lj_opt_narrow.o
+CC        lj_opt_dce.o
+CC        lj_opt_loop.o
+CC        lj_opt_split.o
+CC        lj_opt_sink.o
+CC        lj_mcode.o
+CC        lj_snap.o
+CC        lj_asm.o
+CC        lj_trace.o
+CC        lj_gdbjit.o
+CC        lj_ctype.o
+CC        lj_cdata.o
+CC        lj_cconv.o
+CC        lj_ccall.o
+CC        lj_ccallback.o
+CC        lj_carith.o
+CC        lj_clib.o
+CC        lj_cparse.o
+CC        lj_lib.o
+lj_cparse.c: In function ‘cp_next_’:
+lj_cparse.c:313:7: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  313 |       if (cp_get(cp) != '|') return '|'; cp_get(cp); return CTOK_OROR;
+      |       ^~
+lj_cparse.c:313:42: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  313 |       if (cp_get(cp) != '|') return '|'; cp_get(cp); return CTOK_OROR;
+      |                                          ^~~~~~
+lj_cparse.c:315:7: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  315 |       if (cp_get(cp) != '&') return '&'; cp_get(cp); return CTOK_ANDAND;
+      |       ^~
+lj_cparse.c:315:42: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  315 |       if (cp_get(cp) != '&') return '&'; cp_get(cp); return CTOK_ANDAND;
+      |                                          ^~~~~~
+lj_cparse.c:317:7: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  317 |       if (cp_get(cp) != '=') return '='; cp_get(cp); return CTOK_EQ;
+      |       ^~
+lj_cparse.c:317:42: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  317 |       if (cp_get(cp) != '=') return '='; cp_get(cp); return CTOK_EQ;
+      |                                          ^~~~~~
+lj_cparse.c:319:7: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  319 |       if (cp_get(cp) != '=') return '!'; cp_get(cp); return CTOK_NE;
+      |       ^~
+lj_cparse.c:319:42: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  319 |       if (cp_get(cp) != '=') return '!'; cp_get(cp); return CTOK_NE;
+      |                                          ^~~~~~
+lj_cparse.c:329:7: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  329 |       if (cp_get(cp) != '>') return '-'; cp_get(cp); return CTOK_DEREF;
+      |       ^~
+lj_cparse.c:329:42: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  329 |       if (cp_get(cp) != '>') return '-'; cp_get(cp); return CTOK_DEREF;
+      |                                          ^~~~~~
+CC        lj_alloc.o
+CC        lib_aux.o
+CC        lib_package.o
+CC        lib_init.o
+CC        luajit.o
+HOSTLINK  host/minilua
+DYNASM    host/buildvm_arch.h
+HOSTCC    host/buildvm.o
+In file included from host/buildvm.c:59:
+./../dynasm/dasm_x86.h: In function ‘dasm_put’:
+./../dynasm/dasm_x86.h:207:9: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  207 |         if (*p++ == 1 && *p == DASM_DISP) mrm = n; continue;
+      |         ^~
+./../dynasm/dasm_x86.h:207:52: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  207 |         if (*p++ == 1 && *p == DASM_DISP) mrm = n; continue;
+      |                                                    ^~~~~~~~
+HOSTLINK  host/buildvm
+BUILDVM   lj_vm.s
+BUILDVM   lj_ffdef.h
+BUILDVM   lj_bcdef.h
+BUILDVM   lj_folddef.h
+BUILDVM   lj_recdef.h
+BUILDVM   lj_libdef.h
+BUILDVM   jit/vmdef.lua
+CC        lj_err.o
+CC        lj_dispatch.o
+CC        lj_record.o
+CC        lj_crecord.o
+CC        lj_ffrecord.o
+CC        lib_base.o
+CC        lib_math.o
+CC        lib_bit.o
+CC        lib_string.o
+CC        lib_table.o
+CC        lib_io.o
+CC        lib_os.o
+CC        lib_debug.o
+CC        lib_jit.o
+CC        lib_ffi.o
+ASM       lj_vm.o
+CC        lj_bc.o
+CC        lj_opt_fold.o
+AR        libluajit.a
+ar: `u' modifier ignored since `D' is the default (see `U')
+LINK      luajit
+OK        Successfully built LuaJIT
+make[1]: Leaving directory '/opt/wrk2/deps/luajit/src'
+CC src/wrk.c
+CC src/net.c
+CC src/ssl.c
+CC src/aprintf.c
+CC src/stats.c
+CC src/script.c
+CC src/units.c
+CC src/ae.c
+CC src/zmalloc.c
+CC src/http_parser.c
+CC src/tinymt64.c
+CC src/hdr_histogram.c
+LUAJIT src/wrk.lua
+In file included from /usr/include/pthread.h:21,
+                 from src/wrk.h:5,
+                 from src/wrk.c:3:
+/usr/include/features.h:194:3: warning: #warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE" [-Wcpp]
+  194 | # warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE"
+      |   ^~~~~~~
+In file included from /usr/include/pthread.h:21,
+                 from src/ssl.c:3:
+/usr/include/features.h:194:3: warning: #warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE" [-Wcpp]
+  194 | # warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE"
+      |   ^~~~~~~
+In file included from /usr/include/x86_64-linux-gnu/bits/libc-header-start.h:33,
+                 from /usr/include/stdlib.h:26,
+                 from src/aprintf.c:4:
+/usr/include/features.h:194:3: warning: #warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE" [-Wcpp]
+  194 | # warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE"
+      |   ^~~~~~~
+In file included from /usr/include/errno.h:25,
+                 from src/net.c:3:
+/usr/include/features.h:194:3: warning: #warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE" [-Wcpp]
+  194 | # warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE"
+      |   ^~~~~~~
+In file included from /usr/include/inttypes.h:25,
+                 from src/stats.c:3:
+/usr/include/features.h:194:3: warning: #warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE" [-Wcpp]
+  194 | # warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE"
+      |   ^~~~~~~
+In file included from /usr/include/x86_64-linux-gnu/bits/libc-header-start.h:33,
+                 from /usr/include/stdlib.h:26,
+                 from src/script.c:3:
+/usr/include/features.h:194:3: warning: #warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE" [-Wcpp]
+  194 | # warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE"
+      |   ^~~~~~~
+In file included from /usr/include/x86_64-linux-gnu/bits/libc-header-start.h:33,
+                 from /usr/include/stdio.h:27,
+                 from src/ae.c:33:
+/usr/include/features.h:194:3: warning: #warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE" [-Wcpp]
+  194 | # warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE"
+      |   ^~~~~~~
+In file included from /usr/include/x86_64-linux-gnu/bits/libc-header-start.h:33,
+                 from /usr/include/stdint.h:26,
+                 from /usr/lib/gcc/x86_64-linux-gnu/12/include/stdint.h:9,
+                 from src/tinymt64.h:19,
+                 from src/tinymt64.c:16:
+/usr/include/features.h:194:3: warning: #warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE" [-Wcpp]
+  194 | # warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE"
+      |   ^~~~~~~
+In file included from /usr/include/x86_64-linux-gnu/bits/libc-header-start.h:33,
+                 from /usr/include/stdlib.h:26,
+                 from src/units.c:3:
+/usr/include/features.h:194:3: warning: #warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE" [-Wcpp]
+  194 | # warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE"
+      |   ^~~~~~~
+In file included from /usr/include/x86_64-linux-gnu/bits/libc-header-start.h:33,
+                 from /usr/include/stdio.h:27,
+                 from src/zmalloc.c:31:
+/usr/include/features.h:194:3: warning: #warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE" [-Wcpp]
+  194 | # warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE"
+      |   ^~~~~~~
+In file included from /usr/include/x86_64-linux-gnu/sys/types.h:25,
+                 from src/http_parser.h:32,
+                 from src/http_parser.c:24:
+/usr/include/features.h:194:3: warning: #warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE" [-Wcpp]
+  194 | # warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE"
+      |   ^~~~~~~
+In file included from /usr/include/x86_64-linux-gnu/bits/libc-header-start.h:33,
+                 from /usr/include/stdlib.h:26,
+                 from src/hdr_histogram.c:7:
+/usr/include/features.h:194:3: warning: #warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE" [-Wcpp]
+  194 | # warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE"
+      |   ^~~~~~~
+src/ssl.c:22:22: warning: ‘ssl_id’ defined but not used [-Wunused-function]
+   22 | static unsigned long ssl_id() {
+      |                      ^~~~~~
+src/ssl.c:13:13: warning: ‘ssl_lock’ defined but not used [-Wunused-function]
+   13 | static void ssl_lock(int mode, int n, const char *file, int line) {
+      |             ^~~~~~~~
+src/wrk.c: In function ‘response_complete’:
+src/wrk.c:529:48: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘int64_t’ {aka ‘long int’} [-Wformat=]
+  529 |         printf("  expected_latency_timing = %lld\n", expected_latency_timing);
+      |                                             ~~~^     ~~~~~~~~~~~~~~~~~~~~~~~
+      |                                                |     |
+      |                                                |     int64_t {aka long int}
+      |                                                long long int
+      |                                             %ld
+src/wrk.c:530:28: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t’ {aka ‘long unsigned int’} [-Wformat=]
+  530 |         printf("  now = %lld\n", now);
+      |                         ~~~^     ~~~
+      |                            |     |
+      |                            |     uint64_t {aka long unsigned int}
+      |                            long long int
+      |                         %ld
+src/wrk.c:531:47: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t’ {aka ‘long unsigned int’} [-Wformat=]
+  531 |         printf("  expected_latency_start = %lld\n", expected_latency_start);
+      |                                            ~~~^     ~~~~~~~~~~~~~~~~~~~~~~
+      |                                               |     |
+      |                                               |     uint64_t {aka long unsigned int}
+      |                                               long long int
+      |                                            %ld
+src/wrk.c:532:40: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t’ {aka ‘long unsigned int’} [-Wformat=]
+  532 |         printf("  c->thread_start = %lld\n", c->thread_start);
+      |                                     ~~~^     ~~~~~~~~~~~~~~~
+      |                                        |      |
+      |                                        |      uint64_t {aka long unsigned int}
+      |                                        long long int
+      |                                     %ld
+src/wrk.c:533:36: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t’ {aka ‘long unsigned int’} [-Wformat=]
+  533 |         printf("  c->complete = %lld\n", c->complete);
+      |                                 ~~~^     ~~~~~~~~~~~
+      |                                    |      |
+      |                                    |      uint64_t {aka long unsigned int}
+      |                                    long long int
+      |                                 %ld
+src/wrk.c:535:48: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t’ {aka ‘long unsigned int’} [-Wformat=]
+  535 |         printf("  latest_should_send_time = %lld\n", c->latest_should_send_time);
+      |                                             ~~~^     ~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                                |      |
+      |                                                |      uint64_t {aka long unsigned int}
+      |                                                long long int
+      |                                             %ld
+src/wrk.c:536:46: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t’ {aka ‘long unsigned int’} [-Wformat=]
+  536 |         printf("  latest_expected_start = %lld\n", c->latest_expected_start);
+      |                                           ~~~^     ~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                              |      |
+      |                                              |      uint64_t {aka long unsigned int}
+      |                                              long long int
+      |                                           %ld
+src/wrk.c:537:39: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t’ {aka ‘long unsigned int’} [-Wformat=]
+  537 |         printf("  latest_connect = %lld\n", c->latest_connect);
+      |                                    ~~~^     ~~~~~~~~~~~~~~~~~
+      |                                       |      |
+      |                                       |      uint64_t {aka long unsigned int}
+      |                                       long long int
+      |                                    %ld
+src/wrk.c:538:37: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t’ {aka ‘long unsigned int’} [-Wformat=]
+  538 |         printf("  latest_write = %lld\n", c->latest_write);
+      |                                  ~~~^     ~~~~~~~~~~~~~~~
+      |                                     |      |
+      |                                     |      uint64_t {aka long unsigned int}
+      |                                     long long int
+      |                                  %ld
+src/wrk.c:542:52: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t’ {aka ‘long unsigned int’} [-Wformat=]
+  542 |         printf("  next expected_latency_start = %lld\n", expected_latency_start);
+      |                                                 ~~~^     ~~~~~~~~~~~~~~~~~~~~~~
+      |                                                    |     |
+      |                                                    |     uint64_t {aka long unsigned int}
+      |                                                    long long int
+      |                                                 %ld
+src/wrk.c: At top level:
+src/wrk.c:834:13: warning: ‘print_stats_latency’ defined but not used [-Wunused-function]
+  834 | static void print_stats_latency(stats *stats) {
+      |             ^~~~~~~~~~~~~~~~~~~
+src/script.c: In function ‘script_wrk_time_us’:
+src/script.c:476:5: warning: implicit declaration of function ‘gettimeofday’ [-Wimplicit-function-declaration]
+  476 |     gettimeofday(&tv, NULL);
+      |     ^~~~~~~~~~~~
+LINK wrk
+make: Leaving directory '/opt/wrk2'
+Copying gs://go-bench-15205-results/runs/20260924-102750/scripts/bench.sh to file://./bench.sh
+Copying gs://go-bench-15205-results/runs/20260924-102750/scripts/post.lua to file://./post.lua
+  
+
+
+Average throughput: 386.6kiB/s
+net.ipv4.ip_local_port_range = 1024 65535
+net.ipv4.tcp_tw_reuse = 1
+all frameworks healthy
+rep=1 scenario=get fw=chi rate=10000 rps=9969.38 p99_ms=1.830 errors=0/398896
+rep=1 scenario=get fw=chi rate=20000 rps=19902.10 p99_ms=2.090 errors=0/796338
+At file://results/**, worker process 3496 thread 140051543328576 listed 4...
+Copying file://results/get/chi/r1/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r1/10000.txt
+Copying file://results/get/chi/r1/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r1/20000.txt
+  
+Copying file://results/get/chi/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r1/40000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 420.0kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=get fw=chi rate=40000 rps=39811.83 p99_ms=2.700 errors=0/1592410
+rep=1 scenario=get fw=chi rate=60000 rps=59799.39 p99_ms=4.010 errors=0/2391949
+At file://results/**, worker process 3812 thread 139878648698688 listed 6...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 3812 thread 139878648698688 listed 4...
+Copying file://results/get/chi/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r1/40000.txt
+Copying file://results/get/chi/r1/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r1/60000.txt
+  
+Copying file://results/get/chi/r1/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r1/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 344.7kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=1 scenario=get fw=chi rate=80000 rps=79613.49 p99_ms=6.380 errors=0/3184540
+rep=1 scenario=get fw=chi rate=100000 rps=99658.76 p99_ms=548.350 errors=0/3986101
+At file://results/**, worker process 4148 thread 139733444462400 listed 8...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 4148 thread 139733444462400 listed 6...
+Copying file://results/get/chi/r1/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r1/100000.txt
+Copying file://results/get/chi/r1/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r1/80000.txt
+  
+Copying file://results/get/stdlib/r1/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r1/10000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 445.3kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=get fw=stdlib rate=10000 rps=9954.31 p99_ms=1.890 errors=0/398312
+rep=1 scenario=get fw=stdlib rate=20000 rps=19935.16 p99_ms=1.890 errors=0/797491
+rep=1 scenario=get fw=stdlib rate=40000 rps=39927.68 p99_ms=2.710 errors=0/1597015
+At file://results/**, worker process 4491 thread 140075904354112 listed 11...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 4491 thread 140075904354112 listed 8...
+Copying file://results/get/stdlib/r1/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r1/10000.txt
+Copying file://results/get/stdlib/r1/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r1/20000.txt
+  
+Copying file://results/get/stdlib/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r1/40000.txt
+Copying file://results/get/stdlib/r1/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r1/60000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 323.3kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=1 scenario=get fw=stdlib rate=60000 rps=59705.64 p99_ms=3.870 errors=0/2388473
+rep=1 scenario=get fw=stdlib rate=80000 rps=79731.90 p99_ms=5.940 errors=0/3189043
+At file://results/**, worker process 4808 thread 140181703165760 listed 13...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 4808 thread 140181703165760 listed 11...
+Copying file://results/get/stdlib/r1/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r1/100000.txt
+Copying file://results/get/stdlib/r1/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r1/60000.txt
+  
+Copying file://results/get/stdlib/r1/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r1/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 201.5kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=1 scenario=get fw=stdlib rate=100000 rps=99510.31 p99_ms=431.100 errors=0/3980122
+rep=1 scenario=get fw=echo rate=10000 rps=9968.93 p99_ms=1.890 errors=0/398898
+rep=1 scenario=get fw=echo rate=20000 rps=19967.58 p99_ms=1.880 errors=0/798657
+At file://results/**, worker process 5154 thread 140424368056128 listed 15...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 5154 thread 140424368056128 listed 13...
+Copying file://results/get/echo/r1/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r1/10000.txt
+Copying file://results/get/echo/r1/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r1/20000.txt
+  
+Copying file://results/get/stdlib/r1/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r1/100000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 466.1kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=get fw=echo rate=40000 rps=39750.31 p99_ms=2.750 errors=0/1590075
+rep=1 scenario=get fw=echo rate=60000 rps=59889.10 p99_ms=3.910 errors=0/2395434
+At file://results/**, worker process 5489 thread 140709498926912 listed 18...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 5489 thread 140709498926912 listed 15...
+Copying file://results/get/echo/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r1/40000.txt
+Copying file://results/get/echo/r1/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r1/60000.txt
+  
+Copying file://results/get/echo/r1/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r1/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 231.2kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=get fw=echo rate=80000 rps=79610.48 p99_ms=8.470 errors=0/3184452
+rep=1 scenario=get fw=echo rate=100000 rps=99663.81 p99_ms=480.260 errors=0/3986337
+At file://results/**, worker process 5827 thread 139928744617792 listed 20...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 5827 thread 139928744617792 listed 18...
+Copying file://results/get/echo/r1/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r1/100000.txt
+Copying file://results/get/echo/r1/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r1/80000.txt
+  
+Copying file://results/get/fiber/r1/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r1/10000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 418.7kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=get fw=fiber rate=10000 rps=9986.88 p99_ms=1.870 errors=0/399471
+rep=1 scenario=get fw=fiber rate=20000 rps=19902.15 p99_ms=1.880 errors=0/796353
+rep=1 scenario=get fw=fiber rate=40000 rps=39864.85 p99_ms=1.890 errors=0/1594709
+At file://results/**, worker process 6151 thread 140594769684288 listed 22...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 6151 thread 140594769684288 listed 20...
+Copying file://results/get/fiber/r1/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r1/10000.txt
+Copying file://results/get/fiber/r1/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r1/20000.txt
+  
+Copying file://results/get/fiber/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r1/40000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 335.0kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=1 scenario=get fw=fiber rate=60000 rps=59705.98 p99_ms=2.010 errors=0/2388496
+rep=1 scenario=get fw=fiber rate=80000 rps=79733.18 p99_ms=2.100 errors=0/3189131
+At file://results/**, worker process 6484 thread 140130421544768 listed 25...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 6484 thread 140130421544768 listed 22...
+Copying file://results/get/fiber/r1/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r1/100000.txt
+Copying file://results/get/fiber/r1/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r1/60000.txt
+  
+Copying file://results/get/fiber/r1/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r1/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 149.5kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=get fw=fiber rate=100000 rps=99376.18 p99_ms=2.340 errors=0/3974865
+rep=1 scenario=get fw=fiber rate=125000 rps=124033.90 p99_ms=3.350 errors=0/4961216
+rep=1 scenario=get fw=fiber rate=150000 rps=149490.82 p99_ms=5.290 errors=0/5979389
+At file://results/**, worker process 6802 thread 140305669265216 listed 27...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 6802 thread 140305669265216 listed 25...
+Copying file://results/get/fiber/r1/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r1/100000.txt
+Copying file://results/get/fiber/r1/125000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r1/125000.txt
+  
+Copying file://results/get/fiber/r1/150000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r1/150000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 383.7kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=get fw=fiber rate=200000 rps=180233.91 p99_ms=3950.000 errors=0/7208815
+rep=1 scenario=get fw=gin rate=10000 rps=9954.33 p99_ms=1.900 errors=0/398315
+At file://results/**, worker process 7147 thread 139776704264000 listed 29...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 7147 thread 139776704264000 listed 27...
+Copying file://results/get/fiber/r1/200000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r1/200000.txt
+Copying file://results/get/gin/r1/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r1/10000.txt
+  
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 655.9kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=get fw=gin rate=20000 rps=19903.14 p99_ms=2.020 errors=0/796369
+rep=1 scenario=get fw=gin rate=40000 rps=39863.49 p99_ms=3.140 errors=0/1594638
+At file://results/**, worker process 7480 thread 140296500623168 listed 32...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 7480 thread 140296500623168 listed 29...
+Copying file://results/get/gin/r1/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r1/20000.txt
+Copying file://results/get/gin/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r1/40000.txt
+  
+Copying file://results/get/gin/r1/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r1/60000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 223.5kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=get fw=gin rate=60000 rps=59707.50 p99_ms=3.800 errors=0/2388511
+rep=1 scenario=get fw=gin rate=80000 rps=79610.17 p99_ms=6.120 errors=0/3184317
+rep=1 scenario=get fw=gin rate=100000 rps=98784.75 p99_ms=406.270 errors=0/3951064
+At file://results/**, worker process 7804 thread 139703402297152 listed 34...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 7804 thread 139703402297152 listed 32...
+Copying file://results/get/gin/r1/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r1/100000.txt
+Copying file://results/get/gin/r1/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r1/60000.txt
+  
+Copying file://results/get/gin/r1/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r1/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 982.3kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=get fw=fasthttp rate=10000 rps=9968.62 p99_ms=1.860 errors=0/398897
+rep=1 scenario=get fw=fasthttp rate=20000 rps=19966.76 p99_ms=1.870 errors=0/798630
+At file://results/**, worker process 8160 thread 140433157515072 listed 37...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 8160 thread 140433157515072 listed 34...
+Copying file://results/get/fasthttp/r1/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r1/10000.txt
+Copying file://results/get/fasthttp/r1/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r1/20000.txt
+  
+Copying file://results/get/fasthttp/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r1/40000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 103.1kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=get fw=fasthttp rate=40000 rps=39927.40 p99_ms=1.870 errors=0/1597008
+rep=1 scenario=get fw=fasthttp rate=60000 rps=59889.67 p99_ms=1.990 errors=0/2395420
+At file://results/**, worker process 8476 thread 140576552789824 listed 39...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 8476 thread 140576552789824 listed 37...
+Copying file://results/get/fasthttp/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r1/40000.txt
+Copying file://results/get/fasthttp/r1/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r1/60000.txt
+  
+Copying file://results/get/fasthttp/r1/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r1/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 262.9kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=1 scenario=get fw=fasthttp rate=80000 rps=79611.69 p99_ms=2.170 errors=0/3184476
+rep=1 scenario=get fw=fasthttp rate=100000 rps=99520.24 p99_ms=2.270 errors=0/3980600
+rep=1 scenario=get fw=fasthttp rate=125000 rps=124398.85 p99_ms=3.280 errors=0/4975613
+At file://results/**, worker process 8800 thread 139905476806464 listed 41...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 8800 thread 139905476806464 listed 39...
+Copying file://results/get/fasthttp/r1/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r1/100000.txt
+Copying file://results/get/fasthttp/r1/125000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r1/125000.txt
+  
+Copying file://results/get/fasthttp/r1/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r1/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 186.6kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=get fw=fasthttp rate=150000 rps=149273.91 p99_ms=5.150 errors=0/5970663
+rep=1 scenario=get fw=fasthttp rate=200000 rps=188853.27 p99_ms=2270.000 errors=0/7553508
+At file://results/**, worker process 9158 thread 140281929393984 listed 44...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 9158 thread 140281929393984 listed 41...
+Copying file://results/get/fasthttp/r1/150000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r1/150000.txt
+Copying file://results/get/fasthttp/r1/200000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r1/200000.txt
+  
+Copying file://results/post/gin/r1/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r1/10000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+..
+
+Average throughput: 76.2kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=post fw=gin rate=10000 rps=9968.81 p99_ms=1.880 errors=0/398891
+rep=1 scenario=post fw=gin rate=20000 rps=19966.79 p99_ms=1.920 errors=0/798633
+At file://results/**, worker process 9473 thread 140338948781888 listed 46...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 9473 thread 140338948781888 listed 44...
+Copying file://results/post/gin/r1/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r1/10000.txt
+Copying file://results/post/gin/r1/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r1/20000.txt
+  
+Copying file://results/post/gin/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r1/40000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 350.6kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=post fw=gin rate=40000 rps=39808.19 p99_ms=3.010 errors=0/1592405
+rep=1 scenario=post fw=gin rate=60000 rps=59802.21 p99_ms=4.900 errors=0/2391920
+rep=1 scenario=post fw=gin rate=80000 rps=79405.09 p99_ms=106.820 errors=0/3176036
+At file://results/**, worker process 9797 thread 139842010113856 listed 48...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 9797 thread 139842010113856 listed 46...
+Copying file://results/post/gin/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r1/40000.txt
+Copying file://results/post/gin/r1/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r1/60000.txt
+  
+Copying file://results/post/gin/r1/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r1/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 548.1kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=post fw=fasthttp rate=10000 rps=9986.91 p99_ms=1.870 errors=0/399470
+rep=1 scenario=post fw=fasthttp rate=20000 rps=19903.16 p99_ms=1.890 errors=0/796350
+At file://results/**, worker process 10153 thread 140027410421568 listed 51...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 10153 thread 140027410421568 listed 48...
+Copying file://results/post/fasthttp/r1/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r1/10000.txt
+Copying file://results/post/fasthttp/r1/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r1/20000.txt
+  
+Copying file://results/post/fasthttp/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r1/40000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 381.7kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=1 scenario=post fw=fasthttp rate=40000 rps=39808.69 p99_ms=1.910 errors=0/1592411
+rep=1 scenario=post fw=fasthttp rate=60000 rps=59796.46 p99_ms=2.000 errors=0/2391934
+At file://results/**, worker process 10469 thread 139739758987072 listed 53...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 10469 thread 139739758987072 listed 51...
+Copying file://results/post/fasthttp/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r1/40000.txt
+Copying file://results/post/fasthttp/r1/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r1/60000.txt
+  
+Copying file://results/post/fasthttp/r1/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r1/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+...
+
+Average throughput: 33.4kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=1 scenario=post fw=fasthttp rate=80000 rps=79850.16 p99_ms=2.210 errors=0/3193788
+rep=1 scenario=post fw=fasthttp rate=100000 rps=99811.31 p99_ms=2.740 errors=0/3992201
+rep=1 scenario=post fw=fasthttp rate=125000 rps=124214.02 p99_ms=5.780 errors=0/4968424
+At file://results/**, worker process 10813 thread 139969355536192 listed 56...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 10813 thread 139969355536192 listed 53...
+Copying file://results/post/fasthttp/r1/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r1/100000.txt
+Copying file://results/post/fasthttp/r1/125000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r1/125000.txt
+  
+Copying file://results/post/fasthttp/r1/150000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r1/150000.txt
+Copying file://results/post/fasthttp/r1/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r1/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 180.7kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=1 scenario=post fw=fasthttp rate=150000 rps=148779.07 p99_ms=247.170 errors=0/5950799
+rep=1 scenario=post fw=fiber rate=10000 rps=9968.90 p99_ms=1.850 errors=0/398898
+At file://results/**, worker process 11154 thread 139758538544960 listed 58...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 11154 thread 139758538544960 listed 56...
+Copying file://results/post/fasthttp/r1/150000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r1/150000.txt
+Copying file://results/post/fiber/r1/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r1/10000.txt
+  
+Copying file://results/post/fiber/r1/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r1/20000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 539.0kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=post fw=fiber rate=20000 rps=19937.66 p99_ms=1.890 errors=0/797483
+rep=1 scenario=post fw=fiber rate=40000 rps=39928.78 p99_ms=1.850 errors=0/1597041
+At file://results/**, worker process 11469 thread 139637452441408 listed 60...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 11469 thread 139637452441408 listed 58...
+Copying file://results/post/fiber/r1/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r1/20000.txt
+Copying file://results/post/fiber/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r1/40000.txt
+  
+Copying file://results/post/fiber/r1/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r1/60000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+..
+
+Average throughput: 68.5kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=post fw=fiber rate=60000 rps=59800.84 p99_ms=2.000 errors=0/2391926
+rep=1 scenario=post fw=fiber rate=80000 rps=79495.08 p99_ms=2.270 errors=0/3179888
+rep=1 scenario=post fw=fiber rate=100000 rps=99519.92 p99_ms=2.650 errors=0/3980605
+At file://results/**, worker process 11811 thread 139990195234624 listed 63...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 11811 thread 139990195234624 listed 60...
+Copying file://results/post/fiber/r1/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r1/100000.txt
+Copying file://results/post/fiber/r1/125000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r1/125000.txt
+  
+Copying file://results/post/fiber/r1/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r1/60000.txt
+Copying file://results/post/fiber/r1/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r1/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 262.6kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=post fw=fiber rate=125000 rps=124578.39 p99_ms=5.280 errors=0/4982787
+rep=1 scenario=post fw=fiber rate=150000 rps=148690.68 p99_ms=336.130 errors=0/5947330
+At file://results/**, worker process 12148 thread 139641654171456 listed 65...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 12148 thread 139641654171456 listed 63...
+Copying file://results/post/chi/r1/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r1/10000.txt
+Copying file://results/post/fiber/r1/125000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r1/125000.txt
+  
+Copying file://results/post/fiber/r1/150000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r1/150000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 274.7kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=1 scenario=post fw=chi rate=10000 rps=9969.00 p99_ms=1.840 errors=0/398895
+rep=1 scenario=post fw=chi rate=20000 rps=19901.95 p99_ms=2.040 errors=0/796348
+rep=1 scenario=post fw=chi rate=40000 rps=39868.13 p99_ms=3.230 errors=0/1594703
+At file://results/**, worker process 12470 thread 139735748282176 listed 67...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 12470 thread 139735748282176 listed 65...
+Copying file://results/post/chi/r1/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r1/10000.txt
+Copying file://results/post/chi/r1/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r1/20000.txt
+  
+Copying file://results/post/chi/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r1/40000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 283.3kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=post fw=chi rate=60000 rps=59801.19 p99_ms=5.530 errors=0/2391878
+rep=1 scenario=post fw=chi rate=80000 rps=79733.38 p99_ms=308.990 errors=0/3189109
+At file://results/**, worker process 12805 thread 140006329169728 listed 69...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 12805 thread 140006329169728 listed 67...
+Copying file://results/post/chi/r1/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r1/60000.txt
+Copying file://results/post/chi/r1/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r1/80000.txt
+  
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+
+
+Average throughput: 2.7MiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=post fw=stdlib rate=10000 rps=9987.03 p99_ms=1.890 errors=0/399476
+rep=1 scenario=post fw=stdlib rate=20000 rps=19934.69 p99_ms=1.930 errors=0/797482
+At file://results/**, worker process 13142 thread 139749884401472 listed 72...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 13142 thread 139749884401472 listed 69...
+Copying file://results/post/stdlib/r1/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r1/10000.txt
+Copying file://results/post/stdlib/r1/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r1/20000.txt
+  
+Copying file://results/post/stdlib/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r1/40000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 165.9kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=1 scenario=post fw=stdlib rate=40000 rps=39928.22 p99_ms=3.090 errors=0/1597016
+rep=1 scenario=post fw=stdlib rate=60000 rps=59714.40 p99_ms=4.550 errors=0/2388418
+rep=1 scenario=post fw=stdlib rate=80000 rps=79733.40 p99_ms=254.720 errors=0/3189115
+At file://results/**, worker process 13468 thread 140351105271616 listed 74...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 13468 thread 140351105271616 listed 72...
+Copying file://results/post/stdlib/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r1/40000.txt
+Copying file://results/post/stdlib/r1/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r1/60000.txt
+  
+Copying file://results/post/stdlib/r1/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r1/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 1.4MiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=1 scenario=post fw=echo rate=10000 rps=9954.06 p99_ms=1.900 errors=0/398313
+rep=1 scenario=post fw=echo rate=20000 rps=19934.60 p99_ms=2.050 errors=0/797482
+At file://results/**, worker process 13823 thread 140112787158848 listed 77...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 13823 thread 140112787158848 listed 74...
+Copying file://results/post/echo/r1/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r1/10000.txt
+Copying file://results/post/echo/r1/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r1/20000.txt
+  
+Copying file://results/post/echo/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r1/40000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 167.6kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=1 scenario=post fw=echo rate=40000 rps=39928.71 p99_ms=2.830 errors=0/1597030
+rep=1 scenario=post fw=echo rate=60000 rps=59707.62 p99_ms=4.520 errors=0/2388498
+At file://results/**, worker process 14140 thread 140633963407168 listed 79...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 14140 thread 140633963407168 listed 77...
+Copying file://results/post/echo/r1/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r1/40000.txt
+Copying file://results/post/echo/r1/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r1/60000.txt
+  
+Copying file://results/post/echo/r1/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r1/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 159.4kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=1 scenario=post fw=echo rate=80000 rps=79613.02 p99_ms=217.470 errors=0/3184547
+rep=2 scenario=get fw=gin rate=10000 rps=9968.52 p99_ms=1.830 errors=0/398899
+At file://results/**, worker process 14480 thread 140548526229312 listed 81...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 14480 thread 140548526229312 listed 79...
+Copying file://results/get/gin/r2/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r2/10000.txt
+Copying file://results/get/gin/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r2/20000.txt
+  
+Copying file://results/post/echo/r1/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r1/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 630.9kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=2 scenario=get fw=gin rate=20000 rps=19902.70 p99_ms=1.970 errors=0/796356
+rep=2 scenario=get fw=gin rate=40000 rps=39928.04 p99_ms=2.570 errors=0/1597037
+rep=2 scenario=get fw=gin rate=60000 rps=59706.50 p99_ms=3.940 errors=0/2388467
+At file://results/**, worker process 14821 thread 140361980020544 listed 84...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 14821 thread 140361980020544 listed 81...
+Copying file://results/get/gin/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r2/20000.txt
+Copying file://results/get/gin/r2/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r2/40000.txt
+  
+Copying file://results/get/gin/r2/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r2/60000.txt
+Copying file://results/get/gin/r2/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r2/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 718.4kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=2 scenario=get fw=gin rate=80000 rps=79733.23 p99_ms=12.980 errors=0/3189151
+rep=2 scenario=get fw=gin rate=100000 rps=98768.97 p99_ms=515.580 errors=0/3950486
+At file://results/**, worker process 15157 thread 140687771461440 listed 86...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 15157 thread 140687771461440 listed 84...
+Copying file://results/get/gin/r2/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r2/100000.txt
+Copying file://results/get/gin/r2/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r2/80000.txt
+  
+Copying file://results/get/stdlib/r2/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r2/10000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 294.1kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=2 scenario=get fw=stdlib rate=10000 rps=9969.28 p99_ms=1.850 errors=0/398894
+rep=2 scenario=get fw=stdlib rate=20000 rps=19873.59 p99_ms=2.100 errors=0/795213
+At file://results/**, worker process 15474 thread 139756116444992 listed 88...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 15474 thread 139756116444992 listed 86...
+Copying file://results/get/stdlib/r2/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r2/10000.txt
+Copying file://results/get/stdlib/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r2/20000.txt
+  
+Copying file://results/get/stdlib/r2/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r2/40000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+..
+
+Average throughput: 61.5kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=2 scenario=get fw=stdlib rate=40000 rps=39750.92 p99_ms=3.030 errors=0/1590094
+rep=2 scenario=get fw=stdlib rate=60000 rps=59714.97 p99_ms=3.600 errors=0/2388441
+rep=2 scenario=get fw=stdlib rate=80000 rps=79493.48 p99_ms=5.980 errors=0/3179939
+At file://results/**, worker process 15816 thread 140396604995392 listed 91...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 15816 thread 140396604995392 listed 88...
+Copying file://results/get/stdlib/r2/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r2/100000.txt
+Copying file://results/get/stdlib/r2/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r2/40000.txt
+  
+Copying file://results/get/stdlib/r2/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r2/60000.txt
+Copying file://results/get/stdlib/r2/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r2/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 526.8kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=2 scenario=get fw=stdlib rate=100000 rps=99516.47 p99_ms=464.130 errors=0/3980490
+rep=2 scenario=get fw=echo rate=10000 rps=9954.31 p99_ms=1.860 errors=0/398310
+At file://results/**, worker process 16151 thread 140149770266432 listed 93...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 16151 thread 140149770266432 listed 91...
+Copying file://results/get/echo/r2/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r2/10000.txt
+Copying file://results/get/echo/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r2/20000.txt
+  
+Copying file://results/get/stdlib/r2/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r2/100000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 510.6kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=2 scenario=get fw=echo rate=20000 rps=19933.17 p99_ms=1.900 errors=0/797481
+rep=2 scenario=get fw=echo rate=40000 rps=39866.61 p99_ms=2.720 errors=0/1594660
+rep=2 scenario=get fw=echo rate=60000 rps=59624.68 p99_ms=4.200 errors=0/2384855
+At file://results/**, worker process 16475 thread 139931101038400 listed 95...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 16475 thread 139931101038400 listed 93...
+Copying file://results/get/echo/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r2/20000.txt
+Copying file://results/get/echo/r2/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r2/40000.txt
+  
+Copying file://results/get/echo/r2/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r2/60000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 836.4kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=2 scenario=get fw=echo rate=80000 rps=79730.83 p99_ms=6.180 errors=0/3189007
+rep=2 scenario=get fw=echo rate=100000 rps=99663.88 p99_ms=307.970 errors=0/3986339
+At file://results/**, worker process 16811 thread 140403963123520 listed 97...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 16811 thread 140403963123520 listed 95...
+Copying file://results/get/echo/r2/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r2/100000.txt
+Copying file://results/get/echo/r2/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r2/80000.txt
+  
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 275.9kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=2 scenario=get fw=chi rate=10000 rps=9968.24 p99_ms=1.950 errors=0/398784
+rep=2 scenario=get fw=chi rate=20000 rps=19936.47 p99_ms=1.890 errors=0/797498
+At file://results/**, worker process 17147 thread 140489143560000 listed 100...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 17147 thread 140489143560000 listed 97...
+Copying file://results/get/chi/r2/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r2/10000.txt
+Copying file://results/get/chi/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r2/20000.txt
+  
+Copying file://results/get/chi/r2/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r2/40000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 299.4kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=2 scenario=get fw=chi rate=40000 rps=39928.21 p99_ms=2.590 errors=0/1597024
+rep=2 scenario=get fw=chi rate=60000 rps=59801.28 p99_ms=3.880 errors=0/2391909
+rep=2 scenario=get fw=chi rate=80000 rps=79615.09 p99_ms=7.140 errors=0/3184556
+At file://results/**, worker process 17474 thread 140069976725312 listed 102...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 17474 thread 140069976725312 listed 100...
+Copying file://results/get/chi/r2/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r2/40000.txt
+Copying file://results/get/chi/r2/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r2/60000.txt
+  
+Copying file://results/get/chi/r2/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r2/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 933.0kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=2 scenario=get fw=chi rate=100000 rps=99514.43 p99_ms=461.820 errors=0/3980340
+rep=2 scenario=get fw=fiber rate=10000 rps=9969.18 p99_ms=1.860 errors=0/398896
+At file://results/**, worker process 17834 thread 139889468163904 listed 105...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 17834 thread 139889468163904 listed 102...
+Copying file://results/get/chi/r2/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r2/100000.txt
+Copying file://results/get/fiber/r2/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r2/10000.txt
+  
+Copying file://results/get/fiber/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r2/20000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 231.9kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=2 scenario=get fw=fiber rate=20000 rps=19873.15 p99_ms=1.940 errors=0/795211
+rep=2 scenario=get fw=fiber rate=40000 rps=39809.34 p99_ms=1.900 errors=0/1592386
+At file://results/**, worker process 18153 thread 139815942424384 listed 107...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 18153 thread 139815942424384 listed 105...
+Copying file://results/get/fiber/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r2/20000.txt
+Copying file://results/get/fiber/r2/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r2/40000.txt
+  
+Copying file://results/get/fiber/r2/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r2/60000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 818.7kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=2 scenario=get fw=fiber rate=60000 rps=59801.45 p99_ms=2.000 errors=0/2391875
+rep=2 scenario=get fw=fiber rate=80000 rps=79732.35 p99_ms=2.150 errors=0/3189094
+rep=2 scenario=get fw=fiber rate=100000 rps=99807.79 p99_ms=2.380 errors=0/3992128
+At file://results/**, worker process 18480 thread 140091584956224 listed 109...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 18480 thread 140091584956224 listed 107...
+Copying file://results/get/fiber/r2/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r2/100000.txt
+Copying file://results/get/fiber/r2/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r2/60000.txt
+  
+Copying file://results/get/fiber/r2/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r2/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 1.2MiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=2 scenario=get fw=fiber rate=125000 rps=124578.42 p99_ms=3.680 errors=0/4982866
+rep=2 scenario=get fw=fiber rate=150000 rps=149052.76 p99_ms=5.320 errors=0/5962047
+At file://results/**, worker process 18817 thread 139721198798656 listed 112...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 18817 thread 139721198798656 listed 109...
+Copying file://results/get/fiber/r2/125000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r2/125000.txt
+Copying file://results/get/fiber/r2/150000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r2/150000.txt
+  
+Copying file://results/get/fiber/r2/200000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r2/200000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+..
+
+Average throughput: 80.2kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=2 scenario=get fw=fiber rate=200000 rps=181684.67 p99_ms=3690.000 errors=0/7266857
+rep=2 scenario=get fw=fasthttp rate=10000 rps=9987.13 p99_ms=1.820 errors=0/399472
+At file://results/**, worker process 19155 thread 140537816799040 listed 114...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 19155 thread 140537816799040 listed 112...
+Copying file://results/get/fasthttp/r2/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r2/10000.txt
+Copying file://results/get/fasthttp/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r2/20000.txt
+  
+Copying file://results/get/fiber/r2/200000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r2/200000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 1.2MiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=2 scenario=get fw=fasthttp rate=20000 rps=19902.67 p99_ms=1.890 errors=0/796364
+rep=2 scenario=get fw=fasthttp rate=40000 rps=39752.07 p99_ms=1.930 errors=0/1590069
+rep=2 scenario=get fw=fasthttp rate=60000 rps=59801.53 p99_ms=2.000 errors=0/2391906
+At file://results/**, worker process 19499 thread 140587203962688 listed 117...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 19499 thread 140587203962688 listed 114...
+Copying file://results/get/fasthttp/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r2/20000.txt
+Copying file://results/get/fasthttp/r2/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r2/40000.txt
+  
+Copying file://results/get/fasthttp/r2/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r2/60000.txt
+Copying file://results/get/fasthttp/r2/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r2/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 180.6kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=2 scenario=get fw=fasthttp rate=80000 rps=79848.97 p99_ms=2.130 errors=0/3193808
+rep=2 scenario=get fw=fasthttp rate=100000 rps=99811.29 p99_ms=2.300 errors=0/3992192
+At file://results/**, worker process 19817 thread 139990846252864 listed 119...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 19817 thread 139990846252864 listed 117...
+Copying file://results/get/fasthttp/r2/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r2/100000.txt
+Copying file://results/get/fasthttp/r2/125000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r2/125000.txt
+  
+Copying file://results/get/fasthttp/r2/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r2/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 318.0kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=2 scenario=get fw=fasthttp rate=125000 rps=124216.70 p99_ms=3.110 errors=0/4968466
+rep=2 scenario=get fw=fasthttp rate=150000 rps=149274.57 p99_ms=4.900 errors=0/5970725
+rep=2 scenario=get fw=fasthttp rate=200000 rps=188226.22 p99_ms=2260.000 errors=0/7528522
+At file://results/**, worker process 20146 thread 139772154705728 listed 121...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 20146 thread 139772154705728 listed 119...
+Copying file://results/get/fasthttp/r2/125000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r2/125000.txt
+Copying file://results/get/fasthttp/r2/150000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r2/150000.txt
+  
+Copying file://results/get/fasthttp/r2/200000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r2/200000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 765.2kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=2 scenario=post fw=fasthttp rate=10000 rps=9954.17 p99_ms=1.900 errors=0/398313
+rep=2 scenario=post fw=fasthttp rate=20000 rps=19933.05 p99_ms=1.890 errors=0/797495
+At file://results/**, worker process 20504 thread 139664336795456 listed 124...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 20504 thread 139664336795456 listed 121...
+Copying file://results/post/fasthttp/r2/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r2/10000.txt
+Copying file://results/post/fasthttp/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r2/20000.txt
+  
+Copying file://results/post/fasthttp/r2/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r2/40000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 121.6kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=2 scenario=post fw=fasthttp rate=40000 rps=39808.28 p99_ms=1.900 errors=0/1592418
+rep=2 scenario=post fw=fasthttp rate=60000 rps=59801.70 p99_ms=1.990 errors=0/2391904
+At file://results/**, worker process 20828 thread 140022318331712 listed 126...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 20828 thread 140022318331712 listed 124...
+Copying file://results/post/fasthttp/r2/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r2/40000.txt
+Copying file://results/post/fasthttp/r2/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r2/60000.txt
+  
+Copying file://results/post/fasthttp/r2/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r2/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 461.0kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=2 scenario=post fw=fasthttp rate=80000 rps=79613.29 p99_ms=2.200 errors=0/3184478
+rep=2 scenario=post fw=fasthttp rate=100000 rps=99812.66 p99_ms=2.710 errors=0/3992192
+rep=2 scenario=post fw=fasthttp rate=125000 rps=124754.70 p99_ms=4.320 errors=0/4989899
+At file://results/**, worker process 21173 thread 140155366098752 listed 129...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 21173 thread 140155366098752 listed 126...
+Copying file://results/post/fasthttp/r2/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r2/100000.txt
+Copying file://results/post/fasthttp/r2/125000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r2/125000.txt
+  
+Copying file://results/post/fasthttp/r2/150000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r2/150000.txt
+Copying file://results/post/fasthttp/r2/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r2/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 305.3kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=2 scenario=post fw=fasthttp rate=150000 rps=149265.64 p99_ms=158.340 errors=0/5970170
+rep=2 scenario=post fw=chi rate=10000 rps=9969.15 p99_ms=1.860 errors=0/398892
+At file://results/**, worker process 21510 thread 140195802404672 listed 131...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 21510 thread 140195802404672 listed 129...
+Copying file://results/post/chi/r2/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r2/10000.txt
+Copying file://results/post/chi/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r2/20000.txt
+  
+Copying file://results/post/fasthttp/r2/150000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r2/150000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 258.5kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=2 scenario=post fw=chi rate=20000 rps=19902.27 p99_ms=2.040 errors=0/796340
+rep=2 scenario=post fw=chi rate=40000 rps=39750.52 p99_ms=3.440 errors=0/1590066
+At file://results/**, worker process 21831 thread 139841033426752 listed 133...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 21831 thread 139841033426752 listed 131...
+Copying file://results/post/chi/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r2/20000.txt
+Copying file://results/post/chi/r2/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r2/40000.txt
+  
+Copying file://results/post/chi/r2/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r2/60000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 266.5kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=2 scenario=post fw=chi rate=60000 rps=59801.76 p99_ms=4.570 errors=0/2391904
+rep=2 scenario=post fw=chi rate=80000 rps=79725.44 p99_ms=319.230 errors=0/3189030
+rep=2 scenario=post fw=echo rate=10000 rps=9986.94 p99_ms=1.850 errors=0/399469
+At file://results/**, worker process 22176 thread 140083679450944 listed 135...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 22176 thread 140083679450944 listed 133...
+Copying file://results/post/chi/r2/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r2/60000.txt
+Copying file://results/post/chi/r2/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r2/80000.txt
+  
+Copying file://results/post/echo/r2/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r2/10000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 835.8kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=2 scenario=post fw=echo rate=20000 rps=19936.91 p99_ms=1.920 errors=0/797478
+rep=2 scenario=post fw=echo rate=40000 rps=39808.97 p99_ms=2.870 errors=0/1592409
+At file://results/**, worker process 22513 thread 140449977833280 listed 138...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 22513 thread 140449977833280 listed 135...
+Copying file://results/post/echo/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r2/20000.txt
+Copying file://results/post/echo/r2/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r2/40000.txt
+  
+Copying file://results/post/echo/r2/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r2/60000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 503.4kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=2 scenario=post fw=echo rate=60000 rps=59799.78 p99_ms=4.480 errors=0/2391941
+rep=2 scenario=post fw=echo rate=80000 rps=79614.99 p99_ms=283.650 errors=0/3184386
+At file://results/**, worker process 22854 thread 139879666132800 listed 140...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 22854 thread 139879666132800 listed 138...
+Copying file://results/post/echo/r2/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r2/60000.txt
+Copying file://results/post/echo/r2/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r2/80000.txt
+  
+Copying file://results/post/fiber/r2/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r2/10000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 138.3kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=2 scenario=post fw=fiber rate=10000 rps=9968.89 p99_ms=1.860 errors=0/398890
+rep=2 scenario=post fw=fiber rate=20000 rps=19931.70 p99_ms=1.890 errors=0/797485
+rep=2 scenario=post fw=fiber rate=40000 rps=39865.14 p99_ms=1.900 errors=0/1594715
+At file://results/**, worker process 23184 thread 140384516073280 listed 142...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 23184 thread 140384516073280 listed 140...
+Copying file://results/post/fiber/r2/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r2/10000.txt
+Copying file://results/post/fiber/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r2/20000.txt
+  
+Copying file://results/post/fiber/r2/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r2/40000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 1.1MiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=2 scenario=post fw=fiber rate=60000 rps=59620.64 p99_ms=2.010 errors=0/2385015
+rep=2 scenario=post fw=fiber rate=80000 rps=79849.03 p99_ms=2.270 errors=0/3193695
+At file://results/**, worker process 23520 thread 140690687166272 listed 145...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 23520 thread 140690687166272 listed 142...
+Copying file://results/post/fiber/r2/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r2/100000.txt
+Copying file://results/post/fiber/r2/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r2/60000.txt
+  
+Copying file://results/post/fiber/r2/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r2/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 419.9kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=2 scenario=post fw=fiber rate=100000 rps=99660.13 p99_ms=3.010 errors=0/3986286
+rep=2 scenario=post fw=fiber rate=125000 rps=124217.20 p99_ms=4.880 errors=0/4968330
+rep=2 scenario=post fw=fiber rate=150000 rps=149272.97 p99_ms=315.390 errors=0/5970477
+At file://results/**, worker process 23846 thread 140402021758784 listed 147...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 23846 thread 140402021758784 listed 145...
+Copying file://results/post/fiber/r2/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r2/100000.txt
+Copying file://results/post/fiber/r2/125000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r2/125000.txt
+  
+Copying file://results/post/fiber/r2/150000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r2/150000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 390.4kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=2 scenario=post fw=gin rate=10000 rps=9969.42 p99_ms=1.830 errors=0/398889
+rep=2 scenario=post fw=gin rate=20000 rps=19902.91 p99_ms=2.170 errors=0/796354
+At file://results/**, worker process 24203 thread 140098118858560 listed 150...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 24203 thread 140098118858560 listed 147...
+Copying file://results/post/gin/r2/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r2/10000.txt
+Copying file://results/post/gin/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r2/20000.txt
+  
+Copying file://results/post/gin/r2/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r2/40000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 268.8kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+..
+rep=2 scenario=post fw=gin rate=40000 rps=39867.19 p99_ms=3.090 errors=0/1594673
+rep=2 scenario=post fw=gin rate=60000 rps=59798.92 p99_ms=4.930 errors=0/2391829
+At file://results/**, worker process 24522 thread 140484377933632 listed 152...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 24522 thread 140484377933632 listed 150...
+Copying file://results/post/gin/r2/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r2/40000.txt
+Copying file://results/post/gin/r2/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r2/60000.txt
+  
+Copying file://results/post/gin/r2/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r2/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 285.8kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=2 scenario=post fw=gin rate=80000 rps=79614.17 p99_ms=325.380 errors=0/3184517
+rep=2 scenario=post fw=stdlib rate=10000 rps=9954.35 p99_ms=1.870 errors=0/398311
+At file://results/**, worker process 24860 thread 140354531370816 listed 154...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 24860 thread 140354531370816 listed 152...
+Copying file://results/post/gin/r2/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r2/80000.txt
+Copying file://results/post/stdlib/r2/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r2/10000.txt
+  
+Copying file://results/post/stdlib/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r2/20000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 3.0MiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=2 scenario=post fw=stdlib rate=20000 rps=19902.02 p99_ms=2.090 errors=0/796360
+rep=2 scenario=post fw=stdlib rate=40000 rps=39928.89 p99_ms=2.910 errors=0/1597043
+rep=2 scenario=post fw=stdlib rate=60000 rps=59713.66 p99_ms=4.710 errors=0/2388415
+At file://results/**, worker process 25207 thread 140670089815872 listed 157...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 25207 thread 140670089815872 listed 154...
+Copying file://results/post/stdlib/r2/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r2/20000.txt
+Copying file://results/post/stdlib/r2/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r2/40000.txt
+  
+Copying file://results/post/stdlib/r2/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r2/60000.txt
+Copying file://results/post/stdlib/r2/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r2/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 557.2kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=2 scenario=post fw=stdlib rate=80000 rps=79496.85 p99_ms=206.850 errors=0/3179963
+rep=3 scenario=get fw=echo rate=10000 rps=9969.04 p99_ms=1.870 errors=0/398897
+At file://results/**, worker process 25547 thread 140549459334976 listed 159...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 25547 thread 140549459334976 listed 157...
+Copying file://results/get/echo/r3/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r3/10000.txt
+Copying file://results/get/echo/r3/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r3/20000.txt
+  
+Copying file://results/post/stdlib/r2/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r2/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 317.1kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=3 scenario=get fw=echo rate=20000 rps=19936.10 p99_ms=1.890 errors=0/797485
+rep=3 scenario=get fw=echo rate=40000 rps=39869.27 p99_ms=2.560 errors=0/1594703
+At file://results/**, worker process 25865 thread 139997868480320 listed 161...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 25865 thread 139997868480320 listed 159...
+Copying file://results/get/echo/r3/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r3/20000.txt
+Copying file://results/get/echo/r3/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r3/40000.txt
+  
+Copying file://results/get/echo/r3/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r3/60000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 384.7kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=3 scenario=get fw=echo rate=60000 rps=59795.47 p99_ms=3.910 errors=0/2391951
+rep=3 scenario=get fw=echo rate=80000 rps=79610.28 p99_ms=6.060 errors=0/3184501
+rep=3 scenario=get fw=echo rate=100000 rps=99811.38 p99_ms=402.690 errors=0/3992170
+At file://results/**, worker process 26210 thread 139746957354816 listed 163...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 26210 thread 139746957354816 listed 161...
+Copying file://results/get/echo/r3/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r3/100000.txt
+Copying file://results/get/echo/r3/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r3/60000.txt
+  
+Copying file://results/get/echo/r3/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/echo/r3/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 736.2kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=get fw=gin rate=10000 rps=9968.95 p99_ms=1.840 errors=0/398898
+rep=3 scenario=get fw=gin rate=20000 rps=19902.32 p99_ms=1.970 errors=0/796359
+At file://results/**, worker process 26547 thread 139822325757760 listed 166...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 26547 thread 139822325757760 listed 163...
+Copying file://results/get/gin/r3/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r3/10000.txt
+Copying file://results/get/gin/r3/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r3/20000.txt
+  
+Copying file://results/get/gin/r3/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r3/40000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 1.1MiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=get fw=gin rate=40000 rps=39751.54 p99_ms=3.150 errors=0/1590070
+rep=3 scenario=get fw=gin rate=60000 rps=59801.57 p99_ms=4.080 errors=0/2391914
+rep=3 scenario=get fw=gin rate=80000 rps=79611.55 p99_ms=16.120 errors=0/3184524
+At file://results/**, worker process 26873 thread 140699680188224 listed 168...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 26873 thread 140699680188224 listed 166...
+Copying file://results/get/gin/r3/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r3/40000.txt
+Copying file://results/get/gin/r3/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r3/60000.txt
+  
+Copying file://results/get/gin/r3/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r3/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 301.9kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=3 scenario=get fw=gin rate=100000 rps=98973.45 p99_ms=550.910 errors=0/3958662
+rep=3 scenario=get fw=fasthttp rate=10000 rps=9986.99 p99_ms=1.860 errors=0/399475
+At file://results/**, worker process 27215 thread 139756481881920 listed 170...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 27215 thread 139756481881920 listed 168...
+Copying file://results/get/fasthttp/r3/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r3/10000.txt
+Copying file://results/get/gin/r3/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/gin/r3/100000.txt
+  
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 470.0kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+...
+rep=3 scenario=get fw=fasthttp rate=20000 rps=19932.24 p99_ms=1.880 errors=0/797488
+rep=3 scenario=get fw=fasthttp rate=40000 rps=39868.48 p99_ms=1.880 errors=0/1594733
+At file://results/**, worker process 27554 thread 140110580696896 listed 173...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 27554 thread 140110580696896 listed 170...
+Copying file://results/get/fasthttp/r3/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r3/20000.txt
+Copying file://results/get/fasthttp/r3/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r3/40000.txt
+  
+Copying file://results/get/fasthttp/r3/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r3/60000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 762.5kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=get fw=fasthttp rate=60000 rps=59800.88 p99_ms=1.970 errors=0/2391892
+rep=3 scenario=get fw=fasthttp rate=80000 rps=79496.05 p99_ms=2.120 errors=0/3179969
+rep=3 scenario=get fw=fasthttp rate=100000 rps=99811.05 p99_ms=2.320 errors=0/3992190
+At file://results/**, worker process 27883 thread 140660525176640 listed 175...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 27883 thread 140660525176640 listed 173...
+Copying file://results/get/fasthttp/r3/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r3/100000.txt
+Copying file://results/get/fasthttp/r3/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r3/60000.txt
+  
+Copying file://results/get/fasthttp/r3/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r3/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 316.9kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=3 scenario=get fw=fasthttp rate=125000 rps=124759.60 p99_ms=3.270 errors=0/4990193
+rep=3 scenario=get fw=fasthttp rate=150000 rps=149492.54 p99_ms=4.660 errors=0/5979285
+At file://results/**, worker process 28218 thread 139804611983168 listed 178...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 28218 thread 139804611983168 listed 175...
+Copying file://results/get/fasthttp/r3/125000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r3/125000.txt
+Copying file://results/get/fasthttp/r3/150000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r3/150000.txt
+  
+Copying file://results/get/fasthttp/r3/200000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r3/200000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 634.5kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=get fw=fasthttp rate=200000 rps=186898.83 p99_ms=2580.000 errors=0/7475462
+rep=3 scenario=get fw=fiber rate=10000 rps=9954.64 p99_ms=1.910 errors=0/398305
+At file://results/**, worker process 28558 thread 139901035419456 listed 180...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 28558 thread 139901035419456 listed 178...
+Copying file://results/get/fasthttp/r3/200000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fasthttp/r3/200000.txt
+Copying file://results/get/fiber/r3/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r3/10000.txt
+  
+Copying file://results/get/fiber/r3/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r3/20000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 1.4MiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=3 scenario=get fw=fiber rate=20000 rps=19902.30 p99_ms=1.880 errors=0/796363
+rep=3 scenario=get fw=fiber rate=40000 rps=39869.66 p99_ms=1.900 errors=0/1594683
+rep=3 scenario=get fw=fiber rate=60000 rps=59708.01 p99_ms=1.990 errors=0/2388495
+At file://results/**, worker process 28886 thread 139818690467648 listed 183...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 28886 thread 139818690467648 listed 180...
+Copying file://results/get/fiber/r3/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r3/20000.txt
+Copying file://results/get/fiber/r3/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r3/40000.txt
+  
+Copying file://results/get/fiber/r3/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r3/60000.txt
+Copying file://results/get/fiber/r3/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r3/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 272.9kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=get fw=fiber rate=80000 rps=79613.85 p99_ms=2.160 errors=0/3184559
+rep=3 scenario=get fw=fiber rate=100000 rps=99807.57 p99_ms=2.410 errors=0/3992116
+At file://results/**, worker process 29223 thread 139844077860672 listed 185...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 29223 thread 139844077860672 listed 183...
+Copying file://results/get/fiber/r3/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r3/100000.txt
+Copying file://results/get/fiber/r3/125000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r3/125000.txt
+  
+Copying file://results/get/fiber/r3/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r3/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 274.1kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=3 scenario=get fw=fiber rate=125000 rps=124761.21 p99_ms=3.550 errors=0/4990110
+rep=3 scenario=get fw=fiber rate=150000 rps=149494.98 p99_ms=8.490 errors=0/5979387
+rep=3 scenario=get fw=fiber rate=200000 rps=179669.69 p99_ms=4050.000 errors=0/7186321
+At file://results/**, worker process 29551 thread 139700268123968 listed 187...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 29551 thread 139700268123968 listed 185...
+Copying file://results/get/fiber/r3/125000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r3/125000.txt
+Copying file://results/get/fiber/r3/150000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r3/150000.txt
+  
+Copying file://results/get/fiber/r3/200000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/fiber/r3/200000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 418.1kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=get fw=stdlib rate=10000 rps=9968.71 p99_ms=1.850 errors=0/398901
+rep=3 scenario=get fw=stdlib rate=20000 rps=19873.40 p99_ms=2.060 errors=0/795209
+At file://results/**, worker process 29908 thread 140315955648320 listed 190...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 29908 thread 140315955648320 listed 187...
+Copying file://results/get/stdlib/r3/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r3/10000.txt
+Copying file://results/get/stdlib/r3/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r3/20000.txt
+  
+Copying file://results/get/stdlib/r3/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r3/40000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 2.7MiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=get fw=stdlib rate=40000 rps=39928.30 p99_ms=2.570 errors=0/1597023
+rep=3 scenario=get fw=stdlib rate=60000 rps=59888.68 p99_ms=3.860 errors=0/2395432
+At file://results/**, worker process 30223 thread 139652241966912 listed 192...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 30223 thread 139652241966912 listed 190...
+Copying file://results/get/stdlib/r3/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r3/40000.txt
+Copying file://results/get/stdlib/r3/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r3/60000.txt
+  
+Copying file://results/get/stdlib/r3/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r3/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 167.0kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=get fw=stdlib rate=80000 rps=79732.00 p99_ms=8.580 errors=0/3189167
+rep=3 scenario=get fw=stdlib rate=100000 rps=99652.65 p99_ms=509.440 errors=0/3985869
+At file://results/**, worker process 30568 thread 139768573486912 listed 194...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 30568 thread 139768573486912 listed 192...
+Copying file://results/get/chi/r3/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r3/10000.txt
+Copying file://results/get/stdlib/r3/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r3/100000.txt
+  
+Copying file://results/get/stdlib/r3/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/stdlib/r3/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 116.8kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=get fw=chi rate=10000 rps=9969.10 p99_ms=1.970 errors=0/398897
+rep=3 scenario=get fw=chi rate=20000 rps=19931.53 p99_ms=1.920 errors=0/797482
+rep=3 scenario=get fw=chi rate=40000 rps=39808.41 p99_ms=2.700 errors=0/1592413
+At file://results/**, worker process 30912 thread 139633630566208 listed 197...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 30912 thread 139633630566208 listed 194...
+Copying file://results/get/chi/r3/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r3/10000.txt
+Copying file://results/get/chi/r3/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r3/20000.txt
+  
+Copying file://results/get/chi/r3/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r3/40000.txt
+Copying file://results/get/chi/r3/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r3/60000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+..
+
+Average throughput: 135.0kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=get fw=chi rate=60000 rps=59801.81 p99_ms=4.260 errors=0/2391956
+rep=3 scenario=get fw=chi rate=80000 rps=79500.36 p99_ms=21.680 errors=0/3179811
+At file://results/**, worker process 31230 thread 140279499622208 listed 199...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 31230 thread 140279499622208 listed 197...
+Copying file://results/get/chi/r3/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r3/100000.txt
+Copying file://results/get/chi/r3/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r3/60000.txt
+  
+Copying file://results/get/chi/r3/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r3/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 330.9kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.....
+rep=3 scenario=get fw=chi rate=100000 rps=98573.91 p99_ms=632.830 errors=0/3942707
+rep=3 scenario=post fw=gin rate=10000 rps=9968.48 p99_ms=1.850 errors=0/398893
+rep=3 scenario=post fw=gin rate=20000 rps=19903.16 p99_ms=2.040 errors=0/796362
+At file://results/**, worker process 31587 thread 140515008395072 listed 201...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 31587 thread 140515008395072 listed 199...
+Copying file://results/get/chi/r3/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/get/chi/r3/100000.txt
+Copying file://results/post/gin/r3/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r3/10000.txt
+  
+Copying file://results/post/gin/r3/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r3/20000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 172.2kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=post fw=gin rate=40000 rps=39693.52 p99_ms=3.770 errors=0/1587790
+rep=3 scenario=post fw=gin rate=60000 rps=59711.98 p99_ms=5.140 errors=0/2388410
+At file://results/**, worker process 31923 thread 139926807304000 listed 204...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 31923 thread 139926807304000 listed 201...
+Copying file://results/post/gin/r3/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r3/40000.txt
+Copying file://results/post/gin/r3/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r3/60000.txt
+  
+Copying file://results/post/gin/r3/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r3/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 401.5kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=3 scenario=post fw=gin rate=80000 rps=79500.16 p99_ms=349.700 errors=0/3179802
+rep=3 scenario=post fw=stdlib rate=10000 rps=9968.70 p99_ms=1.860 errors=0/398892
+At file://results/**, worker process 32263 thread 139732803643200 listed 206...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 32263 thread 139732803643200 listed 204...
+Copying file://results/post/gin/r3/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/gin/r3/80000.txt
+Copying file://results/post/stdlib/r3/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r3/10000.txt
+  
+Copying file://results/post/stdlib/r3/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r3/20000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 464.6kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=post fw=stdlib rate=20000 rps=19934.26 p99_ms=1.930 errors=0/797480
+rep=3 scenario=post fw=stdlib rate=40000 rps=39928.59 p99_ms=3.210 errors=0/1597040
+rep=3 scenario=post fw=stdlib rate=60000 rps=59889.09 p99_ms=4.980 errors=0/2395397
+At file://results/**, worker process 32591 thread 139849078241088 listed 208...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 32591 thread 139849078241088 listed 206...
+Copying file://results/post/stdlib/r3/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r3/20000.txt
+Copying file://results/post/stdlib/r3/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r3/40000.txt
+  
+Copying file://results/post/stdlib/r3/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r3/60000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 2.3MiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=3 scenario=post fw=stdlib rate=80000 rps=79844.59 p99_ms=363.770 errors=0/3193621
+rep=3 scenario=post fw=echo rate=10000 rps=9954.30 p99_ms=1.880 errors=0/398311
+At file://results/**, worker process 32947 thread 140379355731776 listed 211...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 32947 thread 140379355731776 listed 208...
+Copying file://results/post/echo/r3/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r3/10000.txt
+Copying file://results/post/echo/r3/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r3/20000.txt
+  
+Copying file://results/post/stdlib/r3/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/stdlib/r3/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 253.1kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=3 scenario=post fw=echo rate=20000 rps=19873.75 p99_ms=2.340 errors=0/795212
+rep=3 scenario=post fw=echo rate=40000 rps=39928.58 p99_ms=3.060 errors=0/1597064
+At file://results/**, worker process 33268 thread 139961912293184 listed 213...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 33268 thread 139961912293184 listed 211...
+Copying file://results/post/echo/r3/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r3/20000.txt
+Copying file://results/post/echo/r3/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r3/40000.txt
+  
+Copying file://results/post/echo/r3/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r3/60000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 416.6kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=post fw=echo rate=60000 rps=59618.42 p99_ms=5.500 errors=0/2385018
+rep=3 scenario=post fw=echo rate=80000 rps=79613.13 p99_ms=319.490 errors=0/3184447
+At file://results/**, worker process 33611 thread 140091790440256 listed 215...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 33611 thread 140091790440256 listed 213...
+Copying file://results/post/chi/r3/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r3/10000.txt
+Copying file://results/post/echo/r3/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r3/60000.txt
+  
+Copying file://results/post/echo/r3/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/echo/r3/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 1.0MiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=post fw=chi rate=10000 rps=9954.67 p99_ms=1.920 errors=0/398307
+rep=3 scenario=post fw=chi rate=20000 rps=19902.67 p99_ms=2.040 errors=0/796346
+rep=3 scenario=post fw=chi rate=40000 rps=39928.21 p99_ms=3.160 errors=0/1597007
+At file://results/**, worker process 33957 thread 140719384278848 listed 218...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 33957 thread 140719384278848 listed 215...
+Copying file://results/post/chi/r3/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r3/10000.txt
+Copying file://results/post/chi/r3/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r3/20000.txt
+  
+Copying file://results/post/chi/r3/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r3/40000.txt
+Copying file://results/post/chi/r3/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r3/60000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 566.5kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=post fw=chi rate=60000 rps=59799.83 p99_ms=5.230 errors=0/2391824
+rep=3 scenario=post fw=chi rate=80000 rps=79731.68 p99_ms=342.020 errors=0/3189054
+At file://results/**, worker process 34293 thread 140218334115648 listed 220...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 34293 thread 140218334115648 listed 218...
+Copying file://results/post/chi/r3/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r3/60000.txt
+Copying file://results/post/chi/r3/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/chi/r3/80000.txt
+  
+Copying file://results/post/fasthttp/r3/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r3/10000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 543.2kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=post fw=fasthttp rate=10000 rps=9968.80 p99_ms=1.870 errors=0/398894
+rep=3 scenario=post fw=fasthttp rate=20000 rps=19937.45 p99_ms=1.870 errors=0/797484
+rep=3 scenario=post fw=fasthttp rate=40000 rps=39929.00 p99_ms=1.890 errors=0/1597055
+At file://results/**, worker process 34616 thread 140467712931648 listed 222...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 34616 thread 140467712931648 listed 220...
+Copying file://results/post/fasthttp/r3/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r3/10000.txt
+Copying file://results/post/fasthttp/r3/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r3/20000.txt
+  
+Copying file://results/post/fasthttp/r3/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r3/40000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 981.4kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=post fw=fasthttp rate=60000 rps=59801.77 p99_ms=2.010 errors=0/2391918
+rep=3 scenario=post fw=fasthttp rate=80000 rps=79616.81 p99_ms=2.300 errors=0/3184542
+At file://results/**, worker process 34961 thread 139806223443776 listed 225...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 34961 thread 139806223443776 listed 222...
+Copying file://results/post/fasthttp/r3/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r3/100000.txt
+Copying file://results/post/fasthttp/r3/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r3/60000.txt
+  
+Copying file://results/post/fasthttp/r3/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r3/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 213.0kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=post fw=fasthttp rate=100000 rps=99810.78 p99_ms=2.990 errors=0/3992189
+rep=3 scenario=post fw=fasthttp rate=125000 rps=124399.44 p99_ms=4.010 errors=0/4975664
+At file://results/**, worker process 35279 thread 139659053512512 listed 227...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 35279 thread 139659053512512 listed 225...
+Copying file://results/post/fasthttp/r3/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r3/100000.txt
+Copying file://results/post/fasthttp/r3/125000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r3/125000.txt
+  
+Copying file://results/post/fasthttp/r3/150000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r3/150000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 1.1MiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=post fw=fasthttp rate=150000 rps=149277.08 p99_ms=307.200 errors=0/5970644
+rep=3 scenario=post fw=fiber rate=10000 rps=9954.08 p99_ms=1.910 errors=0/398319
+rep=3 scenario=post fw=fiber rate=20000 rps=19935.28 p99_ms=1.880 errors=0/797488
+At file://results/**, worker process 35628 thread 139816509011776 listed 229...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 35628 thread 139816509011776 listed 227...
+Copying file://results/post/fasthttp/r3/150000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fasthttp/r3/150000.txt
+Copying file://results/post/fiber/r3/10000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r3/10000.txt
+  
+Copying file://results/post/fiber/r3/20000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r3/20000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+.
+
+Average throughput: 1.9MiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=3 scenario=post fw=fiber rate=40000 rps=39810.07 p99_ms=1.960 errors=0/1592353
+rep=3 scenario=post fw=fiber rate=60000 rps=59705.86 p99_ms=2.040 errors=0/2388476
+At file://results/**, worker process 35966 thread 140429342000960 listed 232...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 35966 thread 140429342000960 listed 229...
+Copying file://results/post/fiber/r3/40000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r3/40000.txt
+Copying file://results/post/fiber/r3/60000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r3/60000.txt
+  
+Copying file://results/post/fiber/r3/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r3/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+...
+
+Average throughput: 63.1kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+.
+rep=3 scenario=post fw=fiber rate=80000 rps=79850.10 p99_ms=2.450 errors=0/3193790
+rep=3 scenario=post fw=fiber rate=100000 rps=99376.05 p99_ms=3.200 errors=0/3974784
+rep=3 scenario=post fw=fiber rate=125000 rps=124576.79 p99_ms=4.730 errors=0/4982656
+At file://results/**, worker process 36297 thread 140525866923840 listed 234...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 36297 thread 140525866923840 listed 232...
+Copying file://results/post/fiber/r3/100000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r3/100000.txt
+Copying file://results/post/fiber/r3/125000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r3/125000.txt
+  
+Copying file://results/post/fiber/r3/80000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r3/80000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+..
+
+Average throughput: 101.3kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
+
+rep=3 scenario=post fw=fiber rate=150000 rps=149273.59 p99_ms=489.210 errors=0/5970665
+benchmark finished
+At file://results/**, worker process 36573 thread 140360100525888 listed 235...
+At gs://go-bench-15205-results/runs/20260924-102750/results/**, worker process 36573 thread 140360100525888 listed 234...
+Copying file://results/post/fiber/r3/150000.txt to gs://go-bench-15205-results/runs/20260924-102750/results/post/fiber/r3/150000.txt
+Copying file://results/runs.csv to gs://go-bench-15205-results/runs/20260924-102750/results/runs.csv
+  
+.
+
+Average throughput: 425.3kiB/s
+Copying file://loadgen.log to gs://go-bench-15205-results/runs/20260924-102750/loadgen.log
+  
