@@ -45,3 +45,36 @@ stdlib-post-r4-6m42k   1/1     Running   0          30s   10.4.3.33   gke-bench-
 stdlib-post-r4-8gvtc   1/1     Running   0          30s   10.4.3.31   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 stdlib-post-r4-mmxjz   1/1     Running   0          30s   10.4.3.32   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 stdlib-post-r4-wv6l7   1/1     Running   0          30s   10.4.3.30   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME             STATUS    COMPLETIONS   DURATION   AGE
+chi-post-r4      Running   0/5           13m        13m
+stdlib-post-r4   Running   0/5           13m        13m
+job.batch "stdlib-post-r4" deleted from bench namespace
+job.batch "chi-post-r4" deleted from bench namespace
+deployment.apps "stdlib" deleted from bench namespace
+service "stdlib" deleted from bench namespace
+deployment.apps "chi" deleted from bench namespace
+service "chi" deleted from bench namespace
+07:56:55 rep 4 pair 2: fasthttp fiber
+deployment.apps/fasthttp created
+service/fasthttp created
+deployment.apps/fiber created
+service/fiber created
+Waiting for deployment "fasthttp" rollout to finish: 0 of 1 updated replicas are available...
+deployment "fasthttp" successfully rolled out
+deployment "fiber" successfully rolled out
+NODE fasthttp gke-bench-apps-2978ac17-5dh9
+NODE fiber gke-bench-apps-2978ac17-rd8n
+07:57:12 get: start_at=1790323182 end_at=1790323782
+job.batch/fasthttp-get-r4 created
+job.batch/fiber-get-r4 created
+NAME                    READY   STATUS    RESTARTS   AGE   IP          NODE                              NOMINATED NODE   READINESS GATES
+fasthttp-get-r4-5nd9d   1/1     Running   0          30s   10.4.3.35   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-get-r4-7jbjk   1/1     Running   0          30s   10.4.3.40   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-get-r4-9g94j   1/1     Running   0          30s   10.4.3.37   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-get-r4-gqlkb   1/1     Running   0          30s   10.4.3.36   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-get-r4-hrxx5   1/1     Running   0          30s   10.4.3.38   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-get-r4-7dc86      1/1     Running   0          30s   10.4.3.39   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-get-r4-cb6kc      1/1     Running   0          29s   10.4.3.41   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-get-r4-fhfv8      1/1     Running   0          29s   10.4.3.43   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-get-r4-lpx2q      1/1     Running   0          29s   10.4.3.44   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-get-r4-nlvkm      1/1     Running   0          30s   10.4.3.42   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
