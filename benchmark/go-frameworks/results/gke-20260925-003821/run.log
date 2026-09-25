@@ -99,3 +99,38 @@ stdlib-post-lfp7w   1/1     Running   0          29s   10.4.3.39   gke-bench-cli
 stdlib-post-rk2w5   1/1     Running   0          28s   10.4.3.44   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 stdlib-post-rxxfj   1/1     Running   0          29s   10.4.3.42   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 stdlib-post-s6gcw   1/1     Running   0          29s   10.4.3.41   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME          STATUS    COMPLETIONS   DURATION   AGE
+gin-post      Running   0/5           13m        13m
+stdlib-post   Running   0/5           13m        13m
+job.batch "stdlib-post" deleted from bench namespace
+job.batch "gin-post" deleted from bench namespace
+deployment.apps "stdlib" deleted from bench namespace
+service "stdlib" deleted from bench namespace
+deployment.apps "gin" deleted from bench namespace
+service "gin" deleted from bench namespace
+01:36:39 pair 3: chi fasthttp
+deployment.apps/chi created
+service/chi created
+deployment.apps/fasthttp created
+service/fasthttp created
+Waiting for deployment "chi" rollout to finish: 0 of 1 updated replicas are available...
+deployment "chi" successfully rolled out
+Waiting for deployment "fasthttp" rollout to finish: 0 of 1 updated replicas are available...
+deployment "fasthttp" successfully rolled out
+NAME                        READY   STATUS    RESTARTS   AGE   IP         NODE                           NOMINATED NODE   READINESS GATES
+chi-6d6ddf7bd5-5mkcb        1/1     Running   0          3s    10.4.2.7   gke-bench-apps-2978ac17-5dh9   <none>           <none>
+fasthttp-5bc5964599-f954w   1/1     Running   0          3s    10.4.1.7   gke-bench-apps-2978ac17-rd8n   <none>           <none>
+01:36:57 get: start_at=1790300367 end_at=1790300967
+job.batch/chi-get created
+job.batch/fasthttp-get created
+NAME                 READY   STATUS    RESTARTS   AGE   IP          NODE                              NOMINATED NODE   READINESS GATES
+chi-get-66mwc        1/1     Running   0          29s   10.4.3.46   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-get-qpbft        1/1     Running   0          29s   10.4.3.51   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-get-wl7nk        1/1     Running   0          29s   10.4.3.47   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-get-z7jcn        1/1     Running   0          29s   10.4.3.48   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-get-zlmxg        1/1     Running   0          29s   10.4.3.50   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-get-2nk6z   1/1     Running   0          29s   10.4.3.49   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-get-h6tdj   1/1     Running   0          29s   10.4.3.54   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-get-nh6jn   1/1     Running   0          29s   10.4.3.55   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-get-wn2s7   1/1     Running   0          29s   10.4.3.53   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-get-zv5h6   1/1     Running   0          29s   10.4.3.52   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
