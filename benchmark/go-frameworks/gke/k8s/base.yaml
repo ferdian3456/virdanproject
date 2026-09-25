@@ -16,3 +16,7 @@ spec:
   endpoints:
     - port: metrics
       interval: 5s
+  # Copy the pod's framework label onto every series so concurrent runs can be told apart.
+  targetLabels:
+    fromPod:
+      - from: framework

@@ -8,6 +8,8 @@ dir=$(cd "$(dirname "$0")" && pwd)
 stage=$(mktemp -d)
 trap 'rm -rf "$stage"' EXIT
 cp -r "$dir"/. "$stage"/
+# Upload everything, including files .gitignore lists (e.g. rendered .jobs/).
+: > "$stage/.gcloudignore"
 printf '%s\n' "set -euo pipefail" "echo ===KCTL===" \
   "gcloud container clusters get-credentials bench --zone us-central1-b --quiet 2>/dev/null" \
   "$1" > "$stage/run.sh"
