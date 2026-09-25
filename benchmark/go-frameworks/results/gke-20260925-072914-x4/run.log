@@ -1,0 +1,28 @@
+namespace/bench unchanged
+podmonitoring.monitoring.googleapis.com/tester unchanged
+07:29:36 rep 4 order: stdlib chi fasthttp fiber gin echo
+07:29:36 rep 4 pair 1: stdlib chi
+deployment.apps/stdlib created
+service/stdlib created
+deployment.apps/chi created
+service/chi created
+Waiting for deployment "stdlib" rollout to finish: 0 of 1 updated replicas are available...
+deployment "stdlib" successfully rolled out
+Waiting for deployment "chi" rollout to finish: 0 of 1 updated replicas are available...
+deployment "chi" successfully rolled out
+NODE stdlib gke-bench-apps-2978ac17-5dh9
+NODE chi gke-bench-apps-2978ac17-rd8n
+07:29:53 get: start_at=1790321543 end_at=1790322143
+job.batch/chi-get-r4 created
+job.batch/stdlib-get-r4 created
+NAME                  READY   STATUS    RESTARTS   AGE   IP          NODE                              NOMINATED NODE   READINESS GATES
+chi-get-r4-84vvt      1/1     Running   0          30s   10.4.3.15   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-get-r4-r2g89      1/1     Running   0          30s   10.4.3.17   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-get-r4-v89gm      1/1     Running   0          30s   10.4.3.18   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-get-r4-vqncm      1/1     Running   0          30s   10.4.3.16   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-get-r4-vstsj      1/1     Running   0          30s   10.4.3.19   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r4-24c2n   1/1     Running   0          30s   10.4.3.22   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r4-7qxvc   1/1     Running   0          30s   10.4.3.21   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r4-8x2qn   1/1     Running   0          29s   10.4.3.23   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r4-dkrl9   1/1     Running   0          29s   10.4.3.24   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r4-fj22f   1/1     Running   0          30s   10.4.3.20   gke-bench-clients-fb1da9ea-11rh   <none>           <none>

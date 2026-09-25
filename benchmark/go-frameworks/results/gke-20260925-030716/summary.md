@@ -17,6 +17,28 @@ SLO: p99 <= 50 ms, achieved >= 95% of target rate, errors (non-2xx, timeouts and
 | chi | 50,000 | 45,000 | 50,000 | 50,000 | 53,532 |
 | gin | 45,000 | 50,000 | 50,000 | 50,000 | 51,782 |
 
+### Peak achieved RPS by node (median; runs in parentheses)
+
+| Framework | gke-bench-apps-2978ac17-5dh9 | gke-bench-apps-2978ac17-rd8n | Ratio |
+|---|---|---|---|
+| chi | 53,601 (2) | 51,068 (1) | 1.050 |
+| echo | 55,076 (2) | 52,507 (1) | 1.049 |
+| fasthttp | 86,940 (2) | 81,528 (1) | 1.066 |
+| fiber | - (0) | 79,926 (3) | - |
+| gin | 53,491 (1) | 51,658 (2) | 1.035 |
+| stdlib | 55,118 (2) | 52,451 (1) | 1.051 |
+
+Median node ratio across frameworks: 1.050.
+
+### Crossover comparisons (pairs measured in both node orders)
+
+Peak ratio A/B with A on each node; the geometric mean cancels the node effect.
+
+| A | B | A on gke-bench-apps-2978ac17-5dh9 | A on gke-bench-apps-2978ac17-rd8n | Node-free A/B |
+|---|---|---|---|---|
+| chi | stdlib | 1.021 (1) | 0.930 (1) | **0.974** |
+| fasthttp | gin | 1.658 (1) | 1.524 (1) | **1.590** |
+
 ### Per stage (median across repetitions)
 
 | Target RPS | Framework | Achieved RPS | Errors/s | Availability | p50 ms | p90 ms | p99 ms | p99.9 ms | CPU cores | Throttled | SLO passed |
@@ -156,6 +178,28 @@ SLO: p99 <= 50 ms, achieved >= 95% of target rate, errors (non-2xx, timeouts and
 | stdlib | 45,000 | 45,000 | 45,000 | 45,000 | 48,199 |
 | chi | 45,000 | 40,000 | 45,000 | 45,000 | 47,115 |
 | gin | 40,000 | 45,000 | 45,000 | 45,000 | 46,180 |
+
+### Peak achieved RPS by node (median; runs in parentheses)
+
+| Framework | gke-bench-apps-2978ac17-5dh9 | gke-bench-apps-2978ac17-rd8n | Ratio |
+|---|---|---|---|
+| chi | 47,214 (2) | 45,499 (1) | 1.038 |
+| echo | 48,593 (2) | 46,771 (1) | 1.039 |
+| fasthttp | 79,012 (2) | 75,541 (1) | 1.046 |
+| fiber | - (0) | 71,748 (3) | - |
+| gin | 47,484 (1) | 46,076 (2) | 1.031 |
+| stdlib | 48,347 (2) | 45,998 (1) | 1.051 |
+
+Median node ratio across frameworks: 1.039.
+
+### Crossover comparisons (pairs measured in both node orders)
+
+Peak ratio A/B with A on each node; the geometric mean cancels the node effect.
+
+| A | B | A on gke-bench-apps-2978ac17-5dh9 | A on gke-bench-apps-2978ac17-rd8n | Node-free A/B |
+|---|---|---|---|---|
+| chi | stdlib | 1.024 (1) | 0.938 (1) | **0.980** |
+| fasthttp | gin | 1.730 (1) | 1.591 (1) | **1.659** |
 
 ### Per stage (median across repetitions)
 

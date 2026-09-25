@@ -144,7 +144,7 @@ def stage_metrics(run):
         dt = t1 - t0
         target = int(run["pods"]) * (float(run["start_rps_pod"]) + k * float(run["step_rps_pod"]))
         row = {"scenario": scen, "framework": fw, "rep": int(run.get("rep", 1)), "pair": run["pair"],
-               "stage": k, "target_rps": round(target)}
+               "node": run.get("node", ""), "stage": k, "target_rps": round(target)}
         ok = sum(d for s, v in counts.items() if s.startswith("2") and (d := delta(v, t0, t1)) is not None)
         bad = sum(d for s, v in counts.items() if not s.startswith("2") and (d := delta(v, t0, t1)) is not None)
         drop = delta(dropped, t0, t1) if dropped else 0.0
@@ -182,6 +182,51 @@ def median(values):
 
 def fmt(v, spec=".2f"):
     return "-" if v is None else format(v, spec)
+
+
+def node_sections(srows, reps, peak):
+    """Node effect and crossover comparisons, from each run's peak achieved RPS.
+
+    Identical machine types can differ in speed. Two frameworks that shared a pair
+    in both node orders can be compared without that effect: the geometric mean of
+    their peak ratio over both orders cancels a multiplicative node factor.
+    """
+    runs = {}  # (rep, pair) -> {framework: node}
+    for r in srows:
+        runs.setdefault((r["rep"], r["pair"]), {})[r["framework"]] = r["node"]
+    nodes = sorted({r["node"] for r in srows if r["node"]})
+    if len(nodes) != 2:
+        return []
+    frameworks = sorted({r["framework"] for r in srows})
+    out = ["", "### Peak achieved RPS by node (median; runs in parentheses)", "",
+           f"| Framework | {nodes[0]} | {nodes[1]} | Ratio |", "|---|---|---|---|"]
+    ratios = []
+    for fw in frameworks:
+        by = {n: [peak[fw, rep] for (rep, pair), m in runs.items() if m.get(fw) == n] for n in nodes}
+        med = {n: median(by[n]) for n in nodes}
+        ratio = med[nodes[0]] / med[nodes[1]] if med[nodes[0]] and med[nodes[1]] else None
+        if ratio:
+            ratios.append(ratio)
+        out.append(f"| {fw} | {fmt(med[nodes[0]], ',.0f')} ({len(by[nodes[0]])}) | {fmt(med[nodes[1]], ',.0f')} "
+                   f"({len(by[nodes[1]])}) | {fmt(ratio, '.3f')} |")
+    if ratios:
+        out += ["", f"Median node ratio across frameworks: {statistics.median(ratios):.3f}."]
+    pairs = {}  # (a, b), alphabetical -> {node of a: [peak a / peak b]}
+    for (rep, pair), m in runs.items():
+        if len(m) != 2:
+            continue
+        a, b = sorted(m)
+        pairs.setdefault((a, b), {}).setdefault(m[a], []).append(peak[a, rep] / peak[b, rep])
+    rows = [(a, b, v) for (a, b), v in sorted(pairs.items()) if len(v) == 2]
+    if rows:
+        out += ["", "### Crossover comparisons (pairs measured in both node orders)", "",
+                "Peak ratio A/B with A on each node; the geometric mean cancels the node effect.", "",
+                f"| A | B | A on {nodes[0]} | A on {nodes[1]} | Node-free A/B |", "|---|---|---|---|---|"]
+        for a, b, v in rows:
+            r0, r1 = statistics.mean(v[nodes[0]]), statistics.mean(v[nodes[1]])
+            out.append(f"| {a} | {b} | {r0:.3f} ({len(v[nodes[0]])}) | {r1:.3f} ({len(v[nodes[1]])}) | "
+                       f"**{(r0 * r1) ** 0.5:.3f}** |")
+    return out
 
 
 def chart(rows, scenario, slo_ms, path):
@@ -262,7 +307,7 @@ def main():
     for r in rows:
         r["passed"] = passed(r, args.slo_ms)
 
-    fields = ["scenario", "framework", "rep", "pair", "stage", "target_rps", "rps", "errors_rps", "dropped_rps",
+    fields = ["scenario", "framework", "rep", "pair", "node", "stage", "target_rps", "rps", "errors_rps", "dropped_rps",
               "availability", "p50", "p90", "p99", "p999", "cpu_cores", "throttled", "passed"]
     with (args.run_dir / "stages.csv").open("w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=fields)
@@ -295,6 +340,7 @@ def main():
         for fw in sorted(frameworks, key=lambda f: (-med_best[f], -med_peak[f])):
             cells = " | ".join(f"{best[fw, rep]:,}" for rep in reps)
             out.append(f"| {fw} | {cells} | {med_best[fw]:,.0f} | {med_peak[fw]:,.0f} |")
+        out += node_sections(srows, reps, peak)
         out += ["", "### Per stage (median across repetitions)", "",
                 "| Target RPS | Framework | Achieved RPS | Errors/s | Availability | p50 ms | p90 ms | p99 ms | p99.9 ms | CPU cores | Throttled | SLO passed |",
                 "|---|---|---|---|---|---|---|---|---|---|---|---|"]
