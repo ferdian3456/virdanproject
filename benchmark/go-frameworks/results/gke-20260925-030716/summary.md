@@ -29,15 +29,16 @@ SLO: p99 <= 50 ms, achieved >= 95% of target rate, errors (non-2xx, timeouts and
 | stdlib | 55,118 (2) | 52,451 (1) | 1.051 |
 
 Median node ratio across frameworks: 1.050.
+Run-to-run noise (median max/min - 1 of the same framework on the same node, 6 groups): 0.6%. Node-effect spread across frameworks (half range of the ratios): 1.5%. Significance threshold for a node-free ratio: 2 x noise + spread = 2.8%.
 
 ### Crossover comparisons (pairs measured in both node orders)
 
-Peak ratio A/B with A on each node; the geometric mean cancels the node effect.
+Peak ratio A/B with A on each node; the geometric mean cancels the average node effect. A difference is claimed only if the node-free ratio differs from 1 by more than the significance threshold above; otherwise it is reported as not significant.
 
-| A | B | A on gke-bench-apps-2978ac17-5dh9 | A on gke-bench-apps-2978ac17-rd8n | Node-free A/B |
-|---|---|---|---|---|
-| chi | stdlib | 1.021 (1) | 0.930 (1) | **0.974** |
-| fasthttp | gin | 1.658 (1) | 1.524 (1) | **1.590** |
+| A | B | A on gke-bench-apps-2978ac17-5dh9 | A on gke-bench-apps-2978ac17-rd8n | Node-free A/B | Decision |
+|---|---|---|---|---|---|
+| chi | stdlib | 1.021 (1) | 0.930 (1) | **0.974** | not significant |
+| fasthttp | gin | 1.658 (1) | 1.524 (1) | **1.590** | fasthttp faster by 59.0% |
 
 ### Per stage (median across repetitions)
 
@@ -191,15 +192,16 @@ Peak ratio A/B with A on each node; the geometric mean cancels the node effect.
 | stdlib | 48,347 (2) | 45,998 (1) | 1.051 |
 
 Median node ratio across frameworks: 1.039.
+Run-to-run noise (median max/min - 1 of the same framework on the same node, 6 groups): 0.6%. Node-effect spread across frameworks (half range of the ratios): 1.0%. Significance threshold for a node-free ratio: 2 x noise + spread = 2.2%.
 
 ### Crossover comparisons (pairs measured in both node orders)
 
-Peak ratio A/B with A on each node; the geometric mean cancels the node effect.
+Peak ratio A/B with A on each node; the geometric mean cancels the average node effect. A difference is claimed only if the node-free ratio differs from 1 by more than the significance threshold above; otherwise it is reported as not significant.
 
-| A | B | A on gke-bench-apps-2978ac17-5dh9 | A on gke-bench-apps-2978ac17-rd8n | Node-free A/B |
-|---|---|---|---|---|
-| chi | stdlib | 1.024 (1) | 0.938 (1) | **0.980** |
-| fasthttp | gin | 1.730 (1) | 1.591 (1) | **1.659** |
+| A | B | A on gke-bench-apps-2978ac17-5dh9 | A on gke-bench-apps-2978ac17-rd8n | Node-free A/B | Decision |
+|---|---|---|---|---|---|
+| chi | stdlib | 1.024 (1) | 0.938 (1) | **0.980** | not significant |
+| fasthttp | gin | 1.730 (1) | 1.591 (1) | **1.659** | fasthttp faster by 65.9% |
 
 ### Per stage (median across repetitions)
 

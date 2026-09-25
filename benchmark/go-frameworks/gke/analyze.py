@@ -211,6 +211,23 @@ def node_sections(srows, reps, peak):
                    f"({len(by[nodes[1]])}) | {fmt(ratio, '.3f')} |")
     if ratios:
         out += ["", f"Median node ratio across frameworks: {statistics.median(ratios):.3f}."]
+    # Run-to-run noise: spread of the same framework's peak on the same node.
+    spreads = []
+    for fw in frameworks:
+        for n in nodes:
+            v = [peak[fw, rep] for (rep, pair), m in runs.items() if m.get(fw) == n]
+            if len(v) >= 2:
+                spreads.append(max(v) / min(v) - 1)
+    noise = statistics.median(spreads) if spreads else None
+    # The node effect is not identical for every framework; the geometric mean over both node
+    # orders cancels only the average, leaving up to half the spread of the per-framework ratios.
+    interaction = (max(ratios) - min(ratios)) / 2 if len(ratios) >= 2 else None
+    threshold = None if noise is None or interaction is None else 2 * noise + interaction
+    if threshold is not None:
+        out += [f"Run-to-run noise (median max/min - 1 of the same framework on the same node, "
+                f"{len(spreads)} groups): {noise * 100:.1f}%. Node-effect spread across frameworks "
+                f"(half range of the ratios): {interaction * 100:.1f}%. Significance threshold for a "
+                f"node-free ratio: 2 x noise + spread = {threshold * 100:.1f}%."]
     pairs = {}  # (a, b), alphabetical -> {node of a: [peak a / peak b]}
     for (rep, pair), m in runs.items():
         if len(m) != 2:
@@ -220,12 +237,24 @@ def node_sections(srows, reps, peak):
     rows = [(a, b, v) for (a, b), v in sorted(pairs.items()) if len(v) == 2]
     if rows:
         out += ["", "### Crossover comparisons (pairs measured in both node orders)", "",
-                "Peak ratio A/B with A on each node; the geometric mean cancels the node effect.", "",
-                f"| A | B | A on {nodes[0]} | A on {nodes[1]} | Node-free A/B |", "|---|---|---|---|---|"]
+                "Peak ratio A/B with A on each node; the geometric mean cancels the average node effect. "
+                "A difference is claimed only if the node-free ratio differs from 1 by more than the "
+                "significance threshold above; otherwise it is reported as not significant.", "",
+                f"| A | B | A on {nodes[0]} | A on {nodes[1]} | Node-free A/B | Decision |",
+                "|---|---|---|---|---|---|"]
         for a, b, v in rows:
             r0, r1 = statistics.mean(v[nodes[0]]), statistics.mean(v[nodes[1]])
+            free = (r0 * r1) ** 0.5
+            if threshold is None:
+                decision = "-"
+            elif free > 1 + threshold:
+                decision = f"{a} faster by {(free - 1) * 100:.1f}%"
+            elif free < 1 / (1 + threshold):
+                decision = f"{b} faster by {(1 / free - 1) * 100:.1f}%"
+            else:
+                decision = "not significant"
             out.append(f"| {a} | {b} | {r0:.3f} ({len(v[nodes[0]])}) | {r1:.3f} ({len(v[nodes[1]])}) | "
-                       f"**{(r0 * r1) ** 0.5:.3f}** |")
+                       f"**{free:.3f}** | {decision} |")
     return out
 
 

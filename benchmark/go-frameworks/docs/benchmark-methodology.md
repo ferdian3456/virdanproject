@@ -100,7 +100,13 @@ Hoefler & Belli (SC 2015) give twelve rules for reporting results. Those that ap
 - **Rule 3–4.** Summarize costs with the arithmetic mean and rates with the harmonic mean. Avoid summarizing ratios, but if you must, use the geometric mean. The node-free comparison here is a geometric mean of ratios, because the node effect is multiplicative.
 - **Rule 8.** Check whether a median or a higher percentile is the right summary. For latency SLOs it is a percentile.
 
-**Decision rule used in this project.** A difference between two frameworks within one tier is claimed only if both node orders of a crossover agree in direction, and the difference is larger than the run-to-run variation of the same framework on the same node. That variation is measured from the repetitions and reported with the results. Otherwise the result is reported as "no significant difference".
+**Decision rule used in this project.** Two frameworks are compared with the node-free ratio of their peak achieved RPS: the geometric mean of the ratios from both node orders of a crossover. A difference is claimed only if this ratio differs from 1 by more than a threshold measured from the data: `2 × run-to-run noise + node-effect spread`.
+
+- **Run-to-run noise** is the median spread (max/min − 1) of the same framework on the same node.
+- **Node-effect spread** is half the range of the per-framework node ratios. The node effect is not identical for every framework, so the crossover cancels only its average.
+- Anything within the threshold is reported as "no significant difference".
+
+A first version of this rule required both node orders to agree in direction. That is wrong whenever the node effect (about 5%) is larger than the framework difference: the two orders then point in opposite directions by construction, even though their geometric mean removes the node effect.
 
 Prefer a continuous metric (peak achieved RPS) to a quantized one (the maximum passing 5k step) when testing for differences.
 
