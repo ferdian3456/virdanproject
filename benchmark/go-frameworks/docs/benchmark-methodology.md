@@ -86,7 +86,25 @@ Cloud performance varies over time and between machines of the same type. The SP
 **Reduce noise at the source:**
 
 - **Exclusive cores.** Kubernetes' CPU Manager `static` policy gives Guaranteed pods with integer CPU requests exclusive cores. This removes CFS throttling and sharing with other processes. It differs from Anton Putra's burstable 1500m/2000m setting.
-- **SMT off.** GKE's `--threads-per-core=1` disables SMT. Google notes that SMT can "add nondeterministic variance" to compute-bound jobs. It can only be set when a node pool is created, and billing is unchanged.
+- **SMT off.** GKE's `--threads-per-core=1` disables SMT. Google notes that SMT can "add nondeterministic variance" to compute-bound jobs, and the experiment above confirms it for parallel work within a VM. It can only be set when a node pool is created, and billing is unchanged.
+
+**Measured in this project.** The following experiments were run on separate VMs in other zones, so they could not disturb the GKE benchmark. Code is in `experiments/`, data in `results/vmvar-*` and `results/e2evar-*`.
+
+| Question | Setup | Result |
+|---|---|---|
+| Do fresh VMs of one type differ in CPU speed? | 5 fresh n2-standard-4 VMs (all Cascade Lake). JSON encoding of the benchmark payload and an integer loop, 10 × 3 s each. | Barely. Coefficient of variation between VMs: 0.48% (JSON) and 0.07% (integer loop). |
+| Do they differ in end-to-end HTTP capacity? | 5 fresh n2-standard-2 app VMs running the stdlib app pinned to 1 vCPU, one fixed client VM, and a 5k–45k RPS ramp. | Yes. Peak achieved RPS was 36.1k–41.1k (CV 4.1%), and the maximum rate within the SLO was 30k–40k. |
+| Is that the VM or the time of the run? | 3 fresh app VMs, each measured 3 times in a row. | The VM. Within one VM, peak varied by 0.9–2.0%. Between VMs (medians) it varied by 8.2%, and one VM was slowest in all three of its runs. |
+| Does the GKE node effect come from network latency? | Low-load (5–15k RPS) latency on the two GKE app nodes, from the benchmark data. | No. p50 differed by 2 µs and p90 by 6 µs. The slower node used about 3% more CPU per request. |
+| Does SMT matter? | 3 fresh n2-standard-4 VMs with `--threads-per-core=1`, compared with the 5 SMT-on VMs. | For two parallel workers, yes. With SMT on, 2 vCPUs can be two hyperthreads of one core: JSON encoding with 2 goroutines was about 25% slower per operation (1,376–1,399 vs. 1,031–1,057 ns), and its within-VM spread was larger (2.8–7.1% vs. 2.4–2.7%). Single-thread speed was the same. |
+
+**What this means:**
+
+- **The VM you get changes end-to-end results by several percent.** This happens even though the CPU cores are equally fast, so the variation lies in the I/O and network path rather than in compute.
+- **Repeating runs on one VM gives false precision.** Its runs agree within about 1–2% while the absolute number can be about 8% off for another VM. This is exactly Kalibera and Jones' point about repeating at the highest level that varies.
+- **For comparisons,** either run every candidate on the same machines (blocking, crossover or duet) or sample many VMs.
+- **Absolute numbers** from a few VMs carry an uncertainty of a few percent that the repetitions do not show.
+- **"2 vCPUs" on an SMT machine is not 2 physical cores.** A 2-CPU container limit on a 4-vCPU SMT node can land on one core's two hyperthreads.
 
 **Beware measurement bias (Mytkowicz et al., ASPLOS 2009).** Seemingly innocuous setup details, such as the size of the environment variables or link order, can shift results enough to reverse conclusions. Their remedy is setup randomization. Differences of a few percent therefore need more evidence than one configuration can give.
 
@@ -130,7 +148,7 @@ The SPEC principles P3, P4, P7 and P8, and Hoefler's rules 9, 11 and 12, require
 3. Measure latency from the scheduled time and merge histograms, never percentiles.
 4. Prove the load generator has headroom: its CPU, throttling and whether it reaches the target.
 5. Validate the numbers against an independent source (kernel counters, the server's own counts) and against physical limits. Validate the metrics pipeline as well.
-6. Identify levels of variation (machine, process, run). Repeat at the highest level, randomize the order, block known factors such as the node, and run an A/A test.
+6. Identify levels of variation (machine, process, run). Repeat at the highest level, which in the cloud is the VM: repeats on one VM understate the uncertainty. Randomize the order, block known factors such as the node (every candidate on the same machines), and run an A/A test.
 7. Reduce noise where possible: exclusive cores, SMT off, fixed placement.
 8. Report medians with spread or confidence intervals. Claim a difference only when it is statistically supported.
 9. Record the setup, versions, units, cost and limitations, and publish the scripts and data.
