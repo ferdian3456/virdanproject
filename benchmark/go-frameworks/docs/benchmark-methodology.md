@@ -20,16 +20,11 @@ A benchmark answers one question. Here the question is: *"How many requests per 
 **Arrival process.** Lancet (USENIX ATC 2019) and Treadmill (ISCA 2016) list "the inter-arrival request distribution does not match the production environment" as a pitfall. Real traffic is usually modelled as a Poisson process, which has random gaps between requests.
 
 - This project's tester spaces requests evenly, like wrk2. Simple queueing theory predicts that even spacing produces less queueing, and therefore lower latency, than Poisson arrivals at the same average rate.
-- **The prediction did not hold for p99 when tested locally.** The experiment used the stdlib app on 1 core with a tester variant drawing exponential gaps. Constant and Poisson arrivals ran interleaved in random order, 3 rounds, 15 s per trial:
-  - **p50 behaved as predicted.** Poisson was higher: 0.52 vs 0.24 ms at 20k RPS.
-  - **p99 did not.** Evenly spaced arrivals gave the *higher* p99 at 28k and 33k RPS in all three rounds (38–62 vs 16–33 ms, and 93–234 vs 36–69 ms).
-  - The cause is unknown. A plausible but untested explanation is synchronization: after a stall, all evenly scheduled workers are late at the same moment.
-- **Conclusion:** the arrival process changes the results, but its direction for the tail depends on the system and must be measured, not assumed. The GKE results are valid for evenly spaced arrivals only.
-
-**Enough concurrency.** Lancet notes that "the number of connections × the number of outstanding requests must be larger than the bandwidth-delay product" or the tester silently becomes closed-loop.
-
-- Here, 640 connections per framework with one request each far exceed the requests in flight below saturation. That is about 100 at 50k RPS with 2 ms latency.
-- At saturation the connection pool is what bounds concurrency. The DEADLINE_MS drop rule then keeps the accounting honest.
+- **Local experiment.** The stdlib app ran on 1 core, driven by a tester variant that draws exponential gaps. Evenly spaced and Poisson arrivals ran interleaved in random order, with an **A/A control**: a second, identical evenly-spaced configuration. There were 5 rounds of 15 s per trial. Raw data is in `arrival-experiment-results.json` and `arrival-aa-results.json`.
+  - **p50 differs clearly.** At 78% load, Poisson arrivals gave a median latency of 0.66–0.77 ms, against 0.19–0.32 ms for both evenly spaced configurations in every round. This is the direction queueing theory predicts.
+  - **p99 did not differ beyond noise.** The two *identical* configurations differed as much as evenly spaced vs. Poisson did. For example, at 92% load p99 ranged over 55–222 ms among identical runs. A first 3-round experiment without the A/A control had suggested that evenly spaced arrivals give a worse p99. That was a false positive, which the A/A control exposed.
+  - **Near saturation, evenly spaced runs were bimodal.** At 92% load their p50 was either about 0.5 ms or 15–37 ms, while Poisson runs stayed at 1.0–1.6 ms. Single runs near the knee can be far from typical.
+- **Conclusion:** the arrival process changes the body of the latency distribution. In this environment its effect on p99 was smaller than run-to-run noise. The GKE results are stated for evenly spaced arrivals.
 
 ## 3. Measure latency correctly
 
