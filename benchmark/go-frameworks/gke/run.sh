@@ -2,6 +2,12 @@
 # Runs the GKE benchmark protocol: REPS repetitions; in each, the six frameworks in
 # random pairs (one app per app node, both loaded at the same time), GET then POST.
 # Writes the schedule to results/gke-<run id>/runs.csv.
+#
+# Crossover mode: PAIRS="a:b c:d ..." runs these ordered pairs (in random order) in
+# every repetition instead of random pairs, and NODES="<node 1> <node 2>" pins the
+# first framework of each pair to node 1 and the second to node 2. Listing a pair in
+# both orders ("a:b b:a") measures both frameworks on both nodes at comparable times,
+# which cancels node-to-node differences. REP_START numbers the repetitions.
 # Usage: gke/run.sh [run_id]
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -9,6 +15,9 @@ RUN_ID=${1:-$(date -u +%Y%m%d-%H%M%S)}
 OUT=../results/gke-$RUN_ID
 
 REPS=${REPS:-3}
+REP_START=${REP_START:-1}
+PAIRS=${PAIRS:-}
+NODES=(${NODES:-})
 FRAMEWORKS=${FRAMEWORKS:-"stdlib chi gin echo fiber fasthttp"}
 SCENARIOS=${SCENARIOS:-"get post"}
 IMAGE_TAG=${IMAGE_TAG:-v3}
@@ -23,13 +32,29 @@ mkdir -p "$OUT"
 echo "run_id,rep,pair,framework,scenario,node,start_at,end_at,pods,start_rps_pod,step_rps_pod,stages,stage_s,deadline_ms" > "$OUT/runs.csv"
 ./kctl.sh 'kubectl apply -f k8s/base.yaml'
 
-for ((rep = 1; rep <= REPS; rep++)); do
-  frameworks=($(printf '%s\n' $FRAMEWORKS | shuf))
+# app_manifest <framework> [node]: the app manifest, pinned to a node when one is given.
+app_manifest() {
+  if [ -n "${2:-}" ]; then
+    sed "s|node: general|kubernetes.io/hostname: $2|" "k8s/apps/$1.yaml" > ".apps/$1.yaml"
+  else
+    cp "k8s/apps/$1.yaml" ".apps/$1.yaml"
+  fi
+}
+
+for ((rep = REP_START; rep < REP_START + REPS; rep++)); do
+  if [ -n "$PAIRS" ]; then
+    frameworks=($(printf '%s\n' $PAIRS | shuf | tr ':' ' '))
+  else
+    frameworks=($(printf '%s\n' $FRAMEWORKS | shuf))
+  fi
   echo "$(date -u +%T) rep $rep order: ${frameworks[*]}"
   for ((p = 0; p < ${#frameworks[@]} / 2; p++)); do
     a=${frameworks[2*p]} b=${frameworks[2*p+1]}
     echo "$(date -u +%T) rep $rep pair $((p+1)): $a $b"
-    out=$(./kctl.sh "kubectl apply -f k8s/apps/$a.yaml -f k8s/apps/$b.yaml
+    rm -rf .apps && mkdir .apps
+    app_manifest "$a" "${NODES[0]:-}"
+    app_manifest "$b" "${NODES[1]:-}"
+    out=$(./kctl.sh "kubectl apply -f .apps/$a.yaml -f .apps/$b.yaml
 kubectl -n bench rollout status deploy/$a --timeout=180s
 kubectl -n bench rollout status deploy/$b --timeout=180s
 for fw in $a $b; do echo NODE \$fw \$(kubectl -n bench get pod -l app=\$fw -o jsonpath='{.items[0].spec.nodeName}'); done")
@@ -54,8 +79,8 @@ for fw in $a $b; do echo NODE \$fw \$(kubectl -n bench get pod -l app=\$fw -o js
       ./kctl.sh "kubectl -n bench get jobs; kubectl -n bench delete job $a-$scenario-r$rep $b-$scenario-r$rep"
     done
 
-    ./kctl.sh "kubectl delete -f k8s/apps/$a.yaml -f k8s/apps/$b.yaml --wait=true"
+    ./kctl.sh "kubectl delete -f .apps/$a.yaml -f .apps/$b.yaml --wait=true"
   done
 done
-rm -rf .jobs
+rm -rf .jobs .apps
 echo "$(date -u +%T) done: $OUT/runs.csv"
