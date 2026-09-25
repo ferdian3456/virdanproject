@@ -1,0 +1,34 @@
+Copying file:///tmp/vmvar-bin to gs://go-bench-15205-results/vmvar/20260925-084516-nosmt/vmvar
+  
+.....
+08:45:35 created vmvar-5084516-1 (n2-standard-4 --threads-per-core=1, us-central1-a)
+Copying gs://go-bench-15205-results/vmvar/20260925-084516-nosmt/vmvar-5084516-1/lscpu.txt to file://../../results/vmvar-20260925-084516-nosmt/vmvar-5084516-1/lscpu.txt
+Copying gs://go-bench-15205-results/vmvar/20260925-084516-nosmt/vmvar-5084516-1/meta.json to file://../../results/vmvar-20260925-084516-nosmt/vmvar-5084516-1/meta.json
+  
+Copying gs://go-bench-15205-results/vmvar/20260925-084516-nosmt/vmvar-5084516-1/out.jsonl to file://../../results/vmvar-20260925-084516-nosmt/vmvar-5084516-1/out.jsonl
+..
+
+Average throughput: 124.3kiB/s
+Deleted [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/vmvar-5084516-1].
+08:49:09 done vmvar-5084516-1: {"host":"vmvar-5084516-1","cpu_platform":"Intel Cascade Lake","zone":"us-central1-a"}
+08:49:19 created vmvar-5084516-2 (n2-standard-4 --threads-per-core=1, us-central1-a)
+Copying gs://go-bench-15205-results/vmvar/20260925-084516-nosmt/vmvar-5084516-2/lscpu.txt to file://../../results/vmvar-20260925-084516-nosmt/vmvar-5084516-2/lscpu.txt
+Copying gs://go-bench-15205-results/vmvar/20260925-084516-nosmt/vmvar-5084516-2/meta.json to file://../../results/vmvar-20260925-084516-nosmt/vmvar-5084516-2/meta.json
+  
+Copying gs://go-bench-15205-results/vmvar/20260925-084516-nosmt/vmvar-5084516-2/out.jsonl to file://../../results/vmvar-20260925-084516-nosmt/vmvar-5084516-2/out.jsonl
+..
+
+Average throughput: 94.6kiB/s
+Deleted [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/vmvar-5084516-2].
+08:51:49 done vmvar-5084516-2: {"host":"vmvar-5084516-2","cpu_platform":"Intel Cascade Lake","zone":"us-central1-a"}
+08:52:00 created vmvar-5084516-3 (n2-standard-4 --threads-per-core=1, us-central1-a)
+Copying gs://go-bench-15205-results/vmvar/20260925-084516-nosmt/vmvar-5084516-3/lscpu.txt to file://../../results/vmvar-20260925-084516-nosmt/vmvar-5084516-3/lscpu.txt
+Copying gs://go-bench-15205-results/vmvar/20260925-084516-nosmt/vmvar-5084516-3/meta.json to file://../../results/vmvar-20260925-084516-nosmt/vmvar-5084516-3/meta.json
+  
+Copying gs://go-bench-15205-results/vmvar/20260925-084516-nosmt/vmvar-5084516-3/out.jsonl to file://../../results/vmvar-20260925-084516-nosmt/vmvar-5084516-3/out.jsonl
+..
+
+Average throughput: 64.3kiB/s
+Deleted [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/vmvar-5084516-3].
+08:54:33 done vmvar-5084516-3: {"host":"vmvar-5084516-3","cpu_platform":"Intel Cascade Lake","zone":"us-central1-a"}
+exit 0

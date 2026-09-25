@@ -149,3 +149,14 @@ gin-post-r4-68px6    1/1     Running   0          30s   10.4.3.72   gke-bench-cl
 gin-post-r4-cb2z7    1/1     Running   0          30s   10.4.3.71   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 gin-post-r4-gwv65    1/1     Running   0          30s   10.4.3.74   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 gin-post-r4-xwzm8    1/1     Running   0          30s   10.4.3.68   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME           STATUS    COMPLETIONS   DURATION   AGE
+echo-post-r4   Running   0/5           13m        13m
+gin-post-r4    Running   0/5           13m        13m
+job.batch "gin-post-r4" deleted from bench namespace
+job.batch "echo-post-r4" deleted from bench namespace
+deployment.apps "gin" deleted from bench namespace
+service "gin" deleted from bench namespace
+deployment.apps "echo" deleted from bench namespace
+service "echo" deleted from bench namespace
+08:51:34 done: ../results/gke-20260925-072914-x4/runs.csv
+exit 0

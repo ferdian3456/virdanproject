@@ -1,0 +1,28 @@
+namespace/bench unchanged
+podmonitoring.monitoring.googleapis.com/tester unchanged
+08:51:52 rep 5 order: echo gin fiber fasthttp chi stdlib
+08:51:52 rep 5 pair 1: echo gin
+deployment.apps/echo created
+service/echo created
+deployment.apps/gin created
+service/gin created
+Waiting for deployment "echo" rollout to finish: 0 of 1 updated replicas are available...
+deployment "echo" successfully rolled out
+Waiting for deployment "gin" rollout to finish: 0 of 1 updated replicas are available...
+deployment "gin" successfully rolled out
+NODE echo gke-bench-apps-2978ac17-5dh9
+NODE gin gke-bench-apps-2978ac17-rd8n
+08:52:13 get: start_at=1790326483 end_at=1790327083
+job.batch/echo-get-r5 created
+job.batch/gin-get-r5 created
+NAME                READY   STATUS    RESTARTS   AGE   IP          NODE                              NOMINATED NODE   READINESS GATES
+echo-get-r5-8g9r4   1/1     Running   0          30s   10.4.3.80   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-get-r5-99cqk   1/1     Running   0          30s   10.4.3.79   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-get-r5-rvgr9   1/1     Running   0          30s   10.4.3.75   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-get-r5-shrgc   1/1     Running   0          30s   10.4.3.77   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-get-r5-zzxdz   1/1     Running   0          30s   10.4.3.76   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-r5-bbw2j    1/1     Running   0          30s   10.4.3.81   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-r5-gtsdm    1/1     Running   0          30s   10.4.3.83   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-r5-gzhgc    1/1     Running   0          30s   10.4.3.82   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-r5-wmmtm    1/1     Running   0          30s   10.4.3.84   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-r5-zk5rr    1/1     Running   0          30s   10.4.3.78   gke-bench-clients-fb1da9ea-11rh   <none>           <none>

@@ -3,10 +3,11 @@
 # runs vmvar on each (startup.sh) and collects the results under results/vmvar-<run id>/.
 # Usage: experiments/vmvar/run.sh [run_id]   (env: COUNT, MACHINE, ZONES)
 # ZONES is tried in order for every VM (machine types are often out of stock in one zone).
+# EXTRA_FLAGS is passed to "instances create", e.g. EXTRA_FLAGS="--threads-per-core=1".
 set -euo pipefail
 cd "$(dirname "$0")"
 RUN_ID=${1:-$(date -u +%Y%m%d-%H%M%S)}
-COUNT=${COUNT:-5} MACHINE=${MACHINE:-n2-standard-4}
+COUNT=${COUNT:-5} MACHINE=${MACHINE:-n2-standard-4} EXTRA_FLAGS=${EXTRA_FLAGS:-}
 ZONES=${ZONES:-"us-central1-c us-central1-f us-central1-a us-east1-b us-east1-c us-east4-a us-west1-b"}
 ZONE=
 G="env -u CLOUDSDK_AUTH_ACCESS_TOKEN gcloud --project go-bench-15205 --quiet"
@@ -22,13 +23,13 @@ for ((i = 1; i <= COUNT; i++)); do
   ZONE=""
   for z in $ZONES; do
     if $G compute instances create "$name" --zone "$z" --machine-type "$MACHINE" \
-      --image-family debian-12 --image-project debian-cloud --scopes storage-rw \
+      --image-family debian-12 --image-project debian-cloud --scopes storage-rw $EXTRA_FLAGS \
       --metadata "results=$B" --metadata-from-file startup-script=startup.sh >/dev/null 2>&1; then
       ZONE=$z; break
     fi
   done
   [ -n "$ZONE" ] || { echo "$(date -u +%T) no zone had capacity for $MACHINE"; name=""; exit 1; }
-  echo "$(date -u +%T) created $name ($MACHINE, $ZONE)"
+  echo "$(date -u +%T) created $name ($MACHINE $EXTRA_FLAGS, $ZONE)"
   deadline=$(( $(date +%s) + 600 ))
   until $G storage ls "$B/$name/meta.json" >/dev/null 2>&1; do
     [ "$(date +%s)" -lt "$deadline" ] || { echo "$(date -u +%T) timeout $name"; exit 1; }
