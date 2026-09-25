@@ -97,3 +97,55 @@ fiber-post-r4-k8dns      1/1     Running   0          30s   10.4.3.54   gke-benc
 fiber-post-r4-qlhnb      1/1     Running   0          30s   10.4.3.50   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 fiber-post-r4-t9k5n      1/1     Running   0          30s   10.4.3.49   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 fiber-post-r4-tz7bd      1/1     Running   0          30s   10.4.3.47   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME               STATUS    COMPLETIONS   DURATION   AGE
+fasthttp-post-r4   Running   0/5           13m        13m
+fiber-post-r4      Running   0/5           13m        13m
+job.batch "fasthttp-post-r4" deleted from bench namespace
+job.batch "fiber-post-r4" deleted from bench namespace
+deployment.apps "fasthttp" deleted from bench namespace
+service "fasthttp" deleted from bench namespace
+deployment.apps "fiber" deleted from bench namespace
+service "fiber" deleted from bench namespace
+08:24:15 rep 4 pair 3: gin echo
+deployment.apps/gin created
+service/gin created
+deployment.apps/echo created
+service/echo created
+Waiting for deployment "gin" rollout to finish: 0 of 1 updated replicas are available...
+deployment "gin" successfully rolled out
+deployment "echo" successfully rolled out
+NODE gin gke-bench-apps-2978ac17-5dh9
+NODE echo gke-bench-apps-2978ac17-rd8n
+08:24:34 get: start_at=1790324824 end_at=1790325424
+job.batch/echo-get-r4 created
+job.batch/gin-get-r4 created
+NAME                READY   STATUS    RESTARTS   AGE   IP          NODE                              NOMINATED NODE   READINESS GATES
+echo-get-r4-6cwlm   1/1     Running   0          31s   10.4.3.63   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-get-r4-kx6tc   1/1     Running   0          31s   10.4.3.60   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-get-r4-nxmq8   1/1     Running   0          31s   10.4.3.55   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-get-r4-thrfh   1/1     Running   0          31s   10.4.3.59   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-get-r4-wzdqq   1/1     Running   0          31s   10.4.3.56   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-r4-5h8xm    1/1     Running   0          30s   10.4.3.61   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-r4-7kflk    1/1     Running   0          30s   10.4.3.58   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-r4-rshrr    1/1     Running   0          31s   10.4.3.64   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-r4-sznv7    1/1     Running   0          30s   10.4.3.57   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-r4-x7q6s    1/1     Running   0          30s   10.4.3.62   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME          STATUS    COMPLETIONS   DURATION   AGE
+echo-get-r4   Running   0/5           12m        12m
+gin-get-r4    Running   0/5           12m        12m
+job.batch "gin-get-r4" deleted from bench namespace
+job.batch "echo-get-r4" deleted from bench namespace
+08:37:54 post: start_at=1790325624 end_at=1790326224
+job.batch/echo-post-r4 created
+job.batch/gin-post-r4 created
+NAME                 READY   STATUS    RESTARTS   AGE   IP          NODE                              NOMINATED NODE   READINESS GATES
+echo-post-r4-64w8s   1/1     Running   0          30s   10.4.3.70   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-post-r4-9rjb4   1/1     Running   0          30s   10.4.3.67   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-post-r4-dw6c8   1/1     Running   0          30s   10.4.3.69   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-post-r4-ldlmt   1/1     Running   0          30s   10.4.3.66   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-post-r4-lf7l5   1/1     Running   0          31s   10.4.3.65   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-post-r4-5bnfw    1/1     Running   0          30s   10.4.3.73   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-post-r4-68px6    1/1     Running   0          30s   10.4.3.72   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-post-r4-cb2z7    1/1     Running   0          30s   10.4.3.71   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-post-r4-gwv65    1/1     Running   0          30s   10.4.3.74   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-post-r4-xwzm8    1/1     Running   0          30s   10.4.3.68   gke-bench-clients-fb1da9ea-11rh   <none>           <none>

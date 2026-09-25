@@ -1,0 +1,54 @@
+Copying file:///tmp/vmvar-bin to gs://go-bench-15205-results/vmvar/20260925-082556/vmvar
+  
+.....
+08:26:30 created vmvar-5082556-1 (n2-standard-4, us-central1-a)
+Copying gs://go-bench-15205-results/vmvar/20260925-082556/vmvar-5082556-1/lscpu.txt to file://../../results/vmvar-20260925-082556/vmvar-5082556-1/lscpu.txt
+Copying gs://go-bench-15205-results/vmvar/20260925-082556/vmvar-5082556-1/meta.json to file://../../results/vmvar-20260925-082556/vmvar-5082556-1/meta.json
+  
+Copying gs://go-bench-15205-results/vmvar/20260925-082556/vmvar-5082556-1/out.jsonl to file://../../results/vmvar-20260925-082556/vmvar-5082556-1/out.jsonl
+..
+
+Average throughput: 109.5kiB/s
+Deleted [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/vmvar-5082556-1].
+08:29:39 done vmvar-5082556-1: {"host":"vmvar-5082556-1","cpu_platform":"Intel Cascade Lake","zone":"us-central1-a"}
+08:30:16 created vmvar-5082556-2 (n2-standard-4, us-central1-a)
+Copying gs://go-bench-15205-results/vmvar/20260925-082556/vmvar-5082556-2/lscpu.txt to file://../../results/vmvar-20260925-082556/vmvar-5082556-2/lscpu.txt
+Copying gs://go-bench-15205-results/vmvar/20260925-082556/vmvar-5082556-2/meta.json to file://../../results/vmvar-20260925-082556/vmvar-5082556-2/meta.json
+  
+Copying gs://go-bench-15205-results/vmvar/20260925-082556/vmvar-5082556-2/out.jsonl to file://../../results/vmvar-20260925-082556/vmvar-5082556-2/out.jsonl
+..
+
+Average throughput: 774.4kiB/s
+Deleted [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/vmvar-5082556-2].
+08:32:51 done vmvar-5082556-2: {"host":"vmvar-5082556-2","cpu_platform":"Intel Cascade Lake","zone":"us-central1-a"}
+08:33:38 created vmvar-5082556-3 (n2-standard-4, us-central1-a)
+Copying gs://go-bench-15205-results/vmvar/20260925-082556/vmvar-5082556-3/lscpu.txt to file://../../results/vmvar-20260925-082556/vmvar-5082556-3/lscpu.txt
+Copying gs://go-bench-15205-results/vmvar/20260925-082556/vmvar-5082556-3/meta.json to file://../../results/vmvar-20260925-082556/vmvar-5082556-3/meta.json
+  
+Copying gs://go-bench-15205-results/vmvar/20260925-082556/vmvar-5082556-3/out.jsonl to file://../../results/vmvar-20260925-082556/vmvar-5082556-3/out.jsonl
+..
+
+Average throughput: 167.7kiB/s
+Deleted [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/vmvar-5082556-3].
+08:36:42 done vmvar-5082556-3: {"host":"vmvar-5082556-3","cpu_platform":"Intel Cascade Lake","zone":"us-central1-a"}
+08:37:16 created vmvar-5082556-4 (n2-standard-4, us-central1-a)
+Copying gs://go-bench-15205-results/vmvar/20260925-082556/vmvar-5082556-4/lscpu.txt to file://../../results/vmvar-20260925-082556/vmvar-5082556-4/lscpu.txt
+Copying gs://go-bench-15205-results/vmvar/20260925-082556/vmvar-5082556-4/meta.json to file://../../results/vmvar-20260925-082556/vmvar-5082556-4/meta.json
+  
+Copying gs://go-bench-15205-results/vmvar/20260925-082556/vmvar-5082556-4/out.jsonl to file://../../results/vmvar-20260925-082556/vmvar-5082556-4/out.jsonl
+..
+
+Average throughput: 366.5kiB/s
+Deleted [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/vmvar-5082556-4].
+08:40:25 done vmvar-5082556-4: {"host":"vmvar-5082556-4","cpu_platform":"Intel Cascade Lake","zone":"us-central1-a"}
+08:40:58 created vmvar-5082556-5 (n2-standard-4, us-central1-a)
+Copying gs://go-bench-15205-results/vmvar/20260925-082556/vmvar-5082556-5/lscpu.txt to file://../../results/vmvar-20260925-082556/vmvar-5082556-5/lscpu.txt
+Copying gs://go-bench-15205-results/vmvar/20260925-082556/vmvar-5082556-5/meta.json to file://../../results/vmvar-20260925-082556/vmvar-5082556-5/meta.json
+  
+Copying gs://go-bench-15205-results/vmvar/20260925-082556/vmvar-5082556-5/out.jsonl to file://../../results/vmvar-20260925-082556/vmvar-5082556-5/out.jsonl
+..
+
+Average throughput: 164.1kiB/s
+Deleted [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/vmvar-5082556-5].
+08:44:20 done vmvar-5082556-5: {"host":"vmvar-5082556-5","cpu_platform":"Intel Cascade Lake","zone":"us-central1-a"}
+exit 0
