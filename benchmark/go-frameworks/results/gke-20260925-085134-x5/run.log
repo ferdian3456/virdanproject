@@ -66,3 +66,16 @@ deployment "fasthttp" successfully rolled out
 NODE fiber gke-bench-apps-2978ac17-5dh9
 NODE fasthttp gke-bench-apps-2978ac17-rd8n
 09:19:52 get: start_at=1790328142 end_at=1790328742
+job.batch/fasthttp-get-r5 created
+job.batch/fiber-get-r5 created
+NAME                    READY   STATUS    RESTARTS   AGE   IP           NODE                              NOMINATED NODE   READINESS GATES
+fasthttp-get-r5-8hjww   1/1     Running   0          30s   10.4.3.95    gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-get-r5-dvcbl   1/1     Running   0          30s   10.4.3.101   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-get-r5-kq5qd   1/1     Running   0          30s   10.4.3.96    gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-get-r5-l6tst   1/1     Running   0          30s   10.4.3.98    gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-get-r5-nqmcm   1/1     Running   0          30s   10.4.3.102   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-get-r5-cvs2t      1/1     Running   0          30s   10.4.3.104   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-get-r5-m92zt      1/1     Running   0          30s   10.4.3.103   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-get-r5-p8vzx      1/1     Running   0          30s   10.4.3.99    gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-get-r5-rvgfv      1/1     Running   0          30s   10.4.3.97    gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-get-r5-xwr2g      1/1     Running   0          30s   10.4.3.100   gke-bench-clients-fb1da9ea-11rh   <none>           <none>

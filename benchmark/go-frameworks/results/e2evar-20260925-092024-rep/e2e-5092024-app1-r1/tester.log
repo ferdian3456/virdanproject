@@ -1,0 +1,11 @@
+2026/09/25 09:21:38 start_at=2026-09-25T09:21:43Z start_rps=5000 step_rps=5000 stages=9 stage=15s connections=128 url=http://10.128.0.34:8080/api/devices method=get
+2026/09/25 09:21:43 stage=0 target_rps=5000
+2026/09/25 09:21:58 stage=1 target_rps=10000
+2026/09/25 09:22:13 stage=2 target_rps=15000
+2026/09/25 09:22:28 stage=3 target_rps=20000
+2026/09/25 09:22:43 stage=4 target_rps=25000
+2026/09/25 09:22:58 stage=5 target_rps=30000
+2026/09/25 09:23:13 stage=6 target_rps=35000
+2026/09/25 09:23:28 stage=7 target_rps=40000
+2026/09/25 09:23:43 stage=8 target_rps=45000
+2026/09/25 09:23:58 test finished; keeping metrics up for 60s
