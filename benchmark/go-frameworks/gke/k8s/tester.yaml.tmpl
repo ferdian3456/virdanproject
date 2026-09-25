@@ -20,7 +20,7 @@ spec:
         node: clients
       containers:
         - name: tester
-          image: us-central1-docker.pkg.dev/go-bench-15205/bench/loadtester:latest
+          image: us-central1-docker.pkg.dev/go-bench-15205/bench/loadtester:__IMAGE_TAG__
           ports:
             - name: metrics
               containerPort: 8085
@@ -39,6 +39,8 @@ spec:
               value: "__STAGES__"
             - name: STAGE_INTERVAL_S
               value: "__STAGE_INTERVAL_S__"
+            - name: DEADLINE_MS
+              value: "__DEADLINE_MS__"
             - name: GOMAXPROCS
               valueFrom:
                 resourceFieldRef:

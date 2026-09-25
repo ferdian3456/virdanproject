@@ -3,7 +3,7 @@
   "title": "Go frameworks benchmark (GKE)",
   "timezone": "utc",
   "time": {
-    "from": "now-3h",
+    "from": "now-6h",
     "to": "now"
   },
   "refresh": "30s",
@@ -15,8 +15,8 @@
     {
       "id": 1,
       "type": "timeseries",
-      "title": "p99 latency",
-      "description": "Latency measured by the load tester from the scheduled send time (open model). Capped at 5 s, the largest histogram bucket.",
+      "title": "p99 latency (dashed: 50 ms SLO)",
+      "description": "Measured by the load tester from each request's scheduled send time, so queueing in an overloaded system is included (no coordinated omission). Requests that were never sent because their 1 s deadline passed are not in this panel; see Availability.",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -30,7 +30,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.99, sum by (framework, le) (rate(tester_request_duration_seconds_bucket{namespace=\"bench\"}[1m])))",
+          "expr": "histogram_quantile(0.99, sum by (framework, le) (rate(tester_request_duration_seconds_bucket{namespace=\"bench\", run!=\"\"}[30s])))",
           "legendFormat": "{{framework}}",
           "datasource": {
             "type": "prometheus",
@@ -45,7 +45,23 @@
             "lineWidth": 2,
             "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": false
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "#8f8e88",
+                "value": 0.05
+              }
+            ]
           }
         },
         "overrides": [
@@ -67,6 +83,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "stdlib target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "chi"
             },
             "properties": [
@@ -76,6 +125,39 @@
                   "mode": "fixed",
                   "fixedColor": "#d95926"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "chi target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           },
@@ -97,6 +179,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "gin target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "echo"
             },
             "properties": [
@@ -106,6 +221,39 @@
                   "mode": "fixed",
                   "fixedColor": "#c98500"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "echo target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           },
@@ -127,6 +275,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "fiber target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d55181"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "fasthttp"
             },
             "properties": [
@@ -136,6 +317,39 @@
                   "mode": "fixed",
                   "fixedColor": "#008300"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "fasthttp target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           }
@@ -159,8 +373,8 @@
     {
       "id": 2,
       "type": "timeseries",
-      "title": "Requests per second (2xx)",
-      "description": "Successful responses per second. The target rate is a 5k-step ramp; the 1m window lags the ramp by about half a stage.",
+      "title": "Requests per second (solid: 2xx, dashed: target)",
+      "description": "Solid: successful responses per second (30 s rate). Dashed: the scheduled rate. When solid falls below dashed, the app is saturated. Cross-checked against packets on the app pod's network interface (validation.md).",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -174,8 +388,17 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (framework) (rate(tester_request_duration_seconds_count{namespace=\"bench\", status=~\"2..\"}[1m]))",
+          "expr": "sum by (framework) (rate(tester_request_duration_seconds_count{namespace=\"bench\", run!=\"\", status=~\"2..\"}[30s]))",
           "legendFormat": "{{framework}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "gmp"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (framework) (tester_target_rps{namespace=\"bench\", run!=\"\"})",
+          "legendFormat": "{{framework}} target",
           "datasource": {
             "type": "prometheus",
             "uid": "gmp"
@@ -211,6 +434,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "stdlib target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "chi"
             },
             "properties": [
@@ -220,6 +476,39 @@
                   "mode": "fixed",
                   "fixedColor": "#d95926"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "chi target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           },
@@ -241,6 +530,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "gin target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "echo"
             },
             "properties": [
@@ -250,6 +572,39 @@
                   "mode": "fixed",
                   "fixedColor": "#c98500"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "echo target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           },
@@ -271,6 +626,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "fiber target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d55181"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "fasthttp"
             },
             "properties": [
@@ -280,6 +668,39 @@
                   "mode": "fixed",
                   "fixedColor": "#008300"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "fasthttp target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           }
@@ -303,8 +724,8 @@
     {
       "id": 3,
       "type": "timeseries",
-      "title": "CPU usage (% of limit)",
-      "description": "cAdvisor sample timestamps lag the real measurement by up to ~10 s, so values can read about 15% high or low; readings above 100% are measurement artifacts.",
+      "title": "CPU usage (% of 2-CPU limit, 3m avg, \u00b15%)",
+      "description": "cAdvisor sample timestamps lag the real measurement by 10-15 s, so short windows over- and under-read. A 3-minute window keeps the error within about \u00b15%; readings slightly above 100% are this sampling error, since the CFS quota cannot be exceeded. Use CPU throttling to see exactly when the limit is hit.",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -318,7 +739,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * sum by (framework) (label_replace(rate(container_cpu_usage_seconds_total{namespace=\"bench\", container=\"app\"}[1m]), \"framework\", \"$1\", \"pod\", \"(.+)-[a-z0-9]+-[a-z0-9]+\")) / sum by (framework) (label_replace(container_spec_cpu_quota{namespace=\"bench\", container=\"app\"} / container_spec_cpu_period{namespace=\"bench\", container=\"app\"}, \"framework\", \"$1\", \"pod\", \"(.+)-[a-z0-9]+-[a-z0-9]+\"))",
+          "expr": "100 * sum by (framework) (label_replace(rate(container_cpu_usage_seconds_total{namespace=\"bench\", container=\"app\"}[3m]), \"framework\", \"$1\", \"pod\", \"(.+)-[a-z0-9]{6,10}-[a-z0-9]{5}\")) / sum by (framework) (label_replace(container_spec_cpu_quota{namespace=\"bench\", container=\"app\"} / container_spec_cpu_period{namespace=\"bench\", container=\"app\"}, \"framework\", \"$1\", \"pod\", \"(.+)-[a-z0-9]{6,10}-[a-z0-9]{5}\"))",
           "legendFormat": "{{framework}}",
           "datasource": {
             "type": "prometheus",
@@ -333,7 +754,23 @@
             "lineWidth": 2,
             "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": false
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "#8f8e88",
+                "value": 100
+              }
+            ]
           }
         },
         "overrides": [
@@ -355,6 +792,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "stdlib target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "chi"
             },
             "properties": [
@@ -364,6 +834,39 @@
                   "mode": "fixed",
                   "fixedColor": "#d95926"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "chi target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           },
@@ -385,6 +888,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "gin target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "echo"
             },
             "properties": [
@@ -394,6 +930,39 @@
                   "mode": "fixed",
                   "fixedColor": "#c98500"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "echo target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           },
@@ -415,6 +984,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "fiber target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d55181"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "fasthttp"
             },
             "properties": [
@@ -424,6 +1026,39 @@
                   "mode": "fixed",
                   "fixedColor": "#008300"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "fasthttp target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           }
@@ -447,8 +1082,8 @@
     {
       "id": 4,
       "type": "timeseries",
-      "title": "Memory usage (% of limit)",
-      "description": "Working set memory divided by the container memory limit (256 MiB).",
+      "title": "Memory usage (% of 256 MiB limit)",
+      "description": "Working set memory divided by the container memory limit. Matches the GKE system metric kubernetes_io:container_memory_used_bytes.",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -462,7 +1097,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * sum by (framework) (label_replace(container_memory_working_set_bytes{namespace=\"bench\", container=\"app\"}, \"framework\", \"$1\", \"pod\", \"(.+)-[a-z0-9]+-[a-z0-9]+\")) / sum by (framework) (label_replace(container_spec_memory_limit_bytes{namespace=\"bench\", container=\"app\"}, \"framework\", \"$1\", \"pod\", \"(.+)-[a-z0-9]+-[a-z0-9]+\"))",
+          "expr": "100 * sum by (framework) (label_replace(container_memory_working_set_bytes{namespace=\"bench\", container=\"app\"}, \"framework\", \"$1\", \"pod\", \"(.+)-[a-z0-9]{6,10}-[a-z0-9]{5}\")) / sum by (framework) (label_replace(container_spec_memory_limit_bytes{namespace=\"bench\", container=\"app\"}, \"framework\", \"$1\", \"pod\", \"(.+)-[a-z0-9]{6,10}-[a-z0-9]{5}\"))",
           "legendFormat": "{{framework}}",
           "datasource": {
             "type": "prometheus",
@@ -499,6 +1134,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "stdlib target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "chi"
             },
             "properties": [
@@ -508,6 +1176,39 @@
                   "mode": "fixed",
                   "fixedColor": "#d95926"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "chi target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           },
@@ -529,6 +1230,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "gin target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "echo"
             },
             "properties": [
@@ -538,6 +1272,39 @@
                   "mode": "fixed",
                   "fixedColor": "#c98500"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "echo target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           },
@@ -559,6 +1326,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "fiber target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d55181"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "fasthttp"
             },
             "properties": [
@@ -568,6 +1368,39 @@
                   "mode": "fixed",
                   "fixedColor": "#008300"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "fasthttp target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           }
@@ -591,8 +1424,8 @@
     {
       "id": 5,
       "type": "timeseries",
-      "title": "Availability",
-      "description": "Share of requests that returned 2xx. Late responses still succeed, so saturation shows up as latency, not as lost availability.",
+      "title": "Availability (2xx within 1 s deadline, % of scheduled)",
+      "description": "Share of scheduled requests that got a 2xx response within 1 s of their scheduled time. The denominator counts every scheduled request: sent (any outcome) plus dropped (not sent because the deadline passed while every connection was busy).",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -606,7 +1439,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * sum by (framework) (rate(tester_request_duration_seconds_count{namespace=\"bench\", status=~\"2..\"}[1m])) / sum by (framework) (rate(tester_request_duration_seconds_count{namespace=\"bench\"}[1m]))",
+          "expr": "100 * sum by (framework) (rate(tester_request_duration_seconds_bucket{namespace=\"bench\", run!=\"\", status=~\"2..\", le=\"1\"}[30s])) / (sum by (framework) (rate(tester_request_duration_seconds_count{namespace=\"bench\", run!=\"\"}[30s])) + sum by (framework) (rate(tester_dropped_requests_total{namespace=\"bench\", run!=\"\"}[30s])))",
           "legendFormat": "{{framework}}",
           "datasource": {
             "type": "prometheus",
@@ -623,7 +1456,7 @@
             "showPoints": "never",
             "spanNulls": false
           },
-          "decimals": 3
+          "decimals": 2
         },
         "overrides": [
           {
@@ -638,6 +1471,39 @@
                   "mode": "fixed",
                   "fixedColor": "#3987e5"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "stdlib target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           },
@@ -659,6 +1525,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "chi target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "gin"
             },
             "properties": [
@@ -668,6 +1567,39 @@
                   "mode": "fixed",
                   "fixedColor": "#199e70"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "gin target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           },
@@ -689,6 +1621,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "echo target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "fiber"
             },
             "properties": [
@@ -704,6 +1669,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "fiber target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d55181"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "fasthttp"
             },
             "properties": [
@@ -713,6 +1711,39 @@
                   "mode": "fixed",
                   "fixedColor": "#008300"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "fasthttp target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           }
@@ -737,7 +1768,7 @@
       "id": 6,
       "type": "timeseries",
       "title": "CPU throttling (% of CFS periods)",
-      "description": "Share of 100 ms CFS periods in which the app used up its 2-CPU quota and was paused.",
+      "description": "Share of 100 ms CFS periods in which the app used up its 2-CPU quota and was paused. A ratio of two counters read together, so the cAdvisor timestamp lag cancels out; it rises exactly where the app saturates.",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -751,7 +1782,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * sum by (framework) (label_replace(rate(container_cpu_cfs_throttled_periods_total{namespace=\"bench\", container=\"app\"}[1m]), \"framework\", \"$1\", \"pod\", \"(.+)-[a-z0-9]+-[a-z0-9]+\")) / sum by (framework) (label_replace(rate(container_cpu_cfs_periods_total{namespace=\"bench\", container=\"app\"}[1m]), \"framework\", \"$1\", \"pod\", \"(.+)-[a-z0-9]+-[a-z0-9]+\"))",
+          "expr": "100 * sum by (framework) (label_replace(rate(container_cpu_cfs_throttled_periods_total{namespace=\"bench\", container=\"app\"}[1m]), \"framework\", \"$1\", \"pod\", \"(.+)-[a-z0-9]{6,10}-[a-z0-9]{5}\")) / sum by (framework) (label_replace(rate(container_cpu_cfs_periods_total{namespace=\"bench\", container=\"app\"}[1m]), \"framework\", \"$1\", \"pod\", \"(.+)-[a-z0-9]{6,10}-[a-z0-9]{5}\"))",
           "legendFormat": "{{framework}}",
           "datasource": {
             "type": "prometheus",
@@ -788,6 +1819,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "stdlib target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "chi"
             },
             "properties": [
@@ -797,6 +1861,39 @@
                   "mode": "fixed",
                   "fixedColor": "#d95926"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "chi target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           },
@@ -818,6 +1915,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "gin target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "echo"
             },
             "properties": [
@@ -827,6 +1957,39 @@
                   "mode": "fixed",
                   "fixedColor": "#c98500"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "echo target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           },
@@ -848,6 +2011,39 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "fiber target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d55181"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "fasthttp"
             },
             "properties": [
@@ -857,6 +2053,39 @@
                   "mode": "fixed",
                   "fixedColor": "#008300"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "fasthttp target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           }

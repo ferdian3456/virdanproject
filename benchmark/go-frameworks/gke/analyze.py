@@ -3,14 +3,24 @@
 
 Usage: gke/analyze.py results/gke-<RUN_ID> [--slo-ms 50]
 
-Reads runs.csv (written by gke/run.sh), queries GMP once per framework and
-scenario, and writes stages.csv (one row per load stage), summary.md and one
-chart per scenario into the run directory.
+Reads runs.csv (written by gke/run.sh), queries GMP once per run (framework,
+scenario, repetition), and writes stages.csv (one row per load stage and
+repetition), summary.md (per-repetition results and medians) and one chart per
+scenario into the run directory.
+
+Definitions, per stage:
+- scheduled: target rate x window length (what the users sent);
+- achieved: 2xx responses per second;
+- errors: non-2xx responses, timeouts and dropped requests (never sent because
+  their deadline passed while every connection was busy) per second;
+- availability: 2xx responses within the deadline divided by scheduled requests;
+- SLO pass: p99 <= --slo-ms, achieved >= 95% of target, errors <= 1% of target.
 """
 import argparse
 import csv
 import json
 import math
+import statistics
 import subprocess
 from pathlib import Path
 
@@ -92,18 +102,29 @@ def stage_metrics(run):
     stage, widened by CPU_PAD_STAGES stages on each side; on a linear ramp its
     average equals the stage's own value. Throttling uses the stage itself.
     """
-    fw, stage_s = run["framework"], int(run["stage_s"])
+    fw, scen, stage_s = run["framework"], run["scenario"], int(run["stage_s"])
     start, stages = int(run["start_at"]), int(run["stages"])
     end = start + stages * stage_s
-    # method= keeps out the previous scenario's tester series, which GMP still returns
-    # (flat) for up to 5 minutes after those pods are gone.
-    t = f'namespace="bench",framework="{fw}",method="{run["scenario"]}"'
+    if "rep" in run:
+        # The run label keeps out earlier runs' tester series, which GMP still returns
+        # (flat) for up to 5 minutes after those pods are gone.
+        t = f'namespace="bench",run="{fw}-{scen}-r{run["rep"]}"'
+    else:  # runs before repetitions were introduced
+        t = f'namespace="bench",framework="{fw}",method="{scen}"'
     counts = by_label(f"sum by (status) (tester_request_duration_seconds_count{{{t}}})", "status", start, end, SCRAPE_S)
     if not counts:
-        raise RuntimeError(f"no tester data for {fw} {run['scenario']}")
+        raise RuntimeError(f"no tester data for {fw} {scen} rep {run.get('rep')}")
     buckets = by_label(f"sum by (le) (tester_request_duration_seconds_bucket{{{t}}})", "le", start, end, SCRAPE_S)
     buckets = {float(le): v for le, v in buckets.items()}
-    app = f'namespace="bench",container="app",pod=~"{fw}-[a-z0-9]+-[a-z0-9]+"'
+    deadline_s = float(run.get("deadline_ms") or 0) / 1000
+    on_time = dropped = {}
+    if deadline_s:
+        le = f"{deadline_s:g}"
+        on_time = by_label(f'sum(tester_request_duration_seconds_bucket{{{t},status=~"2..",le="{le}"}})', "", start, end, SCRAPE_S).get("", {})
+        dropped = by_label(f"sum(tester_dropped_requests_total{{{t}}})", "", start, end, SCRAPE_S).get("", {})
+        if not on_time or not dropped:
+            raise RuntimeError(f"missing on-time bucket le={le} or dropped counter for {t}")
+    app = f'namespace="bench",container="app",pod=~"{fw}-[a-z0-9]{{6,10}}-[a-z0-9]{{5}}"'
     span = end - start + 2 * stage_s  # samples just outside [start, end] for interpolation
     cpu = raw_samples(f"container_cpu_usage_seconds_total{{{app}}}", end + stage_s, span)
     thr = raw_samples(f"container_cpu_cfs_throttled_periods_total{{{app}}}", end + stage_s, span)
@@ -120,11 +141,18 @@ def stage_metrics(run):
     rows = []
     for k in range(stages):
         t0, t1 = start + k * stage_s + SKIP_S, start + (k + 1) * stage_s
+        dt = t1 - t0
         target = int(run["pods"]) * (float(run["start_rps_pod"]) + k * float(run["step_rps_pod"]))
-        row = {"scenario": run["scenario"], "framework": fw, "pair": run["pair"], "stage": k, "target_rps": round(target)}
+        row = {"scenario": scen, "framework": fw, "rep": int(run.get("rep", 1)), "pair": run["pair"],
+               "stage": k, "target_rps": round(target)}
         ok = sum(d for s, v in counts.items() if s.startswith("2") and (d := delta(v, t0, t1)) is not None)
         bad = sum(d for s, v in counts.items() if not s.startswith("2") and (d := delta(v, t0, t1)) is not None)
-        row["rps"], row["errors_rps"] = ok / (t1 - t0), bad / (t1 - t0)
+        drop = delta(dropped, t0, t1) if dropped else 0.0
+        if drop is None:
+            raise RuntimeError(f"dropped counter has no samples at {t0} or {t1} for {t}")
+        row["rps"], row["errors_rps"], row["dropped_rps"] = ok / dt, (bad + drop) / dt, drop / dt
+        good = delta(on_time, t0, t1) if on_time else None
+        row["availability"] = None if good is None else good / (target * dt)
         hist = {le: d for le, v in buckets.items() if (d := delta(v, t0, t1)) is not None}
         for name, q in [("p50", 0.5), ("p90", 0.9), ("p99", 0.99), ("p999", 0.999)]:
             v = quantile(q, hist) if hist else None
@@ -143,39 +171,57 @@ def stage_metrics(run):
 
 
 def passed(r, slo_ms):
-    rps, err = r["rps"] or 0.0, r["errors_rps"] or 0.0
-    return (r["p99"] is not None and r["p99"] <= slo_ms and rps >= 0.95 * r["target_rps"]
-            and err <= 0.01 * (rps + err))
+    return (r["p99"] is not None and r["p99"] <= slo_ms and r["rps"] >= 0.95 * r["target_rps"]
+            and r["errors_rps"] <= 0.01 * r["target_rps"])
+
+
+def median(values):
+    values = [v for v in values if v is not None]
+    return statistics.median(values) if values else None
 
 
 def fmt(v, spec=".2f"):
     return "-" if v is None else format(v, spec)
 
 
-def chart(rows, scenario, path):
+def chart(rows, scenario, slo_ms, path):
+    """Median across repetitions per stage; the band spans the lowest and highest repetition."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    panels = [("rps", "Achieved RPS (2xx)", 1 / 1000, "k RPS"), ("p99", "p99 latency", 1, "ms, log scale"),
-              ("cpu_cores", "App CPU usage", 1, "cores (limit 2)"), ("throttled", "App CPU throttling", 100, "% of CFS periods")]
-    fig, axes = plt.subplots(2, 2, figsize=(13, 8.5), facecolor="#fcfcfb")
+    panels = [("rps", "Achieved RPS (2xx)", 1 / 1000, "k RPS"),
+              ("p99", f"p99 latency (SLO {slo_ms:g} ms)", 1, "ms, log scale"),
+              ("availability", "Availability (2xx within deadline / scheduled)", 100, "%"),
+              ("cpu_cores", "App CPU usage", 1, "cores (limit 2)"),
+              ("throttled", "App CPU throttling", 100, "% of CFS periods")]
+    fig, axes = plt.subplots(2, 3, figsize=(18, 9), facecolor="#fcfcfb")
     frameworks = [f for f in COLORS if any(r["framework"] == f for r in rows)]
+    targets = sorted({r["target_rps"] for r in rows})
+    reps = sorted({r["rep"] for r in rows})
     for ax, (key, title, scale, unit) in zip(axes.flat, panels):
         ax.set_facecolor("#fcfcfb")
         for fw in frameworks:
-            pts = [(r["target_rps"] / 1000, r[key] * scale) for r in rows if r["framework"] == fw and r[key] is not None]
-            if not pts:
+            x, mid, lo, hi = [], [], [], []
+            for tg in targets:
+                vals = [r[key] * scale for r in rows if r["framework"] == fw and r["target_rps"] == tg and r[key] is not None]
+                if vals:
+                    x.append(tg / 1000); mid.append(statistics.median(vals)); lo.append(min(vals)); hi.append(max(vals))
+            if not x:
                 continue
-            x, y = zip(*pts)
-            ax.plot(x, y, color=COLORS[fw], lw=2, marker=MARKERS[fw], ms=4, label=fw)
-            ax.annotate(fw, (x[-1], y[-1]), xytext=(4, 0), textcoords="offset points",
+            ax.fill_between(x, lo, hi, color=COLORS[fw], alpha=0.15, lw=0)
+            ax.plot(x, mid, color=COLORS[fw], lw=2, marker=MARKERS[fw], ms=4, label=fw)
+            ax.annotate(fw, (x[-1], mid[-1]), xytext=(4, 0), textcoords="offset points",
                         fontsize=8, color="#52514e", va="center")
         if key == "rps":
-            lim = max(r["target_rps"] for r in rows) / 1000
-            ax.plot([0, lim], [0, lim], color="#8f8e88", lw=1, ls="--", label="target")
+            ax.plot([0, targets[-1] / 1000], [0, targets[-1] / 1000], color="#8f8e88", lw=1, ls="--", label="target")
         if key == "p99":
             ax.set_yscale("log")
+            ax.axhline(slo_ms, color="#8f8e88", lw=1, ls="--")
+        if key == "cpu_cores":
+            ax.axhline(2, color="#8f8e88", lw=1, ls="--")
+        if key == "availability":
+            ax.set_ylim(-5, 105)
         ax.set_title(title, loc="left", fontsize=11, color="#0b0b0b")
         ax.set_xlabel("Target rate (k RPS)", fontsize=9, color="#52514e")
         ax.set_ylabel(unit, fontsize=9, color="#52514e")
@@ -185,6 +231,17 @@ def chart(rows, scenario, path):
             ax.spines[side].set_visible(False)
         for side in ("left", "bottom"):
             ax.spines[side].set_color("#c3c2b7")
+    note = axes.flat[5]
+    note.axis("off")
+    note.text(0, 0.9, "\n".join([
+        f"Lines: median of {len(reps)} repetition(s) per stage.",
+        "Bands: lowest to highest repetition.",
+        "Dashed: target rate, p99 SLO, 2-core CPU limit.",
+        "Latency is measured from each request's scheduled",
+        "send time (no coordinated omission).",
+        "CPU: 150 s window centred on the stage (about",
+        "+/-0.1 core); it smooths the knee.",
+    ]), fontsize=9, color="#52514e", va="top", family="monospace")
     handles, labels = axes.flat[0].get_legend_handles_labels()
     fig.suptitle(f"{scenario.upper()} /api/devices on GKE (2 CPU limit, open-model load)", y=0.99, fontsize=13)
     fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 0.955), ncol=len(labels), frameon=False, fontsize=9)
@@ -205,42 +262,55 @@ def main():
     for r in rows:
         r["passed"] = passed(r, args.slo_ms)
 
-    fields = ["scenario", "framework", "pair", "stage", "target_rps", "rps", "errors_rps",
-              "p50", "p90", "p99", "p999", "cpu_cores", "throttled", "passed"]
+    fields = ["scenario", "framework", "rep", "pair", "stage", "target_rps", "rps", "errors_rps", "dropped_rps",
+              "availability", "p50", "p90", "p99", "p999", "cpu_cores", "throttled", "passed"]
     with (args.run_dir / "stages.csv").open("w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=fields)
         w.writeheader()
         w.writerows(rows)
 
+    reps = sorted({r["rep"] for r in rows})
     out = [f"# GKE benchmark summary: {args.run_dir.name}", "",
-           f"SLO: p99 <= {args.slo_ms:g} ms, achieved >= 95% of target rate, errors <= 1%. "
-           f"Tester metrics cover each 30 s stage minus its first {SKIP_S} s. "
-           f"App CPU comes from cAdvisor over a {(2 * CPU_PAD_STAGES + 1) * 30} s window centred on each stage, "
-           "because cAdvisor timestamps lag by ~10-15 s (accuracy about +/-0.1 core; it smooths the knee). "
-           "Throttling uses the stage itself. See validation.md.", ""]
+           f"SLO: p99 <= {args.slo_ms:g} ms, achieved >= 95% of target rate, errors (non-2xx, timeouts and dropped "
+           f"requests) <= 1% of target. {len(reps)} repetition(s); tables show per-repetition values and medians. "
+           f"Tester metrics cover each 30 s stage minus its first {SKIP_S} s. App CPU comes from cAdvisor over a "
+           f"{(2 * CPU_PAD_STAGES + 1) * 30} s window centred on each stage, because cAdvisor timestamps lag by "
+           "~10-15 s (accuracy about +/-0.1 core; it smooths the knee). Throttling uses the stage itself.", ""]
     for scenario in ("get", "post"):
         srows = [r for r in rows if r["scenario"] == scenario]
         if not srows:
             continue
         frameworks = sorted({r["framework"] for r in srows})
-        best = {fw: max((r["target_rps"] for r in srows if r["framework"] == fw and r["passed"]), default=0)
-                for fw in frameworks}
-        peak = {fw: max((r["rps"] or 0) for r in srows if r["framework"] == fw) for fw in frameworks}
+        best = {(fw, rep): max((r["target_rps"] for r in srows if r["framework"] == fw and r["rep"] == rep and r["passed"]), default=0)
+                for fw in frameworks for rep in reps}
+        peak = {(fw, rep): max((r["rps"] for r in srows if r["framework"] == fw and r["rep"] == rep), default=0)
+                for fw in frameworks for rep in reps}
+        med_best = {fw: median(best[fw, rep] for rep in reps) for fw in frameworks}
+        med_peak = {fw: median(peak[fw, rep] for rep in reps) for fw in frameworks}
+        rep_cols = " | ".join(f"Rep {rep}" for rep in reps)
         out += [f"## {scenario.upper()} /api/devices", "", f"![{scenario} chart]({scenario}.png)", "",
-                "| Framework | Pair | Max rate within SLO (RPS) | Peak achieved RPS |", "|---|---|---|---|"]
-        for fw in sorted(frameworks, key=lambda f: (-best[f], -peak[f])):
-            pair = next(r["pair"] for r in srows if r["framework"] == fw)
-            out.append(f"| {fw} | {pair} | {best[fw]:,} | {peak[fw]:,.0f} |")
-        out += ["", "| Target RPS | Framework | Achieved RPS | Errors/s | p50 ms | p90 ms | p99 ms | p99.9 ms | CPU cores | Throttled | SLO |",
-                "|---|---|---|---|---|---|---|---|---|---|---|"]
+                "### Max rate within SLO (RPS)", "",
+                f"| Framework | {rep_cols} | Median | Median peak achieved RPS |",
+                "|---|" + "---|" * len(reps) + "---|---|"]
+        for fw in sorted(frameworks, key=lambda f: (-med_best[f], -med_peak[f])):
+            cells = " | ".join(f"{best[fw, rep]:,}" for rep in reps)
+            out.append(f"| {fw} | {cells} | {med_best[fw]:,.0f} | {med_peak[fw]:,.0f} |")
+        out += ["", "### Per stage (median across repetitions)", "",
+                "| Target RPS | Framework | Achieved RPS | Errors/s | Availability | p50 ms | p90 ms | p99 ms | p99.9 ms | CPU cores | Throttled | SLO passed |",
+                "|---|---|---|---|---|---|---|---|---|---|---|---|"]
         for target in sorted({r["target_rps"] for r in srows}):
-            for r in (r for r in srows if r["target_rps"] == target):
-                out.append(f"| {target:,} | {r['framework']} | {fmt(r['rps'], ',.0f')} | {fmt(r['errors_rps'], ',.0f')} | "
-                           f"{fmt(r['p50'])} | {fmt(r['p90'])} | {fmt(r['p99'])} | {fmt(r['p999'])} | "
-                           f"{fmt(r['cpu_cores'])} | {fmt(None if r['throttled'] is None else r['throttled'] * 100, '.1f')}% | "
-                           f"{'pass' if r['passed'] else 'fail'} |")
+            for fw in frameworks:
+                g = [r for r in srows if r["framework"] == fw and r["target_rps"] == target]
+                if not g:
+                    continue
+                m = {k: median(r[k] for r in g) for k in ("rps", "errors_rps", "availability", "p50", "p90", "p99", "p999", "cpu_cores", "throttled")}
+                out.append(f"| {target:,} | {fw} | {fmt(m['rps'], ',.0f')} | {fmt(m['errors_rps'], ',.0f')} | "
+                           f"{fmt(None if m['availability'] is None else m['availability'] * 100, '.1f')}% | "
+                           f"{fmt(m['p50'])} | {fmt(m['p90'])} | {fmt(m['p99'])} | {fmt(m['p999'])} | "
+                           f"{fmt(m['cpu_cores'])} | {fmt(None if m['throttled'] is None else m['throttled'] * 100, '.1f')}% | "
+                           f"{sum(r['passed'] for r in g)}/{len(g)} |")
         out.append("")
-        chart(srows, scenario, args.run_dir / f"{scenario}.png")
+        chart(srows, scenario, args.slo_ms, args.run_dir / f"{scenario}.png")
 
     (args.run_dir / "summary.md").write_text("\n".join(out))
     print("\n".join(out[:40]))

@@ -12,8 +12,14 @@ For every run in runs.csv and for two halves of the ramp (stages 0-9 and 10-19):
 - App CPU from cAdvisor (what the dashboard uses) vs. GKE system metrics
   (kubernetes_io:container_cpu_core_usage_time); both must stay <= the 2-core limit.
 - Tester CPU (busiest pod), to rule out the load generator as the bottleneck.
+
+For runs with a deadline (tester v2), also over each whole run, whose edges are
+idle because the tester stops sending about DEADLINE_MS after the last stage:
+- completed + dropped requests vs. the exact number of scheduled requests;
+- requests sent vs. packets received by the app pod.
 """
 import csv
+import functools
 import json
 import subprocess
 import sys
@@ -65,10 +71,60 @@ def total_delta(series, t0, t1, born_at_zero=False):
     return total
 
 
+@functools.lru_cache
+def slots_per_pod(start_rps, step_rps, stages, stage_s, connections=128):
+    """Number of requests one tester pod schedules, with the same integer
+    nanosecond arithmetic as firstSlot/interval in loadtester/main.go."""
+    sec, stage = 1_000_000_000, int(stage_s * 1_000_000_000)
+    end = stages * stage
+
+    def interval(t):
+        return int(float(sec) * float(connections) / (start_rps + float(t // stage) * step_rps))
+    n = 0
+    for i in range(connections):
+        t = interval(0) * i // connections
+        while t < end:
+            n += 1
+            t += interval(t)
+    return n
+
+
+def prefix(run):
+    """Name prefix of the run's tester pods."""
+    fw, scen = run["framework"], run["scenario"]
+    return f"{fw}-{scen}-r{run['rep']}-" if "rep" in run else f"{fw}-{scen}-"
+
+
+def accounting(runs):
+    print("framework scenario rep | scheduled  | completed+dropped   ratio | sent       | app rx packets  ratio")
+    for run in runs:
+        fw, stage_s, stages = run["framework"], int(run["stage_s"]), int(run["stages"])
+        start = int(run["start_at"])
+        end = start + stages * stage_s
+        t0, t1 = start - 60, end + 25
+        scheduled = int(run["pods"]) * slots_per_pod(float(run["start_rps_pod"]), float(run["step_rps_pod"]), stages, stage_s)
+        mine = lambda d: {k: v for k, v in d.items() if json.loads(k).get("pod", "").startswith(prefix(run))}
+        sent = mine(raw(f'tester_request_duration_seconds_count{{namespace="bench",framework="{fw}"}}', t1 + 5, t1 - t0 + 60))
+        dropped = mine(raw(f'tester_dropped_requests_total{{namespace="bench",framework="{fw}"}}', t1 + 5, t1 - t0 + 60))
+        pod = f'{fw}-[a-z0-9]{{6,10}}-[a-z0-9]{{5}}'
+        rxp = raw(f'container_network_receive_packets_total{{namespace="bench",pod=~"{pod}",interface="eth0"}}', t1 + 30, t1 - t0 + 90)
+        n_sent = total_delta(sent, t0, t1, born_at_zero=True)
+        n_drop = total_delta(dropped, t0, t1, born_at_zero=True)
+        n_rx = total_delta(rxp, t0, t1)
+        done = None if n_sent is None or n_drop is None else n_sent + n_drop
+        f = lambda v, spec: "-" if v is None else format(v, spec)
+        print(f"{fw:8} {run['scenario']:4} {run.get('rep', '-'):>3} | {scheduled:10,.0f} | {f(done, '17,.0f')} "
+              f"{f(done and done / scheduled, '7.4f')} | {f(n_sent, '10,.0f')} | {f(n_rx, '14,.0f')} "
+              f"{f(n_sent and n_rx and n_rx / n_sent, '6.4f')}")
+
+
 def main():
     run_dir = Path(sys.argv[1])
     runs = list(csv.DictReader((run_dir / "runs.csv").open()))
-    print("framework scenario half  | tester req/s | app rx pkt/req B/pkt | app tx pkt/req B/pkt | "
+    if "deadline_ms" in runs[0]:
+        accounting(runs)
+        print()
+    print("framework scenario half  | tester 2xx+ req/s | app rx pkt/req B/pkt | app tx pkt/req B/pkt | "
           "app CPU cadvisor system | tester CPU max")
     for run in runs:
         fw, scen = run["framework"], run["scenario"]
@@ -78,7 +134,7 @@ def main():
         # Deployment pods only (<fw>-<template hash>-<suffix>); "<fw>-get-xxxxx" tester pods must not match.
         pod = f'{fw}-[a-z0-9]{{6,10}}-[a-z0-9]{{5}}'
         tester = raw(f'tester_request_duration_seconds_count{{namespace="bench",framework="{fw}"}}', end + 60, span)
-        tester = {k: v for k, v in tester.items() if json.loads(k).get("pod", "").startswith(f"{fw}-{scen}-")}
+        tester = {k: v for k, v in tester.items() if json.loads(k).get("pod", "").startswith(prefix(run))}
 
         def net(m):
             return raw(f'{m}{{namespace="bench",pod=~"{pod}",interface="eth0"}}', end + 60, span)
@@ -86,7 +142,7 @@ def main():
         txb, txp = net("container_network_transmit_bytes_total"), net("container_network_transmit_packets_total")
         cpu_c = raw(f'container_cpu_usage_seconds_total{{namespace="bench",container="app",pod=~"{pod}"}}', end + 60, span)
         cpu_s = raw(f'kubernetes_io:container_cpu_core_usage_time{{namespace_name="bench",container_name="app",pod_name=~"{pod}"}}', end + 120, span + 120)
-        t_cpu = raw(f'kubernetes_io:container_cpu_core_usage_time{{namespace_name="bench",container_name="tester",pod_name=~"{fw}-{scen}-.*"}}', end + 120, span + 120)
+        t_cpu = raw(f'kubernetes_io:container_cpu_core_usage_time{{namespace_name="bench",container_name="tester",pod_name=~"{prefix(run)}.*"}}', end + 120, span + 120)
         for name, (t0, t1) in {"0-9": (start + stage_s, start + 10 * stage_s), "10-19": (start + 10 * stage_s, end)}.items():
             dt = t1 - t0
             req = total_delta(tester, t0, t1, born_at_zero=True)

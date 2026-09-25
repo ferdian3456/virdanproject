@@ -16,7 +16,9 @@ spec:
   endpoints:
     - port: metrics
       interval: 5s
-  # Copy the pod's framework label onto every series so concurrent runs can be told apart.
+  # Copy the pod's labels onto every series: framework tells concurrent runs apart,
+  # run (<framework>-<scenario>-r<rep>) tells consecutive runs apart.
   targetLabels:
     fromPod:
       - from: framework
+      - from: run

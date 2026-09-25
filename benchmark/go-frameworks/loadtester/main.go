@@ -5,6 +5,17 @@
 // time, so when the server falls behind, the queueing delay is recorded
 // instead of hidden (no coordinated omission).
 //
+// A scheduled request whose deadline (DEADLINE_MS after its scheduled time,
+// like a user who gives up) passed before a worker could send it is not sent
+// and is counted in tester_dropped_requests_total. Requests already in flight
+// are not cancelled, because closing their connections would load the server
+// with reconnects that the load generator, not the users, caused; responses
+// that arrive after the deadline keep their real latency and analysis counts
+// them as late. Every scheduled request is therefore accounted for exactly
+// once, the backlog of an overloaded run is bounded by DEADLINE_MS, and sending
+// stops about DEADLINE_MS after the last stage. TIMEOUT_MS only guards against
+// a hung server.
+//
 // All pods of a run share START_AT (unix seconds), so their stages line up in
 // wall-clock time and the aggregate rate is pods × per-pod rate.
 package main
@@ -34,6 +45,7 @@ type config struct {
 	stepRPS     float64
 	stages      int
 	stage       time.Duration
+	deadline    time.Duration
 	timeout     time.Duration
 	connections int
 }
@@ -61,6 +73,7 @@ func loadConfig() config {
 		stepRPS:     envFloat("STEP_RPS", "100"),
 		stages:      int(envFloat("STAGES", "10")),
 		stage:       time.Duration(envFloat("STAGE_INTERVAL_S", "30") * float64(time.Second)),
+		deadline:    time.Duration(envFloat("DEADLINE_MS", "1000") * float64(time.Millisecond)),
 		timeout:     time.Duration(envFloat("TIMEOUT_MS", "5000") * float64(time.Millisecond)),
 		connections: int(envFloat("CONNECTIONS", "128")),
 	}
@@ -109,6 +122,7 @@ func buckets() []float64 {
 
 type metrics struct {
 	duration  *prometheus.HistogramVec
+	dropped   *prometheus.CounterVec
 	targetRPS prometheus.Gauge
 }
 
@@ -120,18 +134,39 @@ func newMetrics(reg prometheus.Registerer) *metrics {
 			Help:      "Request latency measured from the scheduled send time.",
 			Buckets:   buckets(),
 		}, []string{"method", "status"}),
+		dropped: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "tester", Name: "dropped_requests_total",
+			Help: "Scheduled requests not sent because their deadline passed while every connection was busy.",
+		}, []string{"method"}),
 		targetRPS: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: "tester", Name: "target_rps", Help: "Scheduled request rate of this pod.",
 		}),
 	}
-	reg.MustRegister(m.duration, m.targetRPS)
+	reg.MustRegister(m.duration, m.dropped, m.targetRPS)
 	return m
+}
+
+// createSeries exports every expected series with a zero value before the first
+// request. Managed Service for Prometheus takes a counter's first scraped value
+// as its starting point, so anything counted before a series' first scrape
+// (up to one scrape interval) would otherwise be lost. Statuses that are not
+// created here (e.g. 500) can still lose their first scrape interval.
+func (m *metrics) createSeries(method string) {
+	success := "200"
+	if method == "post" {
+		success = "201"
+	}
+	for _, status := range []string{success, "timeout", "error"} {
+		m.duration.WithLabelValues(method, status)
+	}
+	m.dropped.WithLabelValues(method)
 }
 
 func main() {
 	cfg := loadConfig()
 	reg := prometheus.NewRegistry()
 	m := newMetrics(reg)
+	m.createSeries(cfg.method)
 
 	go func() {
 		mux := http.NewServeMux()
@@ -140,7 +175,10 @@ func main() {
 	}()
 
 	client := &fasthttp.Client{
-		MaxConnsPerHost:               cfg.connections,
+		MaxConnsPerHost: cfg.connections,
+		// One attempt per scheduled request: fasthttp retries idempotent requests by
+		// default, which would send more requests than the tester records.
+		MaxIdemponentCallAttempts:     1,
 		NoDefaultUserAgentHeader:      true,
 		DisableHeaderNamesNormalizing: true,
 	}
@@ -176,6 +214,8 @@ func main() {
 // worker sends one request at a time on its own schedule. If a response
 // arrives late, the next scheduled time has already passed and the request
 // is sent immediately; its latency still counts from the scheduled time.
+// Requests whose deadline (scheduled time + deadline) passed before they could
+// be sent are dropped and counted, so an overloaded worker stays current.
 func worker(i int, cfg config, client *fasthttp.Client, m *metrics, end time.Time) {
 	req := fasthttp.AcquireRequest()
 	res := fasthttp.AcquireResponse()
@@ -198,16 +238,15 @@ func worker(i int, cfg config, client *fasthttp.Client, m *metrics, end time.Tim
 		}
 		o.Observe(d.Seconds())
 	}
+	dropped := m.dropped.WithLabelValues(cfg.method)
 
-	interval := func(t time.Time) time.Duration {
-		return time.Duration(float64(time.Second) * float64(cfg.connections) / cfg.rateAt(t))
-	}
-	// Stagger workers evenly across the first interval.
-	next := cfg.startAt.Add(interval(cfg.startAt) * time.Duration(i) / time.Duration(cfg.connections))
-
-	for next.Before(end) {
+	for next := firstSlot(cfg, i); next.Before(end); next = next.Add(cfg.interval(next)) {
 		if d := time.Until(next); d > 0 {
 			time.Sleep(d)
+		}
+		if !time.Now().Before(next.Add(cfg.deadline)) {
+			dropped.Inc()
+			continue
 		}
 		status := "error"
 		err := client.DoTimeout(req, res, cfg.timeout)
@@ -218,6 +257,15 @@ func worker(i int, cfg config, client *fasthttp.Client, m *metrics, end time.Tim
 			status = "timeout"
 		}
 		observe(status, time.Since(next))
-		next = next.Add(interval(next))
 	}
+}
+
+// interval is the gap between two requests of one worker at time t.
+func (c config) interval(t time.Time) time.Duration {
+	return time.Duration(float64(time.Second) * float64(c.connections) / c.rateAt(t))
+}
+
+// firstSlot staggers the workers evenly across the first interval.
+func firstSlot(c config, i int) time.Time {
+	return c.startAt.Add(c.interval(c.startAt) * time.Duration(i) / time.Duration(c.connections))
 }
