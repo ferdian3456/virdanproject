@@ -1,5 +1,7 @@
 # Data validation: gke-20260925-003821
 
+> **Superseded.** This run used the first version of the load tester. The problems listed below (the backlog drain after the end of a run, availability that hides overload, and p99 capped at 5 s) were fixed in tester v3, and the benchmark was repeated with three repetitions. A further problem was found only while fixing the tester: GMP drops counts made before a counter's first scrape. Here that removed the first 1–5 s of requests of each run, before the window of stage 0. The per-stage numbers are not affected: stage 0 measured exactly 5,000 RPS in every run. Use the newer `results/gke-*` run for conclusions.
+
 This document records how the numbers in `summary.md`, `stages.csv` and the Grafana dashboard were checked against sources that do not depend on the load tester, which problems the checks found, and what the data can and cannot be used for.
 
 The raw output of the automated checks is in `validation.txt` (produced by `gke/validate.py`).
