@@ -1,0 +1,33 @@
+# CPU microbenchmark pinned to one app node, with the same CPU limit as the apps.
+# Rendered by gke/experiments/node-cpu.sh: __NODE__ and __NAME__ are replaced with sed.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: __NAME__
+  namespace: bench
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        role: vmvar
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        kubernetes.io/hostname: __NODE__
+      containers:
+        - name: vmvar
+          image: us-central1-docker.pkg.dev/go-bench-15205/bench/vmvar:v1
+          args: ["-reps", "10", "-dur", "3s", "-host", "__NODE__"]
+          env:
+            - name: GOMAXPROCS
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.cpu
+          resources:
+            requests:
+              cpu: 1500m
+              memory: 128Mi
+            limits:
+              cpu: 2000m
+              memory: 128Mi
