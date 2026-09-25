@@ -64,11 +64,23 @@ def main():
                   f"p99 {p99 * 1000:8.2f} ms | {'pass' if passed else 'fail'}")
         summary[vm.name] = (best, peak)
     peaks = [p for _, p in summary.values()]
-    print("\nVM            max rate within SLO   peak achieved")
+    print("\nrun                     max rate within SLO   peak achieved")
     for name, (best, peak) in summary.items():
-        print(f"{name:14} {best:12,} {peak:16,.0f}")
-    print(f"peak achieved: spread {(max(peaks) / min(peaks) - 1) * 100:.2f}%, "
+        print(f"{name:22} {best:12,} {peak:16,.0f}")
+    print(f"peak achieved over all runs: spread {(max(peaks) / min(peaks) - 1) * 100:.2f}%, "
           f"coefficient of variation {statistics.pstdev(peaks) / statistics.mean(peaks) * 100:.2f}% (n={len(peaks)})")
+    # Several runs per VM (directories <vm>-r<n>): split within-VM and between-VM variation.
+    by_vm = {}
+    for name, (_, peak) in summary.items():
+        by_vm.setdefault(re.sub(r"-r\d+$", "", name), []).append(peak)
+    if any(len(v) > 1 for v in by_vm.values()):
+        print("\nVM                 runs  median peak   within-VM spread")
+        for vm, v in by_vm.items():
+            print(f"{vm:18} {len(v):4} {statistics.median(v):12,.0f} {(max(v) / min(v) - 1) * 100:12.2f}%")
+        med = [statistics.median(v) for v in by_vm.values()]
+        within = [max(v) / min(v) - 1 for v in by_vm.values() if len(v) > 1]
+        print(f"between VMs (medians): spread {(max(med) / min(med) - 1) * 100:.2f}%; "
+              f"median within-VM spread {statistics.median(within) * 100:.2f}%")
 
 
 if __name__ == "__main__":

@@ -45,3 +45,24 @@ gin-post-r5-hn7mv    1/1     Running   0          30s   10.4.3.93   gke-bench-cl
 gin-post-r5-kcvtv    1/1     Running   0          30s   10.4.3.89   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 gin-post-r5-p68b4    1/1     Running   0          30s   10.4.3.90   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 gin-post-r5-zx7pq    1/1     Running   0          30s   10.4.3.91   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME           STATUS    COMPLETIONS   DURATION   AGE
+echo-post-r5   Running   0/5           13m        13m
+gin-post-r5    Running   0/5           13m        13m
+job.batch "echo-post-r5" deleted from bench namespace
+job.batch "gin-post-r5" deleted from bench namespace
+deployment.apps "echo" deleted from bench namespace
+service "echo" deleted from bench namespace
+deployment.apps "gin" deleted from bench namespace
+service "gin" deleted from bench namespace
+09:19:33 rep 5 pair 2: fiber fasthttp
+deployment.apps/fiber created
+service/fiber created
+deployment.apps/fasthttp created
+service/fasthttp created
+Waiting for deployment "fiber" rollout to finish: 0 of 1 updated replicas are available...
+deployment "fiber" successfully rolled out
+Waiting for deployment "fasthttp" rollout to finish: 0 of 1 updated replicas are available...
+deployment "fasthttp" successfully rolled out
+NODE fiber gke-bench-apps-2978ac17-5dh9
+NODE fasthttp gke-bench-apps-2978ac17-rd8n
+09:19:52 get: start_at=1790328142 end_at=1790328742

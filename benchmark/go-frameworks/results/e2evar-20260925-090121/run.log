@@ -96,3 +96,26 @@ Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-a
 Average throughput: 3.5MiB/s
 Deleted [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/e2e-5090121-app4].
 09:15:53 done e2e-5090121-app4 (Intel Cascade Lake)
+Created [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/e2e-5090121-app5].
+Copying file://- to gs://go-bench-15205-results/e2evar/20260925-090121/jobs/e2e-5090121-app5
+  
+.....
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app5/snap_0.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app5/snap_0.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app5/snap_1.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app5/snap_1.txt
+  
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app5/snap_2.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app5/snap_2.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app5/snap_3.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app5/snap_3.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app5/snap_4.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app5/snap_4.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app5/snap_5.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app5/snap_5.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app5/snap_6.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app5/snap_6.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app5/snap_7.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app5/snap_7.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app5/snap_8.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app5/snap_8.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app5/snap_9.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app5/snap_9.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app5/snap_end.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app5/snap_end.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app5/tester.log to file://../../results/e2evar-20260925-090121/e2e-5090121-app5/tester.log
+...
+
+Average throughput: 2.8MiB/s
+Deleted [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/e2e-5090121-app5].
+09:19:18 done e2e-5090121-app5 (Intel Cascade Lake)
+exit 0
