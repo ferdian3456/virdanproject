@@ -79,3 +79,56 @@ fiber-get-r5-m92zt      1/1     Running   0          30s   10.4.3.103   gke-benc
 fiber-get-r5-p8vzx      1/1     Running   0          30s   10.4.3.99    gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 fiber-get-r5-rvgfv      1/1     Running   0          30s   10.4.3.97    gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 fiber-get-r5-xwr2g      1/1     Running   0          30s   10.4.3.100   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME              STATUS    COMPLETIONS   DURATION   AGE
+fasthttp-get-r5   Running   0/5           13m        13m
+fiber-get-r5      Running   0/5           13m        13m
+job.batch "fiber-get-r5" deleted from bench namespace
+job.batch "fasthttp-get-r5" deleted from bench namespace
+09:33:14 post: start_at=1790328944 end_at=1790329544
+job.batch/fasthttp-post-r5 created
+job.batch/fiber-post-r5 created
+NAME                     READY   STATUS    RESTARTS   AGE   IP           NODE                              NOMINATED NODE   READINESS GATES
+fasthttp-post-r5-5c9xg   1/1     Running   0          31s   10.4.3.107   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-post-r5-bj7kl   1/1     Running   0          31s   10.4.3.105   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-post-r5-fmmh7   1/1     Running   0          31s   10.4.3.114   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-post-r5-mz5q7   1/1     Running   0          31s   10.4.3.106   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-post-r5-vqpxz   1/1     Running   0          31s   10.4.3.109   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-post-r5-4jwpf      1/1     Running   0          31s   10.4.3.108   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-post-r5-577fs      1/1     Running   0          30s   10.4.3.112   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-post-r5-66lp9      1/1     Running   0          30s   10.4.3.113   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-post-r5-jkz4w      1/1     Running   0          31s   10.4.3.111   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-post-r5-k7mcc      1/1     Running   0          31s   10.4.3.110   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME               STATUS    COMPLETIONS   DURATION   AGE
+fasthttp-post-r5   Running   0/5           13m        13m
+fiber-post-r5      Running   0/5           13m        13m
+job.batch "fiber-post-r5" deleted from bench namespace
+job.batch "fasthttp-post-r5" deleted from bench namespace
+deployment.apps "fiber" deleted from bench namespace
+service "fiber" deleted from bench namespace
+deployment.apps "fasthttp" deleted from bench namespace
+service "fasthttp" deleted from bench namespace
+09:46:59 rep 5 pair 3: chi stdlib
+deployment.apps/chi created
+service/chi created
+deployment.apps/stdlib created
+service/stdlib created
+Waiting for deployment "chi" rollout to finish: 0 of 1 updated replicas are available...
+deployment "chi" successfully rolled out
+Waiting for deployment "stdlib" rollout to finish: 0 of 1 updated replicas are available...
+deployment "stdlib" successfully rolled out
+NODE chi gke-bench-apps-2978ac17-5dh9
+NODE stdlib gke-bench-apps-2978ac17-rd8n
+09:47:18 get: start_at=1790329788 end_at=1790330388
+job.batch/chi-get-r5 created
+job.batch/stdlib-get-r5 created
+NAME                  READY   STATUS    RESTARTS   AGE   IP           NODE                              NOMINATED NODE   READINESS GATES
+chi-get-r5-57qh6      1/1     Running   0          30s   10.4.3.117   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-get-r5-5sh9f      1/1     Running   0          30s   10.4.3.121   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-get-r5-6hgwm      1/1     Running   0          30s   10.4.3.116   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-get-r5-jrxdl      1/1     Running   0          30s   10.4.3.120   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-get-r5-nt84m      1/1     Running   0          30s   10.4.3.115   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r5-24dtt   1/1     Running   0          30s   10.4.3.122   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r5-f2hv7   1/1     Running   0          29s   10.4.3.124   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r5-mx8tq   1/1     Running   0          29s   10.4.3.119   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r5-psrd8   1/1     Running   0          29s   10.4.3.123   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r5-sr6kh   1/1     Running   0          29s   10.4.3.118   gke-bench-clients-fb1da9ea-11rh   <none>           <none>

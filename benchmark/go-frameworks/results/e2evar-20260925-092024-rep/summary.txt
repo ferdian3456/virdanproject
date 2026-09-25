@@ -1,0 +1,108 @@
+== e2e-5092024-app1-r1 (Intel Cascade Lake)
+   5,000 | achieved     5,237 | errors        0 | p50     0.64 ms | p99     1.48 ms | pass
+  10,000 | achieved    10,250 | errors        0 | p50     0.57 ms | p99     1.60 ms | pass
+  15,000 | achieved    15,265 | errors        0 | p50     0.27 ms | p99     1.75 ms | pass
+  20,000 | achieved    20,279 | errors        0 | p50     0.24 ms | p99     1.80 ms | pass
+  25,000 | achieved    25,291 | errors        0 | p50     0.26 ms | p99     1.89 ms | pass
+  30,000 | achieved    30,323 | errors        0 | p50     0.40 ms | p99     2.49 ms | pass
+  35,000 | achieved    35,324 | errors        0 | p50     0.40 ms | p99     2.89 ms | pass
+  40,000 | achieved    40,084 | errors        0 | p50     0.78 ms | p99    68.95 ms | fail
+  45,000 | achieved    40,284 | errors    2,034 | p50   900.10 ms | p99  1479.77 ms | fail
+== e2e-5092024-app1-r2 (Intel Cascade Lake)
+   5,000 | achieved     5,012 | errors        0 | p50     0.64 ms | p99     1.48 ms | pass
+  10,000 | achieved    10,027 | errors        0 | p50     0.61 ms | p99     1.50 ms | pass
+  15,000 | achieved    15,041 | errors        0 | p50     0.27 ms | p99     1.71 ms | pass
+  20,000 | achieved    20,066 | errors        0 | p50     0.25 ms | p99     1.88 ms | pass
+  25,000 | achieved    25,069 | errors        0 | p50     0.26 ms | p99     1.88 ms | pass
+  30,000 | achieved    30,094 | errors        0 | p50     0.39 ms | p99     2.46 ms | pass
+  35,000 | achieved    35,106 | errors        0 | p50     0.39 ms | p99     2.89 ms | pass
+  40,000 | achieved    40,044 | errors        0 | p50     0.76 ms | p99     4.77 ms | pass
+  45,000 | achieved    40,291 | errors    1,837 | p50   828.13 ms | p99  1478.08 ms | fail
+== e2e-5092024-app1-r3 (Intel Cascade Lake)
+   5,000 | achieved     5,258 | errors        0 | p50     0.64 ms | p99     1.48 ms | pass
+  10,000 | achieved    10,274 | errors        0 | p50     0.59 ms | p99     1.50 ms | pass
+  15,000 | achieved    15,287 | errors        0 | p50     0.26 ms | p99     1.75 ms | pass
+  20,000 | achieved    20,304 | errors        0 | p50     0.24 ms | p99     1.82 ms | pass
+  25,000 | achieved    25,316 | errors        0 | p50     0.27 ms | p99     1.95 ms | pass
+  30,000 | achieved    30,329 | errors        0 | p50     0.41 ms | p99     2.50 ms | pass
+  35,000 | achieved    35,344 | errors        0 | p50     0.41 ms | p99     2.92 ms | pass
+  40,000 | achieved    39,747 | errors        0 | p50     3.22 ms | p99   221.18 ms | fail
+  45,000 | achieved    39,939 | errors    2,751 | p50   960.37 ms | p99  1484.40 ms | fail
+== e2e-5092024-app2-r1 (Intel Cascade Lake)
+   5,000 | achieved     5,112 | errors        0 | p50     0.31 ms | p99     1.38 ms | pass
+  10,000 | achieved    10,125 | errors        0 | p50     0.31 ms | p99     0.63 ms | pass
+  15,000 | achieved    15,140 | errors        0 | p50     0.29 ms | p99     0.99 ms | pass
+  20,000 | achieved    20,154 | errors        0 | p50     0.28 ms | p99     1.14 ms | pass
+  25,000 | achieved    25,168 | errors        0 | p50     0.31 ms | p99     1.30 ms | pass
+  30,000 | achieved    30,185 | errors        0 | p50     0.38 ms | p99     2.38 ms | pass
+  35,000 | achieved    35,191 | errors        0 | p50     0.43 ms | p99     2.64 ms | pass
+  40,000 | achieved    39,671 | errors        0 | p50     1.67 ms | p99   185.97 ms | fail
+  45,000 | achieved    39,422 | errors    3,179 | p50   972.53 ms | p99  1486.14 ms | fail
+== e2e-5092024-app2-r2 (Intel Cascade Lake)
+   5,000 | achieved     5,338 | errors        0 | p50     0.30 ms | p99     1.45 ms | pass
+  10,000 | achieved     9,350 | errors        0 | p50     0.30 ms | p99     1.40 ms | fail
+  15,000 | achieved    15,033 | errors        0 | p50     0.29 ms | p99     1.16 ms | pass
+  20,000 | achieved    20,048 | errors        0 | p50     0.29 ms | p99     1.07 ms | pass
+  25,000 | achieved    25,062 | errors        0 | p50     0.31 ms | p99     1.73 ms | pass
+  30,000 | achieved    30,075 | errors        0 | p50     0.38 ms | p99     2.47 ms | pass
+  35,000 | achieved    35,090 | errors        0 | p50     0.43 ms | p99     2.63 ms | pass
+  40,000 | achieved    39,579 | errors        0 | p50    91.76 ms | p99   294.43 ms | fail
+  45,000 | achieved    39,489 | errors    3,096 | p50   967.85 ms | p99  1485.66 ms | fail
+== e2e-5092024-app2-r3 (Intel Cascade Lake)
+   5,000 | achieved     5,155 | errors        0 | p50     0.30 ms | p99     1.44 ms | pass
+  10,000 | achieved    10,168 | errors        0 | p50     0.30 ms | p99     1.26 ms | pass
+  15,000 | achieved    15,182 | errors        0 | p50     0.29 ms | p99     0.80 ms | pass
+  20,000 | achieved    20,200 | errors        0 | p50     0.29 ms | p99     0.93 ms | pass
+  25,000 | achieved    25,211 | errors        0 | p50     0.31 ms | p99     1.21 ms | pass
+  30,000 | achieved    30,224 | errors        0 | p50     0.36 ms | p99     1.90 ms | pass
+  35,000 | achieved    35,240 | errors        0 | p50     0.42 ms | p99     2.64 ms | pass
+  40,000 | achieved    39,278 | errors        0 | p50   122.49 ms | p99   376.59 ms | fail
+  45,000 | achieved    39,268 | errors    3,762 | p50   983.04 ms | p99  1487.83 ms | fail
+== e2e-5092024-app3-r1 (Intel Cascade Lake)
+   5,000 | achieved     5,125 | errors        0 | p50     0.29 ms | p99     1.46 ms | pass
+  10,000 | achieved    10,140 | errors        0 | p50     0.28 ms | p99     1.44 ms | pass
+  15,000 | achieved    15,153 | errors        0 | p50     0.29 ms | p99     1.20 ms | pass
+  20,000 | achieved    20,167 | errors        0 | p50     0.29 ms | p99     1.31 ms | pass
+  25,000 | achieved    25,178 | errors        0 | p50     0.32 ms | p99     1.68 ms | pass
+  30,000 | achieved    30,202 | errors        0 | p50     0.41 ms | p99     2.56 ms | pass
+  35,000 | achieved    35,065 | errors        0 | p50     1.35 ms | p99    85.31 ms | fail
+  40,000 | achieved    37,216 | errors      332 | p50   626.94 ms | p99  1422.37 ms | fail
+  45,000 | achieved    36,701 | errors    8,192 | p50  1160.66 ms | p99  1493.21 ms | fail
+== e2e-5092024-app3-r2 (Intel Cascade Lake)
+   5,000 | achieved     5,306 | errors        0 | p50     0.31 ms | p99     1.45 ms | pass
+  10,000 | achieved    10,319 | errors        0 | p50     0.30 ms | p99     1.39 ms | pass
+  15,000 | achieved    15,336 | errors        0 | p50     0.29 ms | p99     0.95 ms | pass
+  20,000 | achieved    20,351 | errors        0 | p50     0.29 ms | p99     1.26 ms | pass
+  25,000 | achieved    25,362 | errors        0 | p50     0.33 ms | p99     1.69 ms | pass
+  30,000 | achieved    30,377 | errors        0 | p50     0.39 ms | p99     2.12 ms | pass
+  35,000 | achieved    32,527 | errors        0 | p50     1.01 ms | p99   142.88 ms | fail
+  40,000 | achieved    37,470 | errors      150 | p50   615.56 ms | p99  1343.63 ms | fail
+  45,000 | achieved    36,907 | errors    7,801 | p50  1142.87 ms | p99  1492.86 ms | fail
+== e2e-5092024-app3-r3 (Intel Cascade Lake)
+   5,000 | achieved     5,075 | errors        0 | p50     0.30 ms | p99     1.45 ms | pass
+  10,000 | achieved    10,089 | errors        0 | p50     0.30 ms | p99     1.18 ms | pass
+  15,000 | achieved    15,103 | errors        0 | p50     0.29 ms | p99     1.14 ms | pass
+  20,000 | achieved    20,116 | errors        0 | p50     0.29 ms | p99     1.21 ms | pass
+  25,000 | achieved    25,129 | errors        0 | p50     0.33 ms | p99     1.49 ms | pass
+  30,000 | achieved    30,153 | errors        0 | p50     0.42 ms | p99     2.67 ms | pass
+  35,000 | achieved    35,042 | errors        0 | p50     0.72 ms | p99   112.25 ms | fail
+  40,000 | achieved    36,730 | errors      774 | p50   755.46 ms | p99  1459.53 ms | fail
+  45,000 | achieved    36,738 | errors    8,105 | p50  1156.27 ms | p99  1493.13 ms | fail
+
+run                     max rate within SLO   peak achieved
+e2e-5092024-app1-r1          35,000           40,284
+e2e-5092024-app1-r2          40,000           40,291
+e2e-5092024-app1-r3          35,000           39,939
+e2e-5092024-app2-r1          35,000           39,671
+e2e-5092024-app2-r2          35,000           39,579
+e2e-5092024-app2-r3          35,000           39,278
+e2e-5092024-app3-r1          30,000           37,216
+e2e-5092024-app3-r2          30,000           37,470
+e2e-5092024-app3-r3          30,000           36,738
+peak achieved over all runs: spread 9.67%, coefficient of variation 3.39% (n=9)
+
+VM                 runs  median peak   within-VM spread
+e2e-5092024-app1      3       40,284         0.88%
+e2e-5092024-app2      3       39,579         1.00%
+e2e-5092024-app3      3       37,216         1.99%
+between VMs (medians): spread 8.24%; median within-VM spread 1.00%
