@@ -26,3 +26,22 @@ stdlib-get-r4-7qxvc   1/1     Running   0          30s   10.4.3.21   gke-bench-c
 stdlib-get-r4-8x2qn   1/1     Running   0          29s   10.4.3.23   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 stdlib-get-r4-dkrl9   1/1     Running   0          29s   10.4.3.24   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 stdlib-get-r4-fj22f   1/1     Running   0          30s   10.4.3.20   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME            STATUS    COMPLETIONS   DURATION   AGE
+chi-get-r4      Running   0/5           13m        13m
+stdlib-get-r4   Running   0/5           13m        13m
+job.batch "stdlib-get-r4" deleted from bench namespace
+job.batch "chi-get-r4" deleted from bench namespace
+07:43:18 post: start_at=1790322348 end_at=1790322948
+job.batch/chi-post-r4 created
+job.batch/stdlib-post-r4 created
+NAME                   READY   STATUS    RESTARTS   AGE   IP          NODE                              NOMINATED NODE   READINESS GATES
+chi-post-r4-bljb8      1/1     Running   0          30s   10.4.3.29   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-post-r4-glz6s      1/1     Running   0          30s   10.4.3.25   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-post-r4-h4k9f      1/1     Running   0          30s   10.4.3.26   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-post-r4-pwfrg      1/1     Running   0          30s   10.4.3.28   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-post-r4-x42xn      1/1     Running   0          30s   10.4.3.27   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-post-r4-6krzp   1/1     Running   0          30s   10.4.3.34   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-post-r4-6m42k   1/1     Running   0          30s   10.4.3.33   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-post-r4-8gvtc   1/1     Running   0          30s   10.4.3.31   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-post-r4-mmxjz   1/1     Running   0          30s   10.4.3.32   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-post-r4-wv6l7   1/1     Running   0          30s   10.4.3.30   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
