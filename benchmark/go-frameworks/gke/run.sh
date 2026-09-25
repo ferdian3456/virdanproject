@@ -41,7 +41,7 @@ for fw in $a $b; do echo NODE \$fw \$(kubectl -n bench get pod -l app=\$fw -o js
       start=$(( $(date +%s) + LEAD_S )); end=$(( start + STAGES * STAGE_S ))
       rm -rf .jobs && mkdir .jobs
       for fw in $a $b; do
-        sed -e "s|__NAME__|$fw-$scenario-r$rep|; s|__FRAMEWORK__|$fw|; s|__PODS__|$PODS|g; s|__IMAGE_TAG__|$IMAGE_TAG|" \
+        sed -e "s|__NAME__|$fw-$scenario-r$rep|; s|__RUN__|$RUN_ID-$fw-$scenario-r$rep|; s|__FRAMEWORK__|$fw|; s|__PODS__|$PODS|g; s|__IMAGE_TAG__|$IMAGE_TAG|" \
             -e "s|__TEST_URL__|http://$fw.bench.svc.cluster.local:8080/api/devices|; s|__REQUEST__|$scenario|" \
             -e "s|__START_AT__|$start|; s|__START_RPS__|$START_RPS|; s|__STEP_RPS__|$STEP_RPS|" \
             -e "s|__STAGES__|$STAGES|; s|__STAGE_INTERVAL_S__|$STAGE_S|; s|__DEADLINE_MS__|$DEADLINE_MS|" \

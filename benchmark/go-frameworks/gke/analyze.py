@@ -108,7 +108,7 @@ def stage_metrics(run):
     if "rep" in run:
         # The run label keeps out earlier runs' tester series, which GMP still returns
         # (flat) for up to 5 minutes after those pods are gone.
-        t = f'namespace="bench",run="{fw}-{scen}-r{run["rep"]}"'
+        t = f'namespace="bench",run="{run["run_id"]}-{fw}-{scen}-r{run["rep"]}"'
     else:  # runs before repetitions were introduced
         t = f'namespace="bench",framework="{fw}",method="{scen}"'
     counts = by_label(f"sum by (status) (tester_request_duration_seconds_count{{{t}}})", "status", start, end, SCRAPE_S)

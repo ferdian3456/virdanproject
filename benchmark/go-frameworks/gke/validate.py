@@ -95,6 +95,14 @@ def prefix(run):
     return f"{fw}-{scen}-r{run['rep']}-" if "rep" in run else f"{fw}-{scen}-"
 
 
+def mine(run, series):
+    """The run's tester series: by run label when present (pod names repeat across runs)."""
+    if "rep" in run:
+        label = f"{run['run_id']}-{run['framework']}-{run['scenario']}-r{run['rep']}"
+        return {k: v for k, v in series.items() if json.loads(k).get("run") == label}
+    return {k: v for k, v in series.items() if json.loads(k).get("pod", "").startswith(prefix(run))}
+
+
 def accounting(runs):
     print("framework scenario rep | scheduled  | completed+dropped   ratio | sent       | app rx packets  ratio")
     for run in runs:
@@ -103,9 +111,8 @@ def accounting(runs):
         end = start + stages * stage_s
         t0, t1 = start - 60, end + 25
         scheduled = int(run["pods"]) * slots_per_pod(float(run["start_rps_pod"]), float(run["step_rps_pod"]), stages, stage_s)
-        mine = lambda d: {k: v for k, v in d.items() if json.loads(k).get("pod", "").startswith(prefix(run))}
-        sent = mine(raw(f'tester_request_duration_seconds_count{{namespace="bench",framework="{fw}"}}', t1 + 5, t1 - t0 + 60))
-        dropped = mine(raw(f'tester_dropped_requests_total{{namespace="bench",framework="{fw}"}}', t1 + 5, t1 - t0 + 60))
+        sent = mine(run, raw(f'tester_request_duration_seconds_count{{namespace="bench",framework="{fw}"}}', t1 + 5, t1 - t0 + 60))
+        dropped = mine(run, raw(f'tester_dropped_requests_total{{namespace="bench",framework="{fw}"}}', t1 + 5, t1 - t0 + 60))
         pod = f'{fw}-[a-z0-9]{{6,10}}-[a-z0-9]{{5}}'
         rxp = raw(f'container_network_receive_packets_total{{namespace="bench",pod=~"{pod}",interface="eth0"}}', t1 + 30, t1 - t0 + 90)
         n_sent = total_delta(sent, t0, t1, born_at_zero=True)
@@ -134,7 +141,7 @@ def main():
         # Deployment pods only (<fw>-<template hash>-<suffix>); "<fw>-get-xxxxx" tester pods must not match.
         pod = f'{fw}-[a-z0-9]{{6,10}}-[a-z0-9]{{5}}'
         tester = raw(f'tester_request_duration_seconds_count{{namespace="bench",framework="{fw}"}}', end + 60, span)
-        tester = {k: v for k, v in tester.items() if json.loads(k).get("pod", "").startswith(prefix(run))}
+        tester = mine(run, tester)
 
         def net(m):
             return raw(f'{m}{{namespace="bench",pod=~"{pod}",interface="eth0"}}', end + 60, span)
