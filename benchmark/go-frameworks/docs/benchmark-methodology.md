@@ -153,6 +153,43 @@ The SPEC principles P3, P4, P7 and P8, and Hoefler's rules 9, 11 and 12, require
 8. Report medians with spread or confidence intervals. Claim a difference only when it is statistically supported.
 9. Record the setup, versions, units, cost and limitations, and publish the scripts and data.
 
+## 10. Comparison with Anton Putra's setup, and a faster design
+
+Anton Putra benchmarks many alternatives in one video. His public repository (`antonputra/tutorials`, lessons 229, 250, 258 and 275) shows how. Only what the manifests show is stated here. His videos could not be checked, because YouTube blocks requests from cloud IP addresses.
+
+**What his manifests show:**
+
+- Apps run on nodes labelled `node=general`, and load generators run on separate nodes labelled `node=clients`.
+- The load generator is a Kubernetes Job with 19–40 parallel pods of 1 CPU each.
+- The load is closed-loop: the number of clients rises from 1 to 1,000 in 15 s stages, with a 40 ms delay between requests and a 1 s timeout. The request rate is a result of the client count, not a scheduled target.
+- Monitoring uses Prometheus with a 5 s scrape interval, a standalone cAdvisor DaemonSet, kube-state-metrics and Grafana.
+- In lesson 275, each app has two replicas with pod affinity to itself, so both replicas run on the same node.
+
+**What is unknown:** whether two different apps ever share a node, how many nodes were used, and whether runs were repeated. The repository shows no repetitions, no rotation of apps across nodes and no request accounting.
+
+**Why his benchmarks are fast:** all candidates run at the same time, so one ramp covers every framework. The speed comes from this design, not from special tooling.
+
+**What that design misses:** with one app per node and one run, the framework and the node are confounded. This project measured node effects of about 5% between identical GKE nodes and up to about 8% between fresh VMs, which is larger than most differences within a tier.
+
+**A faster design that keeps the safeguards:**
+
+1. Run all six frameworks at the same time, each on its own app node, with the testers on a shared client node pool.
+2. Rotate frameworks across nodes in every repetition (a Latin square). After six repetitions, every framework has run on every node exactly once, so the node effect is balanced and can also be estimated.
+
+   | Repetition | node 1 | node 2 | node 3 | node 4 | node 5 | node 6 |
+   |---|---|---|---|---|---|---|
+   | 1 | stdlib | chi | gin | echo | fiber | fasthttp |
+   | 2 | chi | gin | echo | fiber | fasthttp | stdlib |
+   | ... | | | | | | |
+   | 6 | fasthttp | stdlib | chi | gin | echo | fiber |
+
+3. Keep the open-model tester, the validation script and the decision rule from section 7. Use Grafana for watching runs, not as the source of final numbers.
+4. Never put several frameworks on one node for a throughput comparison. They would compete for CPU, memory bandwidth, cache and the network interface.
+
+**Cost and constraints:** one repetition takes about 20 minutes instead of about 1.5 hours. Six app nodes (n2-standard-4) plus the client node need 40 vCPUs, above this project's 32-vCPU quota. Without a quota increase, three app nodes with two batches per repetition keep the same balance at twice the time.
+
+This design has not been run yet.
+
 ## Sources
 
 - A. V. Papadopoulos et al., "Methodological Principles for Reproducible Performance Evaluation in Cloud Computing", IEEE TSE (SPEC Research Group). https://ieeexplore.ieee.org/document/8758926/
