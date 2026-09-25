@@ -1,0 +1,36 @@
+# Adapted from GoogleCloudPlatform/prometheus-engine v0.17.2 cmd/datasource-syncer/datasource-syncer.yaml.
+# Refreshes the OAuth token of the Grafana data source "gmp" (tokens expire after an hour).
+# The Grafana service account token comes from Secret datasource-syncer (created by deploy.sh)
+# instead of being substituted into the manifest. Google credentials come from the node's
+# default service account.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: datasource-syncer
+  namespace: monitoring
+spec:
+  schedule: "*/10 * * * *" # must run at least once an hour
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: datasource-syncer
+        spec:
+          nodeSelector:
+            node: system
+          containers:
+            - name: datasource-syncer
+              image: gke.gcr.io/prometheus-engine/datasource-syncer:v0.17.2-gke.2
+              env:
+                - name: GRAFANA_API_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: datasource-syncer
+                      key: token
+              args:
+                - "--datasource-uids=gmp"
+                - "--grafana-api-endpoint=http://grafana.monitoring.svc.cluster.local:3000"
+                - "--grafana-api-token=$(GRAFANA_API_TOKEN)"
+                - "--project-id=go-bench-15205"
+          restartPolicy: Never

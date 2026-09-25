@@ -80,3 +80,22 @@ stdlib-get-kcmrj   1/1     Running   0          30s   10.4.3.35   gke-bench-clie
 stdlib-get-vdr95   1/1     Running   0          30s   10.4.3.33   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 stdlib-get-wk9mw   1/1     Running   0          30s   10.4.3.32   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 stdlib-get-xtfxd   1/1     Running   0          30s   10.4.3.31   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME         STATUS    COMPLETIONS   DURATION   AGE
+gin-get      Running   0/5           13m        13m
+stdlib-get   Running   0/5           13m        13m
+job.batch "stdlib-get" deleted from bench namespace
+job.batch "gin-get" deleted from bench namespace
+01:22:16 post: start_at=1790299486 end_at=1790300086
+job.batch/gin-post created
+job.batch/stdlib-post created
+NAME                READY   STATUS    RESTARTS   AGE   IP          NODE                              NOMINATED NODE   READINESS GATES
+gin-post-9rpsh      1/1     Running   0          29s   10.4.3.43   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-post-g6m6d      1/1     Running   0          29s   10.4.3.38   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-post-ntgh4      1/1     Running   0          29s   10.4.3.36   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-post-s9nwg      1/1     Running   0          29s   10.4.3.40   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-post-xsgms      1/1     Running   0          29s   10.4.3.37   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-post-jvrzk   1/1     Running   0          28s   10.4.3.45   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-post-lfp7w   1/1     Running   0          29s   10.4.3.39   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-post-rk2w5   1/1     Running   0          28s   10.4.3.44   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-post-rxxfj   1/1     Running   0          29s   10.4.3.42   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-post-s6gcw   1/1     Running   0          29s   10.4.3.41   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
