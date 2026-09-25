@@ -70,7 +70,13 @@ The fasthttp-based frameworks serve about 50–65% more requests per second on t
 - **CPU.** App CPU from cAdvisor is compared with GKE system metrics and with the 2-core quota.
 - **Tester headroom.** Tester CPU is checked to rule out the load generator as the bottleneck.
 
-The results of these checks are summarized in the section added below once validation completed.
+| Check | Result |
+|---|---|
+| Accounting | 60/60 runs exactly 1.0000. |
+| Requests vs. kernel packets | 57 runs at 1.0001–1.0002. Three runs (chi GET rep 3, echo GET rep 5, stdlib POST rep 5) show 0.75–0.84% more received packets. In each of them the extra packets are small: bytes per received packet fall from 135/136/237 to 133.6/134.5/233.6 in the first half of the ramp, while response packets per request stay normal. They are TCP control packets, not extra requests. |
+| App CPU | cAdvisor and GKE system metrics agree within 0.15 cores over 5-minute windows. The highest value was 2.06 cores against a 2-core quota, within sampling error. |
+| Load generator headroom | The busiest tester pod used 0.63 of its 1 CPU (2 windows lacked system-metric samples). The testers were never throttled. |
+| Pipeline artifacts | The problems found in the first run (series dropped before their first scrape, stale series, `rate()` extrapolation, cAdvisor timestamp lag) are handled by tester v3 and the analysis scripts. See `../gke-20260925-003821/validation.md`. |
 
 ## Limitations
 

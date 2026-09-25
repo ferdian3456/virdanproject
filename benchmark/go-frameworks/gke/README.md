@@ -4,6 +4,8 @@ This directory runs the six Go HTTP stacks (net/http, chi, gin, echo, fiber, fas
 
 The goal is numbers that can be trusted. Every metric shown in the results or on the dashboard has been checked against a source that does not depend on the load tester. See [Validation](#validation).
 
+**Final results:** [`results/gke-20260925-final/REPORT.md`](../results/gke-20260925-final/REPORT.md). **Method and experiments:** [`docs/benchmark-methodology.md`](../docs/benchmark-methodology.md).
+
 ## Architecture
 
 | Component | Where | Details |
