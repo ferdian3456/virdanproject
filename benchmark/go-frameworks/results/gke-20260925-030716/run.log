@@ -361,3 +361,36 @@ echo-post-r3-9sqqw   1/1     Running   0          30s   10.4.3.222   gke-bench-c
 echo-post-r3-n8ct8   1/1     Running   0          30s   10.4.3.218   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 echo-post-r3-q84sx   1/1     Running   0          30s   10.4.3.220   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 echo-post-r3-v8xq4   1/1     Running   0          30s   10.4.3.224   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME           STATUS    COMPLETIONS   DURATION   AGE
+chi-post-r3    Running   0/5           13m        13m
+echo-post-r3   Running   0/5           13m        13m
+job.batch "chi-post-r3" deleted from bench namespace
+job.batch "echo-post-r3" deleted from bench namespace
+deployment.apps "chi" deleted from bench namespace
+service "chi" deleted from bench namespace
+deployment.apps "echo" deleted from bench namespace
+service "echo" deleted from bench namespace
+06:20:00 rep 3 pair 2: stdlib gin
+deployment.apps/stdlib created
+service/stdlib created
+deployment.apps/gin created
+service/gin created
+Waiting for deployment "stdlib" rollout to finish: 0 of 1 updated replicas are available...
+deployment "stdlib" successfully rolled out
+deployment "gin" successfully rolled out
+NODE stdlib gke-bench-apps-2978ac17-5dh9
+NODE gin gke-bench-apps-2978ac17-rd8n
+06:20:25 get: start_at=1790317375 end_at=1790317975
+job.batch/gin-get-r3 created
+job.batch/stdlib-get-r3 created
+NAME                  READY   STATUS    RESTARTS   AGE   IP           NODE                              NOMINATED NODE   READINESS GATES
+gin-get-r3-6chwm      1/1     Running   0          31s   10.4.3.234   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-r3-7qgbv      1/1     Running   0          31s   10.4.3.230   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-r3-nh88l      1/1     Running   0          31s   10.4.3.233   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-r3-qst4g      1/1     Running   0          31s   10.4.3.226   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-r3-t9njk      1/1     Running   0          31s   10.4.3.227   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r3-cbmn7   1/1     Running   0          31s   10.4.3.228   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r3-fljj7   1/1     Running   0          31s   10.4.3.235   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r3-ghdjh   1/1     Running   0          31s   10.4.3.232   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r3-mb4j8   1/1     Running   0          31s   10.4.3.231   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r3-qvsjv   1/1     Running   0          31s   10.4.3.229   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
