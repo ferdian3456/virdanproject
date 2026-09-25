@@ -1,0 +1,27 @@
+namespace/bench unchanged
+podmonitoring.monitoring.googleapis.com/tester unchanged
+03:07:33 rep 1 order: chi stdlib fasthttp gin echo fiber
+03:07:33 rep 1 pair 1: chi stdlib
+deployment.apps/chi created
+service/chi created
+deployment.apps/stdlib created
+service/stdlib created
+Waiting for deployment "chi" rollout to finish: 0 of 1 updated replicas are available...
+deployment "chi" successfully rolled out
+deployment "stdlib" successfully rolled out
+NODE chi gke-bench-apps-2978ac17-5dh9
+NODE stdlib gke-bench-apps-2978ac17-rd8n
+03:07:52 get: start_at=1790305822 end_at=1790306422
+job.batch/chi-get-r1 created
+job.batch/stdlib-get-r1 created
+NAME                  READY   STATUS    RESTARTS   AGE   IP          NODE                              NOMINATED NODE   READINESS GATES
+chi-get-r1-6d6vt      1/1     Running   0          30s   10.4.3.87   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-get-r1-6v24s      1/1     Running   0          30s   10.4.3.90   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-get-r1-cqtql      1/1     Running   0          30s   10.4.3.88   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-get-r1-fc5qp      1/1     Running   0          30s   10.4.3.86   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-get-r1-x7qpv      1/1     Running   0          30s   10.4.3.95   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r1-ff6pw   1/1     Running   0          29s   10.4.3.94   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r1-jgfnz   1/1     Running   0          30s   10.4.3.89   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r1-lx2tx   1/1     Running   0          30s   10.4.3.91   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r1-s7pxd   1/1     Running   0          29s   10.4.3.93   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-r1-z927b   1/1     Running   0          30s   10.4.3.92   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
