@@ -1,0 +1,47 @@
+namespace/bench unchanged
+podmonitoring.monitoring.googleapis.com/tester unchanged
+order: fiber echo stdlib gin chi fasthttp
+00:38:47 pair 1: fiber echo
+deployment.apps/fiber created
+service/fiber created
+deployment.apps/echo created
+service/echo created
+Waiting for deployment "fiber" rollout to finish: 0 of 1 updated replicas are available...
+deployment "fiber" successfully rolled out
+deployment "echo" successfully rolled out
+NAME                     READY   STATUS    RESTARTS   AGE   IP         NODE                           NOMINATED NODE   READINESS GATES
+echo-64cc996c47-q52n8    1/1     Running   0          2s    10.4.1.5   gke-bench-apps-2978ac17-rd8n   <none>           <none>
+fiber-7d75f7d84f-fdm56   1/1     Running   0          3s    10.4.2.5   gke-bench-apps-2978ac17-5dh9   <none>           <none>
+00:39:10 get: start_at=1790296900 end_at=1790297500
+job.batch/echo-get created
+job.batch/fiber-get created
+NAME              READY   STATUS    RESTARTS   AGE   IP          NODE                              NOMINATED NODE   READINESS GATES
+echo-get-5bt9r    1/1     Running   0          31s   10.4.3.9    gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-get-7mxvx    1/1     Running   0          31s   10.4.3.7    gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-get-csn2t    1/1     Running   0          31s   10.4.3.6    gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-get-ptz2l    1/1     Running   0          31s   10.4.3.10   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-get-xtmvj    1/1     Running   0          31s   10.4.3.8    gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-get-4hwpf   1/1     Running   0          31s   10.4.3.11   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-get-hcfhv   1/1     Running   0          31s   10.4.3.13   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-get-kp9jj   1/1     Running   0          31s   10.4.3.12   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-get-vzt7c   1/1     Running   0          31s   10.4.3.15   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-get-zbsp9   1/1     Running   0          31s   10.4.3.14   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME        STATUS     COMPLETIONS   DURATION   AGE
+echo-get    Running    0/5           13m        13m
+fiber-get   Complete   5/5           13m        13m
+job.batch "fiber-get" deleted from bench namespace
+job.batch "echo-get" deleted from bench namespace
+00:53:19 post: start_at=1790297749 end_at=1790298349
+job.batch/echo-post created
+job.batch/fiber-post created
+NAME               READY   STATUS    RESTARTS   AGE   IP          NODE                              NOMINATED NODE   READINESS GATES
+echo-post-76bck    1/1     Running   0          30s   10.4.3.19   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-post-fgnb4    1/1     Running   0          29s   10.4.3.18   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-post-qfb7j    1/1     Running   0          30s   10.4.3.23   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-post-xsdl7    1/1     Running   0          30s   10.4.3.17   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-post-zlx2m    1/1     Running   0          29s   10.4.3.20   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-post-6j7rf   1/1     Running   0          30s   10.4.3.16   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-post-95ksn   1/1     Running   0          29s   10.4.3.21   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-post-cp5q7   1/1     Running   0          29s   10.4.3.25   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-post-f2kmz   1/1     Running   0          29s   10.4.3.24   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fiber-post-tqtwc   1/1     Running   0          29s   10.4.3.22   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
