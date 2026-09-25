@@ -19,8 +19,12 @@ A benchmark answers one question. Here the question is: *"How many requests per 
 
 **Arrival process.** Lancet (USENIX ATC 2019) and Treadmill (ISCA 2016) list "the inter-arrival request distribution does not match the production environment" as a pitfall. Real traffic is usually modelled as a Poisson process, which has random gaps between requests.
 
-- This project's tester spaces requests evenly, like wrk2. Even spacing produces less queueing than Poisson arrivals at the same average rate.
-- **Assumption:** the SLO knee measured here is therefore an optimistic bound. With Poisson arrivals, p99 would rise at a somewhat lower rate.
+- This project's tester spaces requests evenly, like wrk2. Simple queueing theory predicts that even spacing produces less queueing, and therefore lower latency, than Poisson arrivals at the same average rate.
+- **The prediction did not hold for p99 when tested locally.** The experiment used the stdlib app on 1 core with a tester variant drawing exponential gaps. Constant and Poisson arrivals ran interleaved in random order, 3 rounds, 15 s per trial:
+  - **p50 behaved as predicted.** Poisson was higher: 0.52 vs 0.24 ms at 20k RPS.
+  - **p99 did not.** Evenly spaced arrivals gave the *higher* p99 at 28k and 33k RPS in all three rounds (38–62 vs 16–33 ms, and 93–234 vs 36–69 ms).
+  - The cause is unknown. A plausible but untested explanation is synchronization: after a stall, all evenly scheduled workers are late at the same moment.
+- **Conclusion:** the arrival process changes the results, but its direction for the tail depends on the system and must be measured, not assumed. The GKE results are valid for evenly spaced arrivals only.
 
 **Enough concurrency.** Lancet notes that "the number of connections × the number of outstanding requests must be larger than the bandwidth-delay product" or the tester silently becomes closed-loop.
 
