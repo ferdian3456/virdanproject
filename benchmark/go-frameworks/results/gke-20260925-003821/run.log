@@ -134,3 +134,22 @@ fasthttp-get-h6tdj   1/1     Running   0          29s   10.4.3.54   gke-bench-cl
 fasthttp-get-nh6jn   1/1     Running   0          29s   10.4.3.55   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 fasthttp-get-wn2s7   1/1     Running   0          29s   10.4.3.53   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 fasthttp-get-zv5h6   1/1     Running   0          29s   10.4.3.52   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME           STATUS     COMPLETIONS   DURATION   AGE
+chi-get        Running    0/5           13m        13m
+fasthttp-get   Complete   5/5           13m        13m
+job.batch "chi-get" deleted from bench namespace
+job.batch "fasthttp-get" deleted from bench namespace
+01:51:14 post: start_at=1790301224 end_at=1790301824
+job.batch/chi-post created
+job.batch/fasthttp-post created
+NAME                  READY   STATUS    RESTARTS   AGE   IP          NODE                              NOMINATED NODE   READINESS GATES
+chi-post-b5nl9        1/1     Running   0          30s   10.4.3.56   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-post-czfd2        1/1     Running   0          30s   10.4.3.57   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-post-pq44g        1/1     Running   0          30s   10.4.3.59   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-post-s77pn        1/1     Running   0          30s   10.4.3.61   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-post-x4j7d        1/1     Running   0          30s   10.4.3.58   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-post-6zchg   1/1     Running   0          30s   10.4.3.64   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-post-89lq7   1/1     Running   0          30s   10.4.3.65   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-post-926q6   1/1     Running   0          30s   10.4.3.63   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-post-c9mgq   1/1     Running   0          30s   10.4.3.60   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+fasthttp-post-kcksg   1/1     Running   0          30s   10.4.3.62   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
