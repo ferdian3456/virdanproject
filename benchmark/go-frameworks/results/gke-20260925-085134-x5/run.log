@@ -132,3 +132,22 @@ stdlib-get-r5-f2hv7   1/1     Running   0          29s   10.4.3.124   gke-bench-
 stdlib-get-r5-mx8tq   1/1     Running   0          29s   10.4.3.119   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 stdlib-get-r5-psrd8   1/1     Running   0          29s   10.4.3.123   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 stdlib-get-r5-sr6kh   1/1     Running   0          29s   10.4.3.118   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME            STATUS    COMPLETIONS   DURATION   AGE
+chi-get-r5      Running   0/5           13m        13m
+stdlib-get-r5   Running   0/5           13m        13m
+job.batch "chi-get-r5" deleted from bench namespace
+job.batch "stdlib-get-r5" deleted from bench namespace
+10:00:44 post: start_at=1790330594 end_at=1790331194
+job.batch/chi-post-r5 created
+job.batch/stdlib-post-r5 created
+NAME                   READY   STATUS    RESTARTS   AGE   IP           NODE                              NOMINATED NODE   READINESS GATES
+chi-post-r5-7b2pm      1/1     Running   0          31s   10.4.3.130   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-post-r5-97ps2      1/1     Running   0          31s   10.4.3.129   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-post-r5-jtggr      1/1     Running   0          31s   10.4.3.125   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-post-r5-tm4pw      1/1     Running   0          31s   10.4.3.127   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+chi-post-r5-xw5pc      1/1     Running   0          31s   10.4.3.126   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-post-r5-hj42n   1/1     Running   0          30s   10.4.3.134   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-post-r5-jprgt   1/1     Running   0          31s   10.4.3.132   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-post-r5-kjjcc   1/1     Running   0          31s   10.4.3.131   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-post-r5-ng8h7   1/1     Running   0          31s   10.4.3.128   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-post-r5-zknlh   1/1     Running   0          30s   10.4.3.133   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
