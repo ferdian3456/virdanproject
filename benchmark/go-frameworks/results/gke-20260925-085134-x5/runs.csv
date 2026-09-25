@@ -1,3 +1,5 @@
 run_id,rep,pair,framework,scenario,node,start_at,end_at,pods,start_rps_pod,step_rps_pod,stages,stage_s,deadline_ms
 20260925-085134-x5,5,1,echo,get,gke-bench-apps-2978ac17-5dh9,1790326483,1790327083,5,1000,1000,20,30,1000
 20260925-085134-x5,5,1,gin,get,gke-bench-apps-2978ac17-rd8n,1790326483,1790327083,5,1000,1000,20,30,1000
+20260925-085134-x5,5,1,echo,post,gke-bench-apps-2978ac17-5dh9,1790327288,1790327888,5,1000,1000,20,30,1000
+20260925-085134-x5,5,1,gin,post,gke-bench-apps-2978ac17-rd8n,1790327288,1790327888,5,1000,1000,20,30,1000

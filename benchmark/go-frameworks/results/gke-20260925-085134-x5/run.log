@@ -26,3 +26,22 @@ gin-get-r5-gtsdm    1/1     Running   0          30s   10.4.3.83   gke-bench-cli
 gin-get-r5-gzhgc    1/1     Running   0          30s   10.4.3.82   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 gin-get-r5-wmmtm    1/1     Running   0          30s   10.4.3.84   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 gin-get-r5-zk5rr    1/1     Running   0          30s   10.4.3.78   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME          STATUS    COMPLETIONS   DURATION   AGE
+echo-get-r5   Running   0/5           13m        13m
+gin-get-r5    Running   0/5           13m        13m
+job.batch "echo-get-r5" deleted from bench namespace
+job.batch "gin-get-r5" deleted from bench namespace
+09:05:38 post: start_at=1790327288 end_at=1790327888
+job.batch/echo-post-r5 created
+job.batch/gin-post-r5 created
+NAME                 READY   STATUS    RESTARTS   AGE   IP          NODE                              NOMINATED NODE   READINESS GATES
+echo-post-r5-6w567   1/1     Running   0          30s   10.4.3.92   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-post-r5-pvzwz   1/1     Running   0          30s   10.4.3.86   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-post-r5-skkrs   1/1     Running   0          30s   10.4.3.87   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-post-r5-xtsrn   1/1     Running   0          31s   10.4.3.85   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+echo-post-r5-ztm7h   1/1     Running   0          30s   10.4.3.88   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-post-r5-h4vln    1/1     Running   0          30s   10.4.3.94   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-post-r5-hn7mv    1/1     Running   0          30s   10.4.3.93   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-post-r5-kcvtv    1/1     Running   0          30s   10.4.3.89   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-post-r5-p68b4    1/1     Running   0          30s   10.4.3.90   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-post-r5-zx7pq    1/1     Running   0          30s   10.4.3.91   gke-bench-clients-fb1da9ea-11rh   <none>           <none>

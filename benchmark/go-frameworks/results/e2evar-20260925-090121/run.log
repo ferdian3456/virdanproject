@@ -1,0 +1,98 @@
+Copying file:///tmp/e2e-stdlib to gs://go-bench-15205-results/e2evar/20260925-090121/bin/stdlib
+  
+........
+Copying file:///tmp/e2e-loadtester to gs://go-bench-15205-results/e2evar/20260925-090121/bin/loadtester
+  
+........
+
+Average throughput: 44.1MiB/s
+Created [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/e2e-5090121-client].
+09:01:48 client e2e-5090121-client (n2-standard-2, us-central1-a)
+Created [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/e2e-5090121-app1].
+Copying file://- to gs://go-bench-15205-results/e2evar/20260925-090121/jobs/e2e-5090121-app1
+  
+.....
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app1/snap_0.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app1/snap_0.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app1/snap_1.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app1/snap_1.txt
+  
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app1/snap_2.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app1/snap_2.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app1/snap_3.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app1/snap_3.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app1/snap_4.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app1/snap_4.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app1/snap_5.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app1/snap_5.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app1/snap_6.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app1/snap_6.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app1/snap_7.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app1/snap_7.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app1/snap_8.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app1/snap_8.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app1/snap_9.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app1/snap_9.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app1/snap_end.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app1/snap_end.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app1/tester.log to file://../../results/e2evar-20260925-090121/e2e-5090121-app1/tester.log
+...
+
+Average throughput: 7.7MiB/s
+Deleted [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/e2e-5090121-app1].
+09:05:17 done e2e-5090121-app1 (Intel Cascade Lake)
+Created [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/e2e-5090121-app2].
+Copying file://- to gs://go-bench-15205-results/e2evar/20260925-090121/jobs/e2e-5090121-app2
+  
+.....
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app2/snap_0.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app2/snap_0.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app2/snap_1.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app2/snap_1.txt
+  
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app2/snap_2.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app2/snap_2.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app2/snap_3.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app2/snap_3.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app2/snap_4.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app2/snap_4.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app2/snap_5.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app2/snap_5.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app2/snap_6.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app2/snap_6.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app2/snap_7.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app2/snap_7.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app2/snap_8.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app2/snap_8.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app2/snap_9.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app2/snap_9.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app2/snap_end.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app2/snap_end.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app2/tester.log to file://../../results/e2evar-20260925-090121/e2e-5090121-app2/tester.log
+...
+
+Average throughput: 7.6MiB/s
+Deleted [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/e2e-5090121-app2].
+09:08:49 done e2e-5090121-app2 (Intel Cascade Lake)
+Created [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/e2e-5090121-app3].
+Copying file://- to gs://go-bench-15205-results/e2evar/20260925-090121/jobs/e2e-5090121-app3
+  
+....
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app3/snap_0.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app3/snap_0.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app3/snap_1.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app3/snap_1.txt
+  
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app3/snap_2.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app3/snap_2.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app3/snap_3.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app3/snap_3.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app3/snap_4.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app3/snap_4.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app3/snap_5.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app3/snap_5.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app3/snap_6.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app3/snap_6.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app3/snap_7.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app3/snap_7.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app3/snap_8.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app3/snap_8.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app3/snap_9.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app3/snap_9.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app3/snap_end.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app3/snap_end.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app3/tester.log to file://../../results/e2evar-20260925-090121/e2e-5090121-app3/tester.log
+...
+
+Average throughput: 2.9MiB/s
+Deleted [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/e2e-5090121-app3].
+09:12:28 done e2e-5090121-app3 (Intel Cascade Lake)
+Created [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/e2e-5090121-app4].
+Copying file://- to gs://go-bench-15205-results/e2evar/20260925-090121/jobs/e2e-5090121-app4
+  
+....
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app4/snap_0.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app4/snap_0.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app4/snap_1.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app4/snap_1.txt
+  
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app4/snap_2.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app4/snap_2.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app4/snap_3.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app4/snap_3.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app4/snap_4.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app4/snap_4.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app4/snap_5.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app4/snap_5.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app4/snap_6.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app4/snap_6.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app4/snap_7.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app4/snap_7.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app4/snap_8.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app4/snap_8.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app4/snap_9.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app4/snap_9.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app4/snap_end.txt to file://../../results/e2evar-20260925-090121/e2e-5090121-app4/snap_end.txt
+Copying gs://go-bench-15205-results/e2evar/20260925-090121/results/e2e-5090121-app4/tester.log to file://../../results/e2evar-20260925-090121/e2e-5090121-app4/tester.log
+...
+
+Average throughput: 3.5MiB/s
+Deleted [https://www.googleapis.com/compute/v1/projects/go-bench-15205/zones/us-central1-a/instances/e2e-5090121-app4].
+09:15:53 done e2e-5090121-app4 (Intel Cascade Lake)
