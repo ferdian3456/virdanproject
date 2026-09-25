@@ -44,3 +44,13 @@ stdlib-post-r1-b4s6n   1/1     Running   0          30s   10.4.3.105   gke-bench
 stdlib-post-r1-cp7fz   1/1     Running   0          30s   10.4.3.99    gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 stdlib-post-r1-hq7rq   1/1     Running   0          30s   10.4.3.103   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 stdlib-post-r1-p228w   1/1     Running   0          30s   10.4.3.104   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME             STATUS    COMPLETIONS   DURATION   AGE
+chi-post-r1      Running   0/5           13m        13m
+stdlib-post-r1   Running   0/5           13m        13m
+job.batch "chi-post-r1" deleted from bench namespace
+job.batch "stdlib-post-r1" deleted from bench namespace
+deployment.apps "chi" deleted from bench namespace
+service "chi" deleted from bench namespace
+deployment.apps "stdlib" deleted from bench namespace
+service "stdlib" deleted from bench namespace
+03:34:53 rep 1 pair 2: fasthttp gin
