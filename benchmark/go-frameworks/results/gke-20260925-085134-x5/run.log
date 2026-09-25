@@ -151,3 +151,14 @@ stdlib-post-r5-jprgt   1/1     Running   0          31s   10.4.3.132   gke-bench
 stdlib-post-r5-kjjcc   1/1     Running   0          31s   10.4.3.131   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 stdlib-post-r5-ng8h7   1/1     Running   0          31s   10.4.3.128   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 stdlib-post-r5-zknlh   1/1     Running   0          30s   10.4.3.133   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME             STATUS    COMPLETIONS   DURATION   AGE
+chi-post-r5      Running   0/5           13m        13m
+stdlib-post-r5   Running   0/5           13m        13m
+job.batch "chi-post-r5" deleted from bench namespace
+job.batch "stdlib-post-r5" deleted from bench namespace
+deployment.apps "chi" deleted from bench namespace
+service "chi" deleted from bench namespace
+deployment.apps "stdlib" deleted from bench namespace
+service "stdlib" deleted from bench namespace
+10:14:25 done: ../results/gke-20260925-085134-x5/runs.csv
+exit 0
