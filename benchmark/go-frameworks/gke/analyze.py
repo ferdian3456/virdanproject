@@ -17,6 +17,9 @@ from pathlib import Path
 PROMQL = Path(__file__).with_name("promql.sh")
 SKIP_S = 5  # drop the first seconds of each stage, while the rate is still changing
 SCRAPE_S = 5  # PodMonitoring interval for the testers (gke/k8s/base.yaml)
+# App CPU window: the stage plus this many stages on each side. cAdvisor timestamps lag
+# by ~10-15 s, so shorter windows read above the 2-core quota (see results/*/validation.md).
+CPU_PAD_STAGES = 2
 COLORS = {"stdlib": "#2a78d6", "chi": "#eb6834", "gin": "#1baf7a",
           "echo": "#eda100", "fiber": "#e87ba4", "fasthttp": "#008300"}
 MARKERS = {"stdlib": "o", "chi": "s", "gin": "^", "echo": "D", "fiber": "v", "fasthttp": "P"}
@@ -60,26 +63,23 @@ def quantile(q, buckets):
     return None
 
 
-def slope(samples, t0, t1):
-    """Average rate of a counter inside [t0, t1], from the first and last distinct values.
+def counter_at(samples, t):
+    """Counter value at t, linearly interpolated between the raw samples around it.
 
-    cAdvisor repeats stale values between refreshes; the first sample showing a new
-    value is the closest estimate of when it was measured.
+    Interpolation estimated saturated app CPU at 1.97 +/- 0.06 cores against the
+    2-core quota; slopes between first/last distinct samples read 2.04 +/- 0.08.
     """
-    pts = []
-    for t, v in samples:
-        if t0 <= t <= t1 and (not pts or v != pts[-1][1]):
-            pts.append((t, v))
-    if len(pts) < 2:
+    before = [p for p in samples if p[0] <= t]
+    after = [p for p in samples if p[0] >= t]
+    if not before or not after:
         return None
-    (ta, va), (tb, vb) = pts[0], pts[-1]
-    return (vb - va) / (tb - ta)
+    (ta, va), (tb, vb) = before[-1], after[0]
+    return va if tb == ta else va + (vb - va) * (t - ta) / (tb - ta)
 
 
-def change(samples, t0, t1):
-    """Increase of a counter between its first and last raw samples inside [t0, t1]."""
-    pts = [v for t, v in samples if t0 <= t <= t1]
-    return pts[-1] - pts[0] if len(pts) >= 2 else None
+def increase(samples, t0, t1):
+    a, b = counter_at(samples, t0), counter_at(samples, t1)
+    return None if a is None or b is None else b - a
 
 
 def stage_metrics(run):
@@ -88,22 +88,26 @@ def stage_metrics(run):
     Tester counters are summed across pods every SCRAPE_S seconds and differenced
     between the window edges, so no rate() extrapolation is involved: each pod's
     latest sample sits at the same scrape phase at both edges. cAdvisor refreshes
-    irregularly (repeated values at 10 s scrapes), so app CPU and throttling use a
-    window of one stage centred on the stage, widened by half a stage on each side;
-    on a linear ramp its average equals the stage's own value.
+    irregularly and its timestamps lag, so app CPU uses a window centred on the
+    stage, widened by CPU_PAD_STAGES stages on each side; on a linear ramp its
+    average equals the stage's own value. Throttling uses the stage itself.
     """
     fw, stage_s = run["framework"], int(run["stage_s"])
     start, stages = int(run["start_at"]), int(run["stages"])
     end = start + stages * stage_s
-    t = f'namespace="bench",framework="{fw}"'
+    # method= keeps out the previous scenario's tester series, which GMP still returns
+    # (flat) for up to 5 minutes after those pods are gone.
+    t = f'namespace="bench",framework="{fw}",method="{run["scenario"]}"'
     counts = by_label(f"sum by (status) (tester_request_duration_seconds_count{{{t}}})", "status", start, end, SCRAPE_S)
+    if not counts:
+        raise RuntimeError(f"no tester data for {fw} {run['scenario']}")
     buckets = by_label(f"sum by (le) (tester_request_duration_seconds_bucket{{{t}}})", "le", start, end, SCRAPE_S)
     buckets = {float(le): v for le, v in buckets.items()}
     app = f'namespace="bench",container="app",pod=~"{fw}-[a-z0-9]+-[a-z0-9]+"'
-    span = end - start + stage_s
-    cpu = raw_samples(f"container_cpu_usage_seconds_total{{{app}}}", end, span)
-    thr = raw_samples(f"container_cpu_cfs_throttled_periods_total{{{app}}}", end, span)
-    per = raw_samples(f"container_cpu_cfs_periods_total{{{app}}}", end, span)
+    span = end - start + 2 * stage_s  # samples just outside [start, end] for interpolation
+    cpu = raw_samples(f"container_cpu_usage_seconds_total{{{app}}}", end + stage_s, span)
+    thr = raw_samples(f"container_cpu_cfs_throttled_periods_total{{{app}}}", end + stage_s, span)
+    per = raw_samples(f"container_cpu_cfs_periods_total{{{app}}}", end + stage_s, span)
 
     def delta(series, t0, t1):
         # A series first seen after t0 (e.g. the first timeout) started from zero.
@@ -125,10 +129,14 @@ def stage_metrics(run):
         for name, q in [("p50", 0.5), ("p90", 0.9), ("p99", 0.99), ("p999", 0.999)]:
             v = quantile(q, hist) if hist else None
             row[name] = None if v is None else v * 1000  # seconds -> ms
-        s0 = max(start, start + k * stage_s - stage_s // 2)
-        s1 = min(end, start + (k + 1) * stage_s + stage_s // 2)
-        row["cpu_cores"] = slope(cpu, s0, s1)
-        d_thr, d_per = change(thr, s0, s1), change(per, s0, s1)
+        s0 = max(start, start + (k - CPU_PAD_STAGES) * stage_s)
+        s1 = min(end, start + (k + 1 + CPU_PAD_STAGES) * stage_s)
+        d_cpu = increase(cpu, s0, s1)
+        row["cpu_cores"] = None if d_cpu is None else d_cpu / (s1 - s0)
+        # Throttling is a ratio of two counters refreshed together, so the timestamp lag
+        # cancels out and the stage's own window keeps the knee sharp.
+        c0, c1 = start + k * stage_s, start + (k + 1) * stage_s
+        d_thr, d_per = increase(thr, c0, c1), increase(per, c0, c1)
         row["throttled"] = d_thr / d_per if d_thr is not None and d_per else None
         rows.append(row)
     return rows
@@ -207,10 +215,9 @@ def main():
     out = [f"# GKE benchmark summary: {args.run_dir.name}", "",
            f"SLO: p99 <= {args.slo_ms:g} ms, achieved >= 95% of target rate, errors <= 1%. "
            f"Tester metrics cover each 30 s stage minus its first {SKIP_S} s. "
-           "App CPU and throttling come from cAdvisor over a 60 s window centred on each stage. cAdvisor sample "
-           "timestamps lag the real measurement by up to ~10 s, so CPU is only accurate to roughly +/-15% and "
-           "readings above the 2-core limit are measurement artifacts. Throttling is a ratio of two counters "
-           "updated together and is not affected.", ""]
+           f"App CPU comes from cAdvisor over a {(2 * CPU_PAD_STAGES + 1) * 30} s window centred on each stage, "
+           "because cAdvisor timestamps lag by ~10-15 s (accuracy about +/-0.1 core; it smooths the knee). "
+           "Throttling uses the stage itself. See validation.md.", ""]
     for scenario in ("get", "post"):
         srows = [r for r in rows if r["scenario"] == scenario]
         if not srows:

@@ -153,3 +153,13 @@ fasthttp-post-89lq7   1/1     Running   0          30s   10.4.3.65   gke-bench-c
 fasthttp-post-926q6   1/1     Running   0          30s   10.4.3.63   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 fasthttp-post-c9mgq   1/1     Running   0          30s   10.4.3.60   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 fasthttp-post-kcksg   1/1     Running   0          30s   10.4.3.62   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME            STATUS    COMPLETIONS   DURATION   AGE
+chi-post        Running   0/5           13m        13m
+fasthttp-post   Running   0/5           13m        13m
+job.batch "chi-post" deleted from bench namespace
+job.batch "fasthttp-post" deleted from bench namespace
+deployment.apps "chi" deleted from bench namespace
+service "chi" deleted from bench namespace
+deployment.apps "fasthttp" deleted from bench namespace
+service "fasthttp" deleted from bench namespace
+02:05:44 done: ../results/gke-20260925-003821/runs.csv
