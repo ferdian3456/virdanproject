@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bench
+---
+# Scrapes every load tester pod; the metrics port is named "metrics".
+apiVersion: monitoring.googleapis.com/v1
+kind: PodMonitoring
+metadata:
+  name: tester
+  namespace: bench
+spec:
+  selector:
+    matchLabels:
+      role: tester
+  endpoints:
+    - port: metrics
+      interval: 5s

@@ -1,0 +1,5 @@
+# kubectl -n gmp-public patch operatorconfig config --type merge --patch-file k8s/operatorconfig-patch.yaml
+# Enables GMP kubelet/cAdvisor scraping (container CPU usage and CFS throttling).
+collection:
+  kubeletScraping:
+    interval: 10s

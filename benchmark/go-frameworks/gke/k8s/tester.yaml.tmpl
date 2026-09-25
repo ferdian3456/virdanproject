@@ -1,0 +1,51 @@
+# Rendered by the run scripts: every __VAR__ is replaced with sed.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: __NAME__
+  namespace: bench
+spec:
+  parallelism: __PODS__
+  completions: __PODS__
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        role: tester
+        run: __NAME__
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        node: clients
+      containers:
+        - name: tester
+          image: us-central1-docker.pkg.dev/go-bench-15205/bench/loadtester:latest
+          ports:
+            - name: metrics
+              containerPort: 8085
+          env:
+            - name: TEST_URL
+              value: __TEST_URL__
+            - name: REQUEST
+              value: "__REQUEST__"
+            - name: START_AT
+              value: "__START_AT__"
+            - name: START_RPS
+              value: "__START_RPS__"
+            - name: STEP_RPS
+              value: "__STEP_RPS__"
+            - name: STAGES
+              value: "__STAGES__"
+            - name: STAGE_INTERVAL_S
+              value: "__STAGE_INTERVAL_S__"
+            - name: GOMAXPROCS
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.cpu
+          resources:
+            requests:
+              cpu: "1"
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi

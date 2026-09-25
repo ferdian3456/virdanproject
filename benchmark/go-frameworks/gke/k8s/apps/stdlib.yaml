@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stdlib
+  namespace: bench
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stdlib
+  template:
+    metadata:
+      labels:
+        app: stdlib
+        role: app
+    spec:
+      nodeSelector:
+        node: general
+      # One app pod per node, so each framework has its node to itself.
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  role: app
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: app
+          image: us-central1-docker.pkg.dev/go-bench-15205/bench/stdlib:latest
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: GOMAXPROCS
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.cpu
+          resources:
+            requests:
+              cpu: 1500m
+              memory: 256Mi
+            limits:
+              cpu: 2000m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stdlib
+  namespace: bench
+spec:
+  selector:
+    app: stdlib
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
