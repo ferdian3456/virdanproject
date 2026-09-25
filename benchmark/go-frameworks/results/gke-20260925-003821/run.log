@@ -45,3 +45,38 @@ fiber-post-95ksn   1/1     Running   0          29s   10.4.3.21   gke-bench-clie
 fiber-post-cp5q7   1/1     Running   0          29s   10.4.3.25   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 fiber-post-f2kmz   1/1     Running   0          29s   10.4.3.24   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
 fiber-post-tqtwc   1/1     Running   0          29s   10.4.3.22   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+NAME         STATUS    COMPLETIONS   DURATION   AGE
+echo-post    Running   0/5           13m        13m
+fiber-post   Running   0/5           13m        13m
+job.batch "fiber-post" deleted from bench namespace
+job.batch "echo-post" deleted from bench namespace
+deployment.apps "fiber" deleted from bench namespace
+service "fiber" deleted from bench namespace
+deployment.apps "echo" deleted from bench namespace
+service "echo" deleted from bench namespace
+01:07:44 pair 2: stdlib gin
+deployment.apps/stdlib created
+service/stdlib created
+deployment.apps/gin created
+service/gin created
+Waiting for deployment "stdlib" rollout to finish: 0 of 1 updated replicas are available...
+deployment "stdlib" successfully rolled out
+Waiting for deployment "gin" rollout to finish: 0 of 1 updated replicas are available...
+deployment "gin" successfully rolled out
+NAME                     READY   STATUS    RESTARTS   AGE   IP         NODE                           NOMINATED NODE   READINESS GATES
+gin-68596b75fc-q8xfk     1/1     Running   0          3s    10.4.1.6   gke-bench-apps-2978ac17-rd8n   <none>           <none>
+stdlib-577766b5f-cfzgw   1/1     Running   0          3s    10.4.2.6   gke-bench-apps-2978ac17-5dh9   <none>           <none>
+01:08:07 get: start_at=1790298637 end_at=1790299237
+job.batch/gin-get created
+job.batch/stdlib-get created
+NAME               READY   STATUS    RESTARTS   AGE   IP          NODE                              NOMINATED NODE   READINESS GATES
+gin-get-2ktds      1/1     Running   0          30s   10.4.3.28   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-6smmz      1/1     Running   0          30s   10.4.3.30   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-86t56      1/1     Running   0          30s   10.4.3.26   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-hz2pq      1/1     Running   0          30s   10.4.3.29   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+gin-get-nk2js      1/1     Running   0          30s   10.4.3.27   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-dx62h   1/1     Running   0          30s   10.4.3.34   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-kcmrj   1/1     Running   0          30s   10.4.3.35   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-vdr95   1/1     Running   0          30s   10.4.3.33   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-wk9mw   1/1     Running   0          30s   10.4.3.32   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
+stdlib-get-xtfxd   1/1     Running   0          30s   10.4.3.31   gke-bench-clients-fb1da9ea-11rh   <none>           <none>
